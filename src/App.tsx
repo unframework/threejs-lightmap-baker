@@ -67,33 +67,15 @@ function Scene() {
     }
 
     return data;
-  }, []);
+  }, [size]);
 
-  const controlTexture = useMemo(() => {
+  const atlasTexture = useMemo(() => {
     return new THREE.DataTexture(
       atlasData,
       atlasWidth,
       atlasHeight,
       THREE.RGBFormat
     );
-  }, []);
-
-  const testTexture = useMemo(() => {
-    const width = 256;
-    const height = 256;
-    const size = width * height;
-    const data = new Uint8Array(3 * size);
-
-    for (let i = 0; i < size; i++) {
-      const stride = i * 3;
-
-      const v = 255;
-      data[stride] = v;
-      data[stride + 1] = v;
-      data[stride + 2] = v;
-    }
-
-    return new THREE.DataTexture(data, width, height, THREE.RGBFormat);
   }, []);
 
   const boxBufferRef = useUpdate<THREE.BoxBufferGeometry>((boxBuffer) => {
@@ -216,8 +198,10 @@ function Scene() {
     const ab = Math.round(b / pixelCount);
 
     atlasData.set([ar, ag, ab], (atlasTexelY * atlasWidth + atlasTexelX) * 3);
-    controlTexture.needsUpdate = true;
+    atlasTexture.needsUpdate = true;
   });
+
+  const lightPos: [number, number, number] = [5, -5, 10];
 
   return (
     <>
@@ -237,18 +221,13 @@ function Scene() {
           args={[5, 5, 2]}
           ref={boxBufferRef}
         />
-        <meshBasicMaterial
-          attach="material"
-          map={controlTexture}
-          aoMap={testTexture}
-          aoMapIntensity={1}
-        />
+        <meshBasicMaterial attach="material" map={atlasTexture} />
       </mesh>
       <mesh position={[0, 0, 3]}>
         <boxBufferGeometry attach="geometry" args={[1, 1, 6]} />
         <meshBasicMaterial attach="material" color="black" />
       </mesh>
-      <mesh position={[5, -5, 10]}>
+      <mesh position={lightPos}>
         <boxBufferGeometry attach="geometry" args={[8, 8, 8]} />
         <meshBasicMaterial attach="material" color="white" />
       </mesh>
