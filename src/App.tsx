@@ -80,22 +80,49 @@ function Scene() {
 
   const [boxMeshRef, boxMesh] = useResource<THREE.Mesh>();
 
-  const boxBufferRef = useUpdate<THREE.BoxBufferGeometry>((boxBuffer) => {
-    const uvAttr = boxBuffer.attributes.uv;
+  const atlasInfo: {
+    mesh: THREE.Mesh;
+    buffer: THREE.BufferGeometry;
+    faceIndex: number;
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+  }[] = useMemo(() => [], []);
 
-    for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
-      const { left, top, right, bottom } = computeFaceUV(faceIndex);
+  const boxBufferRef = useUpdate<THREE.BoxBufferGeometry>(
+    (boxBuffer) => {
+      if (!boxMesh) {
+        return;
+      }
 
-      // default is [0, 1, 1, 1, 0, 0, 1, 0]
-      const uvItemBase = faceIndex * 4;
-      uvAttr.setXY(uvItemBase, left, bottom);
-      uvAttr.setXY(uvItemBase + 1, right, bottom);
-      uvAttr.setXY(uvItemBase + 2, left, top);
-      uvAttr.setXY(uvItemBase + 3, right, top);
-    }
+      const uvAttr = boxBuffer.attributes.uv;
 
-    boxBuffer.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
-  }, []);
+      for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
+        const { left, top, right, bottom } = computeFaceUV(faceIndex);
+
+        // default is [0, 1, 1, 1, 0, 0, 1, 0]
+        const uvItemBase = faceIndex * 4;
+        uvAttr.setXY(uvItemBase, left, bottom);
+        uvAttr.setXY(uvItemBase + 1, right, bottom);
+        uvAttr.setXY(uvItemBase + 2, left, top);
+        uvAttr.setXY(uvItemBase + 3, right, top);
+
+        atlasInfo.push({
+          mesh: boxMesh,
+          buffer: boxBuffer,
+          faceIndex,
+          left,
+          top,
+          right,
+          bottom
+        });
+      }
+
+      boxBuffer.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
+    },
+    [boxMesh]
+  );
 
   const rtWidth = 32;
   const rtHeight = 32;
@@ -125,10 +152,15 @@ function Scene() {
   }, []);
 
   useFrame(({ gl, scene }) => {
-    // face 4 is the top one
-    const faceIndex = 4;
+    // wait until atlas is initialized
+    if (atlasInfo.length === 0) {
+      return;
+    }
 
-    const { left, top, right, bottom } = computeFaceUV(faceIndex);
+    // face 4 is the top one
+    const atlasFaceInfo = atlasInfo[4];
+
+    const { mesh, buffer, faceIndex, left, top, right, bottom } = atlasFaceInfo;
     const faceTexW = (right - left) * atlasWidth;
     const faceTexH = (bottom - top) * atlasHeight;
     const faceTexelCols = Math.ceil(faceTexW);
@@ -152,9 +184,8 @@ function Scene() {
 
     // read vertex position for this face and interpolate along U and V axes
     // @todo also transform by mesh pos
-    const boxBuffer = boxBufferRef.current;
-    const posArray = boxBuffer.attributes.position.array;
-    const normalArray = boxBuffer.attributes.normal.array;
+    const posArray = buffer.attributes.position.array;
+    const normalArray = buffer.attributes.normal.array;
     const facePosStart = faceIndex * 4 * 3;
     const facePosOrigin = facePosStart + 2 * 3;
     const facePosU = facePosStart + 3 * 3;
@@ -202,7 +233,7 @@ function Scene() {
     testCam.lookAt(texelPos);
 
     // then, transform camera into world space
-    testCam.applyMatrix4(boxMesh.matrixWorld);
+    testCam.applyMatrix4(mesh.matrixWorld);
 
     gl.setRenderTarget(testTarget);
     gl.render(scene, testCam);
@@ -216,7 +247,6 @@ function Scene() {
       g = 0,
       b = 0;
     for (let i = 0; i < rtLength; i += 4) {
-      const a = testBuffer[i + 3];
       r += testBuffer[i];
       g += testBuffer[i + 1];
       b += testBuffer[i + 2];
