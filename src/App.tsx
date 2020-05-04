@@ -104,7 +104,7 @@ function Scene() {
   const testCam = useMemo(() => {
     const rtFov = 90; // full near-180 FOV actually works poorly
     const rtAspect = rtWidth / rtHeight;
-    const rtNear = 0.1;
+    const rtNear = 0.05;
     const rtFar = 10;
     return new THREE.PerspectiveCamera(rtFov, rtAspect, rtNear, rtFar);
   }, []);
@@ -144,8 +144,9 @@ function Scene() {
     const atlasTexelY = Math.floor(atlasTexelTop) + faceTexelY;
 
     // compute rounded texel's U and V position within face
-    const pU = (atlasTexelX - atlasTexelLeft) / faceTexW;
-    const pV = (atlasTexelY - atlasTexelTop) / faceTexH;
+    // (biasing to be in middle of texel physical square)
+    const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / faceTexW;
+    const pV = (atlasTexelY + 0.5 - atlasTexelTop) / faceTexH;
 
     // read vertex position for this face and interpolate along U and V axes
     // @todo also transform by mesh pos
