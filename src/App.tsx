@@ -24,20 +24,55 @@ declare global {
   }
 }
 
-const faceTexW = 0.2;
-const faceTexH = 0.2;
-const texMargin = 0.05;
+const atlasWidth = 128;
+const atlasHeight = 128;
+
+const faceTexW = 0.1;
+const faceTexH = 0.1;
+const texMargin = 0.025;
+
+const atlasFaceMaxDim = 5;
 
 const facesPerRow = Math.floor(1 / (faceTexW + texMargin));
 
-function computeFaceUV(faceIndex: number) {
-  const faceColumn = faceIndex % facesPerRow;
-  const faceRow = Math.floor(faceIndex / facesPerRow);
+function computeFaceUV(
+  atlasFaceIndex: number,
+  faceIndex: number,
+  posArray: ArrayLike<number>
+) {
+  const faceColumn = atlasFaceIndex % facesPerRow;
+  const faceRow = Math.floor(atlasFaceIndex / facesPerRow);
+
+  // get face vertex positions
+  const facePosStart = faceIndex * 4 * 3;
+  const facePosOrigin = facePosStart + 2 * 3;
+  const facePosU = facePosStart + 3 * 3;
+  const facePosV = facePosStart;
+
+  const ox = posArray[facePosOrigin];
+  const oy = posArray[facePosOrigin + 1];
+  const oz = posArray[facePosOrigin + 2];
+
+  // compute face dimension
+  const dU = new THREE.Vector3(
+    posArray[facePosU] - ox,
+    posArray[facePosU + 1] - oy,
+    posArray[facePosU + 2] - oz
+  );
+
+  const dV = new THREE.Vector3(
+    posArray[facePosV] - ox,
+    posArray[facePosV + 1] - oy,
+    posArray[facePosV + 2] - oz
+  );
+
+  const dUdim = Math.min(atlasFaceMaxDim, dU.length());
+  const dVdim = Math.min(atlasFaceMaxDim, dV.length());
 
   const left = faceColumn * (faceTexW + texMargin);
   const top = faceRow * (faceTexH + texMargin);
-  const right = left + faceTexW;
-  const bottom = top + faceTexH;
+  const right = left + faceTexW * (dUdim / atlasFaceMaxDim);
+  const bottom = top + faceTexH * (dVdim / atlasFaceMaxDim);
 
   return { left, top, right, bottom };
 }
@@ -81,9 +116,6 @@ function Scene() {
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
 
-  const atlasWidth = 64;
-  const atlasHeight = 64;
-
   const [atlasStack, setAtlasStack] = useState(() => [
     createAtlasTexture(atlasWidth, atlasHeight, true),
     createAtlasTexture(atlasWidth, atlasHeight)
@@ -114,7 +146,11 @@ function Scene() {
 
     for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
       const atlasFaceIndex = atlasInfo.length;
-      const { left, top, right, bottom } = computeFaceUV(atlasFaceIndex);
+      const { left, top, right, bottom } = computeFaceUV(
+        atlasFaceIndex,
+        faceIndex,
+        meshBuffer1.attributes.position.array
+      );
 
       // default is [0, 1, 1, 1, 0, 0, 1, 0]
       const uvItemBase = faceIndex * 4;
@@ -148,7 +184,11 @@ function Scene() {
 
     for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
       const atlasFaceIndex = atlasInfo.length;
-      const { left, top, right, bottom } = computeFaceUV(atlasFaceIndex);
+      const { left, top, right, bottom } = computeFaceUV(
+        atlasFaceIndex,
+        faceIndex,
+        meshBuffer2.attributes.position.array
+      );
 
       // default is [0, 1, 1, 1, 0, 0, 1, 0]
       const uvItemBase = faceIndex * 4;
@@ -338,7 +378,7 @@ function Scene() {
   const mesh1Pos: [number, number, number] = [0, 0, -2];
   const mesh1Args: [number, number, number] = [5, 5, 2];
   const mesh2Pos: [number, number, number] = [0, 0, 3];
-  const mesh2Args: [number, number, number] = [1, 1, 6];
+  const mesh2Args: [number, number, number] = [1, 1, 5];
   const lightPos: [number, number, number] = [5, -5, 10];
 
   return (
