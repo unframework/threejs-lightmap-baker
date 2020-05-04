@@ -44,18 +44,17 @@ function computeFaceUV(faceIndex: number) {
 
 let atlasFaceFillIndex = 4; // start with top face of box
 
-function Scene() {
-  const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
-  const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
+function createAtlasTexture(
+  atlasWidth: number,
+  atlasHeight: number,
+  fillWithPattern?: boolean
+) {
+  const atlasSize = atlasWidth * atlasHeight;
+  const data = new Uint8Array(3 * atlasSize);
 
-  const atlasWidth = 64;
-  const atlasHeight = 64;
-  const size = atlasWidth * atlasHeight;
-
-  const atlasData = useMemo(() => {
-    const data = new Uint8Array(3 * size);
-
-    for (let i = 0; i < size; i++) {
+  if (fillWithPattern) {
+    // pre-fill with a test pattern
+    for (let i = 0; i < atlasSize; i++) {
       const x = i % atlasWidth;
       const y = Math.floor(i / atlasWidth);
 
@@ -66,18 +65,29 @@ function Scene() {
       data[stride + 1] = v;
       data[stride + 2] = v;
     }
+  }
 
-    return data;
-  }, [size]);
+  const texture = new THREE.DataTexture(
+    data,
+    atlasWidth,
+    atlasHeight,
+    THREE.RGBFormat
+  );
 
-  const atlasTexture = useMemo(() => {
-    return new THREE.DataTexture(
-      atlasData,
-      atlasWidth,
-      atlasHeight,
-      THREE.RGBFormat
-    );
-  }, []);
+  return { data, texture };
+}
+
+function Scene() {
+  const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
+  const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
+
+  const atlasWidth = 64;
+  const atlasHeight = 64;
+
+  const [atlasStack, setAtlasStack] = useState(() => [
+    createAtlasTexture(atlasWidth, atlasHeight, true),
+    createAtlasTexture(atlasWidth, atlasHeight)
+  ]);
 
   const [mesh1Ref, mesh1] = useResource<THREE.Mesh>();
   const [mesh2Ref, mesh2] = useResource<THREE.Mesh>();
@@ -216,6 +226,17 @@ function Scene() {
     // tick up face index when this one is done
     if (atlasFaceInfo.pixelFillCount === 0) {
       atlasFaceFillIndex = (atlasFaceFillIndex + 1) % atlasInfo.length;
+
+      // tick up atlas texture stack once all faces are done
+      // @todo start with face 0
+      if (atlasFaceFillIndex === 4) {
+        console.log('update stack');
+        setAtlasStack((prev) => {
+          // promote items up one level, taking last one to be the new first one
+          const last = prev[prev.length - 1];
+          return [last, ...prev.slice(0, -1)];
+        });
+      }
     }
 
     // find texel inside atlas, as rounded to texel boundary
@@ -303,8 +324,11 @@ function Scene() {
     const ag = Math.round(g / pixelCount);
     const ab = Math.round(b / pixelCount);
 
-    atlasData.set([ar, ag, ab], (atlasTexelY * atlasWidth + atlasTexelX) * 3);
-    atlasTexture.needsUpdate = true;
+    atlasStack[0].data.set(
+      [ar, ag, ab],
+      (atlasTexelY * atlasWidth + atlasTexelX) * 3
+    );
+    atlasStack[0].texture.needsUpdate = true;
   }, 10);
 
   useFrame(({ gl, camera }) => {
@@ -335,7 +359,7 @@ function Scene() {
             args={mesh1Args}
             ref={meshBuffer1Ref}
           />
-          <meshBasicMaterial attach="material" map={atlasTexture} />
+          <meshBasicMaterial attach="material" map={atlasStack[0].texture} />
         </mesh>
         <mesh position={mesh2Pos}>
           <boxBufferGeometry
@@ -343,7 +367,7 @@ function Scene() {
             args={mesh2Args}
             ref={meshBuffer2Ref}
           />
-          <meshBasicMaterial attach="material" map={atlasTexture} />
+          <meshBasicMaterial attach="material" map={atlasStack[0].texture} />
         </mesh>
       </scene>
 
@@ -352,14 +376,14 @@ function Scene() {
           {meshBuffer1 && (
             <primitive attach="geometry" object={meshBuffer1} dispose={null} />
           )}
-          <meshBasicMaterial attach="material" color="red" />
+          <meshBasicMaterial attach="material" map={atlasStack[1].texture} />
         </mesh>
 
         <mesh position={mesh2Pos} ref={mesh2Ref}>
           {meshBuffer2 && (
             <primitive attach="geometry" object={meshBuffer2} dispose={null} />
           )}
-          <meshBasicMaterial attach="material" color="red" />
+          <meshBasicMaterial attach="material" map={atlasStack[1].texture} />
         </mesh>
 
         <mesh position={lightPos}>
