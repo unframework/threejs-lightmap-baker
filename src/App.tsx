@@ -78,6 +78,8 @@ function Scene() {
     );
   }, []);
 
+  const [boxMeshRef, boxMesh] = useResource<THREE.Mesh>();
+
   const boxBufferRef = useUpdate<THREE.BoxBufferGeometry>((boxBuffer) => {
     const uvAttr = boxBuffer.attributes.uv;
 
@@ -152,29 +154,56 @@ function Scene() {
     // @todo also transform by mesh pos
     const boxBuffer = boxBufferRef.current;
     const posArray = boxBuffer.attributes.position.array;
+    const normalArray = boxBuffer.attributes.normal.array;
     const facePosStart = faceIndex * 4 * 3;
     const facePosOrigin = facePosStart + 2 * 3;
     const facePosU = facePosStart + 3 * 3;
     const facePosV = facePosStart;
 
-    const dUx = posArray[facePosU] - posArray[facePosOrigin];
-    const dUy = posArray[facePosU + 1] - posArray[facePosOrigin + 1];
-    const dUz = posArray[facePosU + 2] - posArray[facePosOrigin + 2];
+    const faceNormalStart = faceIndex * 4 * 3;
 
-    const dVx = posArray[facePosV] - posArray[facePosOrigin];
-    const dVy = posArray[facePosV + 1] - posArray[facePosOrigin + 1];
-    const dVz = posArray[facePosV + 2] - posArray[facePosOrigin + 2];
+    const ox = posArray[facePosOrigin];
+    const oy = posArray[facePosOrigin + 1];
+    const oz = posArray[facePosOrigin + 2];
 
-    const pUVx = posArray[facePosOrigin] + dUx * pU + dVx * pV;
-    const pUVy = posArray[facePosOrigin + 1] + dUy * pU + dVy * pV;
-    const pUVz = posArray[facePosOrigin + 2] + dUz * pU + dVz * pV - 2;
+    const dUx = posArray[facePosU] - ox;
+    const dUy = posArray[facePosU + 1] - oy;
+    const dUz = posArray[facePosU + 2] - oz;
+
+    const dVx = posArray[facePosV] - ox;
+    const dVy = posArray[facePosV + 1] - oy;
+    const dVz = posArray[facePosV + 2] - oz;
 
     // console.log(atlasTexelX, atlasTexelY, pUVx, pUVy, pUVz);
 
+    // set camera to match texel, first in mesh-local space
+    const texelPos = new THREE.Vector3(
+      ox + dUx * pU + dVx * pV,
+      oy + dUy * pU + dVy * pV,
+      oz + dUz * pU + dVz * pV
+    );
+
+    testCam.position.copy(texelPos);
+
+    texelPos.x += normalArray[faceNormalStart];
+    texelPos.y += normalArray[faceNormalStart + 1];
+    texelPos.z += normalArray[faceNormalStart + 2];
+
     const upAngle = Math.random() * Math.PI;
-    testCam.position.set(pUVx, pUVy, pUVz);
-    testCam.up.set(Math.cos(upAngle), Math.sin(upAngle), 0);
-    testCam.lookAt(pUVx, pUVy, pUVz + 1);
+    const upAngleCos = Math.cos(upAngle);
+    const upAngleSin = Math.sin(upAngle);
+
+    testCam.up.set(
+      dUx * upAngleCos - dVx * upAngleSin,
+      dUy * upAngleCos - dVy * upAngleSin,
+      dUz * upAngleCos - dVz * upAngleSin
+    ); // random rotation (in face plane) @todo normalize axes?
+
+    testCam.lookAt(texelPos);
+
+    // then, transform camera into world space
+    testCam.applyMatrix4(boxMesh.matrixWorld);
+
     gl.setRenderTarget(testTarget);
     gl.render(scene, testCam);
     gl.setRenderTarget(null);
@@ -216,7 +245,7 @@ function Scene() {
         <planeBufferGeometry attach="geometry" args={[2, 2]} />
         <meshBasicMaterial attach="material" map={pinholeTexture} />
       </mesh>
-      <mesh position={[0, 0, -2]}>
+      <mesh position={[0, 0, -2]} ref={boxMeshRef}>
         <boxBufferGeometry
           attach="geometry"
           args={[5, 5, 2]}
