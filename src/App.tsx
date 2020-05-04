@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useLayoutEffect, useMemo } from 'react';
 import {
   Canvas,
   useUpdate,
@@ -26,7 +26,7 @@ declare global {
 
 const faceTexW = 0.2;
 const faceTexH = 0.2;
-const texMargin = 0.1;
+const texMargin = 0.05;
 
 const facesPerRow = Math.floor(1 / (faceTexW + texMargin));
 
@@ -46,6 +46,7 @@ let testCount = 0;
 
 function Scene() {
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
+  const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
 
   const atlasWidth = 64;
   const atlasHeight = 64;
@@ -78,7 +79,8 @@ function Scene() {
     );
   }, []);
 
-  const [boxMeshRef, boxMesh] = useResource<THREE.Mesh>();
+  const [mesh1Ref, mesh1] = useResource<THREE.Mesh>();
+  const [mesh2Ref, mesh2] = useResource<THREE.Mesh>();
 
   const atlasInfo: {
     mesh: THREE.Mesh;
@@ -90,39 +92,70 @@ function Scene() {
     bottom: number;
   }[] = useMemo(() => [], []);
 
-  const boxBufferRef = useUpdate<THREE.BoxBufferGeometry>(
-    (boxBuffer) => {
-      if (!boxMesh) {
-        return;
-      }
+  const [meshBuffer1Ref, meshBuffer1] = useResource<THREE.BufferGeometry>();
 
-      const uvAttr = boxBuffer.attributes.uv;
+  useLayoutEffect(() => {
+    if (!mesh1 || !meshBuffer1) {
+      return;
+    }
 
-      for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
-        const { left, top, right, bottom } = computeFaceUV(faceIndex);
+    const uvAttr = meshBuffer1.attributes.uv;
 
-        // default is [0, 1, 1, 1, 0, 0, 1, 0]
-        const uvItemBase = faceIndex * 4;
-        uvAttr.setXY(uvItemBase, left, bottom);
-        uvAttr.setXY(uvItemBase + 1, right, bottom);
-        uvAttr.setXY(uvItemBase + 2, left, top);
-        uvAttr.setXY(uvItemBase + 3, right, top);
+    for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
+      const { left, top, right, bottom } = computeFaceUV(faceIndex);
 
-        atlasInfo.push({
-          mesh: boxMesh,
-          buffer: boxBuffer,
-          faceIndex,
-          left,
-          top,
-          right,
-          bottom
-        });
-      }
+      // default is [0, 1, 1, 1, 0, 0, 1, 0]
+      const uvItemBase = faceIndex * 4;
+      uvAttr.setXY(uvItemBase, left, bottom);
+      uvAttr.setXY(uvItemBase + 1, right, bottom);
+      uvAttr.setXY(uvItemBase + 2, left, top);
+      uvAttr.setXY(uvItemBase + 3, right, top);
 
-      boxBuffer.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
-    },
-    [boxMesh]
-  );
+      atlasInfo.push({
+        mesh: mesh1,
+        buffer: meshBuffer1,
+        faceIndex,
+        left,
+        top,
+        right,
+        bottom
+      });
+    }
+
+    meshBuffer1.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
+  }, [mesh1, meshBuffer1]);
+
+  const [meshBuffer2Ref, meshBuffer2] = useResource<THREE.BufferGeometry>();
+  useLayoutEffect(() => {
+    if (!mesh2 || !meshBuffer2) {
+      return;
+    }
+
+    const uvAttr = meshBuffer2.attributes.uv;
+
+    for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
+      const { left, top, right, bottom } = computeFaceUV(faceIndex);
+
+      // default is [0, 1, 1, 1, 0, 0, 1, 0]
+      const uvItemBase = faceIndex * 4;
+      uvAttr.setXY(uvItemBase, left, bottom);
+      uvAttr.setXY(uvItemBase + 1, right, bottom);
+      uvAttr.setXY(uvItemBase + 2, left, top);
+      uvAttr.setXY(uvItemBase + 3, right, top);
+
+      atlasInfo.push({
+        mesh: mesh2,
+        buffer: meshBuffer2,
+        faceIndex,
+        left,
+        top,
+        right,
+        bottom
+      });
+    }
+
+    meshBuffer2.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
+  }, [mesh2, meshBuffer2]);
 
   const rtWidth = 32;
   const rtHeight = 32;
@@ -183,7 +216,6 @@ function Scene() {
     const pV = (atlasTexelY + 0.5 - atlasTexelTop) / faceTexH;
 
     // read vertex position for this face and interpolate along U and V axes
-    // @todo also transform by mesh pos
     const posArray = buffer.attributes.position.array;
     const normalArray = buffer.attributes.normal.array;
     const facePosStart = faceIndex * 4 * 3;
@@ -236,7 +268,7 @@ function Scene() {
     testCam.applyMatrix4(mesh.matrixWorld);
 
     gl.setRenderTarget(testTarget);
-    gl.render(scene, testCam);
+    gl.render(lightScene, testCam);
     gl.setRenderTarget(null);
 
     gl.readRenderTargetPixels(testTarget, 0, 0, rtWidth, rtHeight, testBuffer);
@@ -259,38 +291,68 @@ function Scene() {
 
     atlasData.set([ar, ag, ab], (atlasTexelY * atlasWidth + atlasTexelX) * 3);
     atlasTexture.needsUpdate = true;
-  });
+  }, 10);
 
+  useFrame(({ gl, camera }) => {
+    gl.render(mainScene, camera);
+  }, 20);
+
+  const mesh1Pos: [number, number, number] = [0, 0, -2];
+  const mesh1Args: [number, number, number] = [5, 5, 2];
+  const mesh2Pos: [number, number, number] = [0, 0, 3];
+  const mesh2Args: [number, number, number] = [1, 1, 6];
   const lightPos: [number, number, number] = [5, -5, 10];
 
   return (
     <>
-      <scene ref={lightSceneRef} />
+      <scene ref={mainSceneRef}>
+        <mesh position={[0, 0, -5]}>
+          <planeBufferGeometry attach="geometry" args={[200, 200]} />
+          <meshBasicMaterial attach="material" color="#171717" />
+        </mesh>
+        <mesh position={[-4, 4, 0]}>
+          <planeBufferGeometry attach="geometry" args={[2, 2]} />
+          <meshBasicMaterial attach="material" map={pinholeTexture} />
+        </mesh>
 
-      <mesh position={[0, 0, -5]}>
-        <planeBufferGeometry attach="geometry" args={[200, 200]} />
-        <meshBasicMaterial attach="material" color="#171717" />
-      </mesh>
-      <mesh position={[-4, 4, 0]}>
-        <planeBufferGeometry attach="geometry" args={[2, 2]} />
-        <meshBasicMaterial attach="material" map={pinholeTexture} />
-      </mesh>
-      <mesh position={[0, 0, -2]} ref={boxMeshRef}>
-        <boxBufferGeometry
-          attach="geometry"
-          args={[5, 5, 2]}
-          ref={boxBufferRef}
-        />
-        <meshBasicMaterial attach="material" map={atlasTexture} />
-      </mesh>
-      <mesh position={[0, 0, 3]}>
-        <boxBufferGeometry attach="geometry" args={[1, 1, 6]} />
-        <meshBasicMaterial attach="material" color="black" />
-      </mesh>
-      <mesh position={lightPos}>
-        <boxBufferGeometry attach="geometry" args={[8, 8, 8]} />
-        <meshBasicMaterial attach="material" color="white" />
-      </mesh>
+        <mesh position={mesh1Pos}>
+          <boxBufferGeometry
+            attach="geometry"
+            args={mesh1Args}
+            ref={meshBuffer1Ref}
+          />
+          <meshBasicMaterial attach="material" map={atlasTexture} />
+        </mesh>
+        <mesh position={mesh2Pos}>
+          <boxBufferGeometry
+            attach="geometry"
+            args={mesh2Args}
+            ref={meshBuffer2Ref}
+          />
+          <meshBasicMaterial attach="material" map={atlasTexture} />
+        </mesh>
+      </scene>
+
+      <scene ref={lightSceneRef}>
+        <mesh position={mesh1Pos} ref={mesh1Ref}>
+          {meshBuffer1 && (
+            <primitive attach="geometry" object={meshBuffer1} dispose={null} />
+          )}
+          <meshBasicMaterial attach="material" color="red" />
+        </mesh>
+
+        <mesh position={mesh2Pos} ref={mesh2Ref}>
+          {meshBuffer2 && (
+            <primitive attach="geometry" object={meshBuffer2} dispose={null} />
+          )}
+          <meshBasicMaterial attach="material" color="red" />
+        </mesh>
+
+        <mesh position={lightPos}>
+          <boxBufferGeometry attach="geometry" args={[8, 8, 8]} />
+          <meshBasicMaterial attach="material" color="white" />
+        </mesh>
+      </scene>
     </>
   );
 }
