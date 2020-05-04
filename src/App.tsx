@@ -170,8 +170,9 @@ function Scene() {
 
     // console.log(atlasTexelX, atlasTexelY, pUVx, pUVy, pUVz);
 
+    const upAngle = Math.random() * Math.PI;
     testCam.position.set(pUVx, pUVy, pUVz);
-    testCam.up.set(0, 1, 0);
+    testCam.up.set(Math.cos(upAngle), Math.sin(upAngle), 0);
     testCam.lookAt(pUVx, pUVy, pUVz + 1);
     gl.setRenderTarget(testTarget);
     gl.render(scene, testCam);
@@ -186,9 +187,9 @@ function Scene() {
       b = 0;
     for (let i = 0; i < rtLength; i += 4) {
       const a = testBuffer[i + 3];
-      r += testBuffer[i] + (255 - a);
-      g += testBuffer[i + 1] + (255 - a);
-      b += testBuffer[i + 2] + (255 - a);
+      r += testBuffer[i];
+      g += testBuffer[i + 1];
+      b += testBuffer[i + 2];
     }
 
     const pixelCount = rtWidth * rtHeight;
@@ -206,11 +207,11 @@ function Scene() {
       <pointLight position={[-30, 30, 30]} intensity={0.1} />
       <mesh position={[0, 0, -5]}>
         <planeBufferGeometry attach="geometry" args={[200, 200]} />
-        <meshStandardMaterial attach="material" color="#171717" />
+        <meshBasicMaterial attach="material" color="#171717" />
       </mesh>
       <mesh position={[-4, 4, 0]}>
         <planeBufferGeometry attach="geometry" args={[2, 2]} />
-        <meshStandardMaterial attach="material" map={pinholeTexture} />
+        <meshBasicMaterial attach="material" map={pinholeTexture} />
       </mesh>
       <mesh position={[0, 0, -2]}>
         <boxBufferGeometry
@@ -218,16 +219,20 @@ function Scene() {
           args={[5, 5, 2]}
           ref={boxBufferRef}
         />
-        <meshStandardMaterial
+        <meshBasicMaterial
           attach="material"
           map={controlTexture}
           aoMap={testTexture}
           aoMapIntensity={1}
         />
       </mesh>
-      <mesh position={[0, 0, 2]}>
-        <boxBufferGeometry attach="geometry" args={[2, 2, 5]} />
-        <meshStandardMaterial attach="material" color="hotpink" />
+      <mesh position={[0, 0, 3]}>
+        <boxBufferGeometry attach="geometry" args={[1, 1, 6]} />
+        <meshBasicMaterial attach="material" color="black" />
+      </mesh>
+      <mesh position={[5, -5, 10]}>
+        <boxBufferGeometry attach="geometry" args={[8, 8, 8]} />
+        <meshBasicMaterial attach="material" color="white" />
       </mesh>
     </>
   );
@@ -238,7 +243,7 @@ function App() {
     <Canvas
       camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
       onCreated={({ gl }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
+        // gl.toneMapping = THREE.ACESFilmicToneMapping;
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
