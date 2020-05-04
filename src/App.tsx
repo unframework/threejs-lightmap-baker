@@ -4,9 +4,25 @@ import {
   useUpdate,
   useResource,
   useFrame,
+  useThree,
+  extend,
   ReactThreeFiber
 } from 'react-three-fiber';
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
+extend({ OrbitControls });
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      orbitControls: ReactThreeFiber.Object3DNode<
+        OrbitControls,
+        typeof OrbitControls
+      >;
+    }
+  }
+}
 
 const faceTexW = 0.2;
 const faceTexH = 0.2;
@@ -240,6 +256,28 @@ function Scene() {
   );
 }
 
+const Controls: React.FC = () => {
+  const { camera, gl } = useThree();
+  const orbitControlsRef = useRef<OrbitControls>();
+
+  useFrame(() => {
+    if (!orbitControlsRef.current) {
+      return;
+    }
+    orbitControlsRef.current.update();
+  });
+
+  return (
+    <orbitControls
+      ref={orbitControlsRef}
+      args={[camera, gl.domElement]}
+      enableDamping
+      dampingFactor={0.1}
+      rotateSpeed={0.5}
+    />
+  );
+};
+
 function App() {
   return (
     <Canvas
@@ -250,6 +288,8 @@ function App() {
       }}
     >
       <Scene />
+
+      <Controls />
     </Canvas>
   );
 }
