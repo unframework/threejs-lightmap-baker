@@ -26,9 +26,11 @@ function computeFaceUV(faceIndex: number) {
   return { left, top, right, bottom };
 }
 
+let testCount = 0;
+
 function Scene() {
-  const atlasWidth = 256;
-  const atlasHeight = 256;
+  const atlasWidth = 64;
+  const atlasHeight = 64;
   const size = atlasWidth * atlasHeight;
 
   const atlasData = useMemo(() => {
@@ -100,7 +102,7 @@ function Scene() {
   }, []);
 
   const testCam = useMemo(() => {
-    const rtFov = 170;
+    const rtFov = 90; // full near-180 FOV actually works poorly
     const rtAspect = rtWidth / rtHeight;
     const rtNear = 0.1;
     const rtFar = 10;
@@ -111,13 +113,29 @@ function Scene() {
     return new Uint8Array(rtWidth * rtHeight * 4);
   }, []);
 
+  const pinholeTexture = useMemo(() => {
+    return new THREE.DataTexture(
+      testBuffer,
+      rtWidth,
+      rtHeight,
+      THREE.RGBAFormat
+    );
+  }, []);
+
   useFrame(({ gl, scene }) => {
     // face 4 is the top one
     const faceIndex = 4;
-    const faceTexelX = 3; // even texel offset from face origin inside texture data
-    const faceTexelY = 2;
 
     const { left, top, right, bottom } = computeFaceUV(faceIndex);
+    const faceTexW = (right - left) * atlasWidth;
+    const faceTexH = (bottom - top) * atlasHeight;
+    const faceTexelCols = Math.ceil(faceTexW);
+    const faceTexelRows = Math.ceil(faceTexH);
+
+    // even texel offset from face origin inside texture data
+    const faceTexelX = testCount % faceTexelCols;
+    const faceTexelY = Math.floor(testCount / faceTexelCols);
+    testCount = (testCount + 1) % (faceTexelRows * faceTexelCols);
 
     // find texel inside atlas, as rounded to texel boundary
     const atlasTexelLeft = left * atlasWidth;
@@ -126,10 +144,8 @@ function Scene() {
     const atlasTexelY = Math.floor(atlasTexelTop) + faceTexelY;
 
     // compute rounded texel's U and V position within face
-    const texW = (right - left) * atlasWidth;
-    const texH = (bottom - top) * atlasHeight;
-    const pU = (atlasTexelX - atlasTexelLeft) / texW;
-    const pV = (atlasTexelY - atlasTexelTop) / texH;
+    const pU = (atlasTexelX - atlasTexelLeft) / faceTexW;
+    const pV = (atlasTexelY - atlasTexelTop) / faceTexH;
 
     // read vertex position for this face and interpolate along U and V axes
     // @todo also transform by mesh pos
@@ -150,18 +166,19 @@ function Scene() {
 
     const pUVx = posArray[facePosOrigin] + dUx * pU + dVx * pV;
     const pUVy = posArray[facePosOrigin + 1] + dUy * pU + dVy * pV;
-    const pUVz = posArray[facePosOrigin + 2] + dUz * pU + dVz * pV;
+    const pUVz = posArray[facePosOrigin + 2] + dUz * pU + dVz * pV - 2;
 
-    console.log(pUVx, pUVy, pUVz);
+    // console.log(atlasTexelX, atlasTexelY, pUVx, pUVy, pUVz);
 
-    testCam.position.set(0, -3, 2);
-    testCam.up.set(0, 0, 1);
-    testCam.lookAt(0, -2, 10);
+    testCam.position.set(pUVx, pUVy, pUVz);
+    testCam.up.set(0, 1, 0);
+    testCam.lookAt(pUVx, pUVy, pUVz + 1);
     gl.setRenderTarget(testTarget);
     gl.render(scene, testCam);
     gl.setRenderTarget(null);
 
     gl.readRenderTargetPixels(testTarget, 0, 0, rtWidth, rtHeight, testBuffer);
+    pinholeTexture.needsUpdate = true;
 
     const rtLength = testBuffer.length;
     let r = 0,
@@ -169,17 +186,17 @@ function Scene() {
       b = 0;
     for (let i = 0; i < rtLength; i += 4) {
       const a = testBuffer[i + 3];
-      r += testBuffer[i] + a;
-      g += testBuffer[i + 1] + a;
-      b += testBuffer[i + 2] + a;
+      r += testBuffer[i] + (255 - a);
+      g += testBuffer[i + 1] + (255 - a);
+      b += testBuffer[i + 2] + (255 - a);
     }
 
     const pixelCount = rtWidth * rtHeight;
-    const ar = r / pixelCount;
-    const ag = g / pixelCount;
-    const ab = b / pixelCount;
+    const ar = Math.round(r / pixelCount);
+    const ag = Math.round(g / pixelCount);
+    const ab = Math.round(b / pixelCount);
 
-    atlasData.set([ar, ag, ab, 255], 0);
+    atlasData.set([ar, ag, ab], (atlasTexelY * atlasWidth + atlasTexelX) * 3);
     controlTexture.needsUpdate = true;
   });
 
@@ -191,6 +208,10 @@ function Scene() {
         <planeBufferGeometry attach="geometry" args={[200, 200]} />
         <meshStandardMaterial attach="material" color="#171717" />
       </mesh>
+      <mesh position={[-4, 4, 0]}>
+        <planeBufferGeometry attach="geometry" args={[2, 2]} />
+        <meshStandardMaterial attach="material" map={pinholeTexture} />
+      </mesh>
       <mesh position={[0, 0, -2]}>
         <boxBufferGeometry
           attach="geometry"
@@ -199,7 +220,6 @@ function Scene() {
         />
         <meshStandardMaterial
           attach="material"
-          color="orange"
           map={controlTexture}
           aoMap={testTexture}
           aoMapIntensity={1}
