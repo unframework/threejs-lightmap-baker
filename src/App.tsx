@@ -29,6 +29,8 @@ function computeFaceUV(faceIndex: number) {
 let testCount = 0;
 
 function Scene() {
+  const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
+
   const atlasWidth = 64;
   const atlasHeight = 64;
   const size = atlasWidth * atlasHeight;
@@ -203,8 +205,8 @@ function Scene() {
 
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <pointLight position={[-30, 30, 30]} intensity={0.1} />
+      <scene ref={lightSceneRef} />
+
       <mesh position={[0, 0, -5]}>
         <planeBufferGeometry attach="geometry" args={[200, 200]} />
         <meshBasicMaterial attach="material" color="#171717" />
