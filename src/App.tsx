@@ -9,6 +9,27 @@ import {
 import * as THREE from 'three';
 
 function Scene() {
+  const controlTexture = useMemo(() => {
+    const width = 256;
+    const height = 256;
+    const size = width * height;
+    const data = new Uint8Array(3 * size);
+
+    for (let i = 0; i < size; i++) {
+      const x = i % width;
+      const y = Math.floor(i / width);
+
+      const stride = i * 3;
+
+      const v = x % 8 === 0 || y % 8 === 0 ? 0 : 255;
+      data[stride] = v;
+      data[stride + 1] = v;
+      data[stride + 2] = v;
+    }
+
+    return new THREE.DataTexture(data, width, height, THREE.RGBFormat);
+  }, []);
+
   const testTexture = useMemo(() => {
     const width = 256;
     const height = 256;
@@ -16,9 +37,9 @@ function Scene() {
     const data = new Uint8Array(3 * size);
 
     for (let i = 0; i < size; i++) {
-      const v = Math.floor((255 * i) / size);
       const stride = i * 3;
 
+      const v = 255;
       data[stride] = v;
       data[stride + 1] = v;
       data[stride + 2] = v;
@@ -28,8 +49,32 @@ function Scene() {
   }, []);
 
   const boxBufferRef = useUpdate<THREE.BoxBufferGeometry>((boxBuffer) => {
-    const uvs = boxBuffer.attributes.uv.array;
-    boxBuffer.setAttribute('uv2', new THREE.BufferAttribute(uvs, 2));
+    const uvAttr = boxBuffer.attributes.uv;
+    const faceTexW = 0.2;
+    const faceTexH = 0.2;
+    const texMargin = 0.1;
+
+    const facesPerRow = Math.floor(1 / (faceTexW + texMargin));
+
+    // face 4 is the top one
+    for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
+      const faceColumn = faceIndex % facesPerRow;
+      const faceRow = Math.floor(faceIndex / facesPerRow);
+
+      const left = faceColumn * (faceTexW + texMargin);
+      const top = faceRow * (faceTexH + texMargin);
+      const right = left + faceTexW;
+      const bottom = top + faceTexH;
+
+      // default is [0, 1, 1, 1, 0, 0, 1, 0]
+      const uvItemBase = faceIndex * 4;
+      uvAttr.setXY(uvItemBase, left, bottom);
+      uvAttr.setXY(uvItemBase + 1, right, bottom);
+      uvAttr.setXY(uvItemBase + 2, left, top);
+      uvAttr.setXY(uvItemBase + 3, right, top);
+    }
+
+    boxBuffer.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
   }, []);
 
   return (
@@ -49,6 +94,7 @@ function Scene() {
         <meshStandardMaterial
           attach="material"
           color="orange"
+          map={controlTexture}
           aoMap={testTexture}
           aoMapIntensity={1}
         />
