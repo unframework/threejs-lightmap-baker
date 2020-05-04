@@ -102,7 +102,8 @@ function Scene() {
     const uvAttr = meshBuffer1.attributes.uv;
 
     for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
-      const { left, top, right, bottom } = computeFaceUV(faceIndex);
+      const atlasFaceIndex = atlasInfo.length;
+      const { left, top, right, bottom } = computeFaceUV(atlasFaceIndex);
 
       // default is [0, 1, 1, 1, 0, 0, 1, 0]
       const uvItemBase = faceIndex * 4;
@@ -134,7 +135,8 @@ function Scene() {
     const uvAttr = meshBuffer2.attributes.uv;
 
     for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
-      const { left, top, right, bottom } = computeFaceUV(faceIndex);
+      const atlasFaceIndex = atlasInfo.length;
+      const { left, top, right, bottom } = computeFaceUV(atlasFaceIndex);
 
       // default is [0, 1, 1, 1, 0, 0, 1, 0]
       const uvItemBase = faceIndex * 4;
