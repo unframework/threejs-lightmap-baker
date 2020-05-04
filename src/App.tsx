@@ -42,7 +42,7 @@ function computeFaceUV(faceIndex: number) {
   return { left, top, right, bottom };
 }
 
-let testCount = 0;
+let atlasFaceFillIndex = 4; // start with top face of box
 
 function Scene() {
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
@@ -90,6 +90,7 @@ function Scene() {
     top: number;
     right: number;
     bottom: number;
+    pixelFillCount: number;
   }[] = useMemo(() => [], []);
 
   const [meshBuffer1Ref, meshBuffer1] = useResource<THREE.BufferGeometry>();
@@ -119,7 +120,8 @@ function Scene() {
         left,
         top,
         right,
-        bottom
+        bottom,
+        pixelFillCount: 0
       });
     }
 
@@ -152,7 +154,8 @@ function Scene() {
         left,
         top,
         right,
-        bottom
+        bottom,
+        pixelFillCount: 0
       });
     }
 
@@ -192,8 +195,8 @@ function Scene() {
       return;
     }
 
-    // face 4 is the top one
-    const atlasFaceInfo = atlasInfo[4];
+    // get current atlas face we are filling up
+    const atlasFaceInfo = atlasInfo[atlasFaceFillIndex];
 
     const { mesh, buffer, faceIndex, left, top, right, bottom } = atlasFaceInfo;
     const faceTexW = (right - left) * atlasWidth;
@@ -202,9 +205,18 @@ function Scene() {
     const faceTexelRows = Math.ceil(faceTexH);
 
     // even texel offset from face origin inside texture data
-    const faceTexelX = testCount % faceTexelCols;
-    const faceTexelY = Math.floor(testCount / faceTexelCols);
-    testCount = (testCount + 1) % (faceTexelRows * faceTexelCols);
+    const fillCount = atlasFaceInfo.pixelFillCount;
+
+    const faceTexelX = fillCount % faceTexelCols;
+    const faceTexelY = Math.floor(fillCount / faceTexelCols);
+
+    atlasFaceInfo.pixelFillCount =
+      (fillCount + 1) % (faceTexelRows * faceTexelCols);
+
+    // tick up face index when this one is done
+    if (atlasFaceInfo.pixelFillCount === 0) {
+      atlasFaceFillIndex = (atlasFaceFillIndex + 1) % atlasInfo.length;
+    }
 
     // find texel inside atlas, as rounded to texel boundary
     const atlasTexelLeft = left * atlasWidth;
