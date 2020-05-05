@@ -112,6 +112,66 @@ function createAtlasTexture(
   return { data, texture };
 }
 
+interface AtlasItem {
+  mesh: THREE.Mesh;
+  buffer: THREE.BufferGeometry;
+  faceIndex: number;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+  pixelFillCount: number;
+}
+
+function useMeshWithAtlas(
+  atlasInfo: AtlasItem[],
+  meshBuffer: THREE.BufferGeometry | undefined
+) {
+  const meshRef = useUpdate<THREE.Mesh>(
+    (mesh) => {
+      // wait until geometry buffer is initialized
+      if (!meshBuffer) {
+        return;
+      }
+
+      const posAttr = meshBuffer.attributes.position;
+      const uvAttr = meshBuffer.attributes.uv;
+
+      const faceCount = posAttr.count / 4;
+
+      for (let faceIndex = 0; faceIndex < faceCount; faceIndex += 1) {
+        const atlasFaceIndex = atlasInfo.length;
+        const { left, top, right, bottom } = computeFaceUV(
+          atlasFaceIndex,
+          faceIndex,
+          posAttr.array
+        );
+
+        // default is [0, 1, 1, 1, 0, 0, 1, 0]
+        const uvItemBase = faceIndex * 4;
+        uvAttr.setXY(uvItemBase, left, bottom);
+        uvAttr.setXY(uvItemBase + 1, right, bottom);
+        uvAttr.setXY(uvItemBase + 2, left, top);
+        uvAttr.setXY(uvItemBase + 3, right, top);
+
+        atlasInfo.push({
+          mesh: mesh,
+          buffer: meshBuffer,
+          faceIndex,
+          left,
+          top,
+          right,
+          bottom,
+          pixelFillCount: 0
+        });
+      }
+    },
+    [meshBuffer]
+  );
+
+  return meshRef;
+}
+
 function Scene() {
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
@@ -121,96 +181,13 @@ function Scene() {
     createAtlasTexture(atlasWidth, atlasHeight)
   ]);
 
-  const [mesh1Ref, mesh1] = useResource<THREE.Mesh>();
-  const [mesh2Ref, mesh2] = useResource<THREE.Mesh>();
-
-  const atlasInfo: {
-    mesh: THREE.Mesh;
-    buffer: THREE.BufferGeometry;
-    faceIndex: number;
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-    pixelFillCount: number;
-  }[] = useMemo(() => [], []);
+  const atlasInfo: AtlasItem[] = useMemo(() => [], []);
 
   const [meshBuffer1Ref, meshBuffer1] = useResource<THREE.BufferGeometry>();
-
-  useLayoutEffect(() => {
-    if (!mesh1 || !meshBuffer1) {
-      return;
-    }
-
-    const uvAttr = meshBuffer1.attributes.uv;
-
-    for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
-      const atlasFaceIndex = atlasInfo.length;
-      const { left, top, right, bottom } = computeFaceUV(
-        atlasFaceIndex,
-        faceIndex,
-        meshBuffer1.attributes.position.array
-      );
-
-      // default is [0, 1, 1, 1, 0, 0, 1, 0]
-      const uvItemBase = faceIndex * 4;
-      uvAttr.setXY(uvItemBase, left, bottom);
-      uvAttr.setXY(uvItemBase + 1, right, bottom);
-      uvAttr.setXY(uvItemBase + 2, left, top);
-      uvAttr.setXY(uvItemBase + 3, right, top);
-
-      atlasInfo.push({
-        mesh: mesh1,
-        buffer: meshBuffer1,
-        faceIndex,
-        left,
-        top,
-        right,
-        bottom,
-        pixelFillCount: 0
-      });
-    }
-
-    meshBuffer1.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
-  }, [mesh1, meshBuffer1]);
+  const mesh1Ref = useMeshWithAtlas(atlasInfo, meshBuffer1);
 
   const [meshBuffer2Ref, meshBuffer2] = useResource<THREE.BufferGeometry>();
-  useLayoutEffect(() => {
-    if (!mesh2 || !meshBuffer2) {
-      return;
-    }
-
-    const uvAttr = meshBuffer2.attributes.uv;
-
-    for (let faceIndex = 0; faceIndex < 6; faceIndex += 1) {
-      const atlasFaceIndex = atlasInfo.length;
-      const { left, top, right, bottom } = computeFaceUV(
-        atlasFaceIndex,
-        faceIndex,
-        meshBuffer2.attributes.position.array
-      );
-
-      // default is [0, 1, 1, 1, 0, 0, 1, 0]
-      const uvItemBase = faceIndex * 4;
-      uvAttr.setXY(uvItemBase, left, bottom);
-      uvAttr.setXY(uvItemBase + 1, right, bottom);
-      uvAttr.setXY(uvItemBase + 2, left, top);
-      uvAttr.setXY(uvItemBase + 3, right, top);
-
-      atlasInfo.push({
-        mesh: mesh2,
-        buffer: meshBuffer2,
-        faceIndex,
-        left,
-        top,
-        right,
-        bottom,
-        pixelFillCount: 0
-      });
-    }
-
-    meshBuffer2.setAttribute('uv2', new THREE.BufferAttribute(uvAttr.array, 2));
-  }, [mesh2, meshBuffer2]);
+  const mesh2Ref = useMeshWithAtlas(atlasInfo, meshBuffer2);
 
   const rtWidth = 32;
   const rtHeight = 32;
@@ -377,7 +354,7 @@ function Scene() {
 
   const mesh1Pos: [number, number, number] = [0, 0, -2];
   const mesh1Args: [number, number, number] = [5, 5, 2];
-  const mesh2Pos: [number, number, number] = [0, 0, 3];
+  const mesh2Pos: [number, number, number] = [0, 0, 2];
   const mesh2Args: [number, number, number] = [1, 1, 5];
   const lightPos: [number, number, number] = [5, -5, 10];
 
@@ -393,7 +370,7 @@ function Scene() {
           <meshBasicMaterial attach="material" map={pinholeTexture} />
         </mesh>
 
-        <mesh position={mesh1Pos}>
+        <mesh position={mesh1Pos} ref={mesh1Ref}>
           <boxBufferGeometry
             attach="geometry"
             args={mesh1Args}
@@ -401,7 +378,7 @@ function Scene() {
           />
           <meshBasicMaterial attach="material" map={atlasStack[0].texture} />
         </mesh>
-        <mesh position={mesh2Pos}>
+        <mesh position={mesh2Pos} ref={mesh2Ref}>
           <boxBufferGeometry
             attach="geometry"
             args={mesh2Args}
@@ -412,14 +389,14 @@ function Scene() {
       </scene>
 
       <scene ref={lightSceneRef}>
-        <mesh position={mesh1Pos} ref={mesh1Ref}>
+        <mesh position={mesh1Pos}>
           {meshBuffer1 && (
             <primitive attach="geometry" object={meshBuffer1} dispose={null} />
           )}
           <meshBasicMaterial attach="material" map={atlasStack[1].texture} />
         </mesh>
 
-        <mesh position={mesh2Pos} ref={mesh2Ref}>
+        <mesh position={mesh2Pos}>
           {meshBuffer2 && (
             <primitive attach="geometry" object={meshBuffer2} dispose={null} />
           )}
