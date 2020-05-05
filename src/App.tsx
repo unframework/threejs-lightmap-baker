@@ -22,12 +22,12 @@ function Scene() {
   const [meshBuffer2Ref, meshBuffer2] = useResource<THREE.BufferGeometry>();
   const mesh2Ref = useMeshWithAtlas(atlasInfo, meshBuffer2);
 
+  const [meshBuffer3Ref, meshBuffer3] = useResource<THREE.BufferGeometry>();
+  const mesh3Ref = useMeshWithAtlas(atlasInfo, meshBuffer3);
+
   useFrame(({ gl, camera }) => {
     gl.render(mainScene, camera);
   }, 20);
-
-  const mesh1Pos: [number, number, number] = [0, 0, -2];
-  const mesh2Pos: [number, number, number] = [0, 0, 2];
 
   return (
     <>
@@ -41,7 +41,7 @@ function Scene() {
           <meshBasicMaterial attach="material" map={probeDebugTexture} />
         </mesh>
 
-        <mesh position={mesh1Pos} ref={mesh1Ref}>
+        <mesh position={[0, 0, -1]} ref={mesh1Ref}>
           <planeBufferGeometry
             attach="geometry"
             args={[5, 5]}
@@ -49,39 +49,54 @@ function Scene() {
           />
           <meshBasicMaterial attach="material" map={outputTexture} />
         </mesh>
-        <mesh position={mesh2Pos} ref={mesh2Ref}>
+        <mesh position={[-1.5, 0, 2]} ref={mesh2Ref}>
           <boxBufferGeometry
             attach="geometry"
-            args={[1, 1, 5]}
+            args={[2, 1, 4.5]}
             ref={meshBuffer2Ref}
+          />
+          <meshBasicMaterial attach="material" map={outputTexture} />
+        </mesh>
+        <mesh position={[1.5, 0, 2]} ref={mesh3Ref}>
+          <boxBufferGeometry
+            attach="geometry"
+            args={[2, 1, 4.5]}
+            ref={meshBuffer3Ref}
           />
           <meshBasicMaterial attach="material" map={outputTexture} />
         </mesh>
       </scene>
 
       <scene ref={lightSceneRef}>
-        <mesh position={mesh1Pos}>
-          {meshBuffer1 && (
+        {mesh1Ref.current && meshBuffer1 && (
+          <mesh position={mesh1Ref.current.position}>
             <primitive attach="geometry" object={meshBuffer1} dispose={null} />
-          )}
-          <meshBasicMaterial attach="material" map={lightSceneTexture} />
-        </mesh>
+            <meshBasicMaterial attach="material" map={lightSceneTexture} />
+          </mesh>
+        )}
 
-        <mesh position={mesh2Pos}>
-          {meshBuffer2 && (
+        {mesh2Ref.current && meshBuffer2 && (
+          <mesh position={mesh2Ref.current.position}>
             <primitive attach="geometry" object={meshBuffer2} dispose={null} />
-          )}
-          <meshBasicMaterial attach="material" map={lightSceneTexture} />
-        </mesh>
+            <meshBasicMaterial attach="material" map={lightSceneTexture} />
+          </mesh>
+        )}
 
-        <mesh position={[10, -10, 20]}>
-          <boxBufferGeometry attach="geometry" args={[8, 8, 8]} />
+        {mesh3Ref.current && meshBuffer2 && (
+          <mesh position={mesh3Ref.current.position}>
+            <primitive attach="geometry" object={meshBuffer2} dispose={null} />
+            <meshBasicMaterial attach="material" map={lightSceneTexture} />
+          </mesh>
+        )}
+
+        <mesh position={[0, -4, 4]}>
+          <boxBufferGeometry attach="geometry" args={[4, 2, 4]} />
           <meshBasicMaterial attach="material" color="#ffffff" />
         </mesh>
 
-        <mesh position={[-8, -8, 20]}>
-          <boxBufferGeometry attach="geometry" args={[4, 4, 4]} />
-          <meshBasicMaterial attach="material" color="#ff8080" />
+        <mesh position={[0, 8, 8]}>
+          <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+          <meshBasicMaterial attach="material" color="#80ffff" />
         </mesh>
       </scene>
     </>
