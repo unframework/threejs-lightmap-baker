@@ -14,39 +14,52 @@ const atlasItemMaxDim = 5;
 
 const itemsPerRow = Math.floor(1 / (itemSizeU + itemUVMargin));
 
+const tmpFaceIndexes: [number, number, number, number] = [-1, -1, -1, -1];
+const tmpOrigin = new THREE.Vector3();
+const tmpU = new THREE.Vector3();
+const tmpV = new THREE.Vector3();
+
+function fetchFaceIndexes(indexArray: ArrayLike<number>, faceIndex: number) {
+  const vBase = faceIndex * 6;
+
+  // pattern is ABD, BCD
+  tmpFaceIndexes[0] = indexArray[vBase];
+  tmpFaceIndexes[1] = indexArray[vBase + 1];
+  tmpFaceIndexes[2] = indexArray[vBase + 4];
+  tmpFaceIndexes[3] = indexArray[vBase + 5];
+}
+
+function fetchFaceUV(
+  posArray: ArrayLike<number>,
+  faceIndexes: [number, number, number, number]
+) {
+  // get face vertex positions
+  const facePosOrigin = faceIndexes[1] * 3;
+  const facePosU = faceIndexes[2] * 3;
+  const facePosV = faceIndexes[0] * 3;
+
+  tmpOrigin.fromArray(posArray, facePosOrigin);
+  tmpU.fromArray(posArray, facePosU);
+  tmpV.fromArray(posArray, facePosV);
+}
+
 function computeFaceUV(
   atlasFaceIndex: number,
-  faceIndex: number,
-  posArray: ArrayLike<number>
+  posArray: ArrayLike<number>,
+  faceIndexes: ArrayLike<number>
 ) {
   const itemColumn = atlasFaceIndex % itemsPerRow;
   const itemRow = Math.floor(atlasFaceIndex / itemsPerRow);
 
   // get face vertex positions
-  const facePosStart = faceIndex * 4 * 3;
-  const facePosOrigin = facePosStart + 2 * 3;
-  const facePosU = facePosStart + 3 * 3;
-  const facePosV = facePosStart;
+  fetchFaceUV(posArray, tmpFaceIndexes);
 
-  const ox = posArray[facePosOrigin];
-  const oy = posArray[facePosOrigin + 1];
-  const oz = posArray[facePosOrigin + 2];
+  // compute face dimensions
+  tmpU.sub(tmpOrigin);
+  tmpV.sub(tmpOrigin);
 
-  // compute face dimension
-  const dU = new THREE.Vector3(
-    posArray[facePosU] - ox,
-    posArray[facePosU + 1] - oy,
-    posArray[facePosU + 2] - oz
-  );
-
-  const dV = new THREE.Vector3(
-    posArray[facePosV] - ox,
-    posArray[facePosV + 1] - oy,
-    posArray[facePosV + 2] - oz
-  );
-
-  const dUdim = Math.min(atlasItemMaxDim, dU.length());
-  const dVdim = Math.min(atlasItemMaxDim, dV.length());
+  const dUdim = Math.min(atlasItemMaxDim, tmpU.length());
+  const dVdim = Math.min(atlasItemMaxDim, tmpV.length());
 
   const left = itemColumn * (itemSizeU + itemUVMargin);
   const top = itemRow * (itemSizeV + itemUVMargin);
@@ -115,25 +128,30 @@ export function useMeshWithAtlas(
         return;
       }
 
+      if (!meshBuffer.index) {
+        throw new Error('expecting indexed mesh buffer');
+      }
+
+      const indexes = meshBuffer.index.array;
       const posAttr = meshBuffer.attributes.position;
       const uvAttr = meshBuffer.attributes.uv;
 
-      const faceCount = posAttr.count / 4;
+      const faceCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
 
       for (let faceIndex = 0; faceIndex < faceCount; faceIndex += 1) {
         const atlasFaceIndex = atlasInfo.length;
+
+        fetchFaceIndexes(indexes, faceIndex);
         const { left, top, right, bottom } = computeFaceUV(
           atlasFaceIndex,
-          faceIndex,
-          posAttr.array
+          posAttr.array,
+          tmpFaceIndexes
         );
 
-        // default is [0, 1, 1, 1, 0, 0, 1, 0]
-        const uvItemBase = faceIndex * 4;
-        uvAttr.setXY(uvItemBase, left, bottom);
-        uvAttr.setXY(uvItemBase + 1, right, bottom);
-        uvAttr.setXY(uvItemBase + 2, left, top);
-        uvAttr.setXY(uvItemBase + 3, right, top);
+        uvAttr.setXY(tmpFaceIndexes[0], left, bottom);
+        uvAttr.setXY(tmpFaceIndexes[1], left, top);
+        uvAttr.setXY(tmpFaceIndexes[2], right, top);
+        uvAttr.setXY(tmpFaceIndexes[3], right, bottom);
 
         atlasInfo.push({
           mesh: mesh,
@@ -249,53 +267,43 @@ export function useAtlas(): {
     const pV = (atlasTexelY + 0.5 - atlasTexelTop) / itemSizeV;
 
     // read vertex position for this face and interpolate along U and V axes
+    if (!buffer.index) {
+      throw new Error('no indexes');
+    }
+    const indexes = buffer.index.array;
     const posArray = buffer.attributes.position.array;
     const normalArray = buffer.attributes.normal.array;
-    const facePosStart = faceIndex * 4 * 3;
-    const facePosOrigin = facePosStart + 2 * 3;
-    const facePosU = facePosStart + 3 * 3;
-    const facePosV = facePosStart;
 
-    const faceNormalStart = faceIndex * 4 * 3;
+    // get face vertex positions
+    fetchFaceIndexes(indexes, faceIndex);
+    fetchFaceUV(posArray, tmpFaceIndexes);
 
-    const ox = posArray[facePosOrigin];
-    const oy = posArray[facePosOrigin + 1];
-    const oz = posArray[facePosOrigin + 2];
-
-    const dUx = posArray[facePosU] - ox;
-    const dUy = posArray[facePosU + 1] - oy;
-    const dUz = posArray[facePosU + 2] - oz;
-
-    const dVx = posArray[facePosV] - ox;
-    const dVy = posArray[facePosV + 1] - oy;
-    const dVz = posArray[facePosV + 2] - oz;
-
-    // console.log(atlasTexelX, atlasTexelY, pUVx, pUVy, pUVz);
+    // compute face dimensions
+    tmpU.sub(tmpOrigin);
+    tmpV.sub(tmpOrigin);
 
     // set camera to match texel, first in mesh-local space
-    const texelPos = new THREE.Vector3(
-      ox + dUx * pU + dVx * pV,
-      oy + dUy * pU + dVy * pV,
-      oz + dUz * pU + dVz * pV
-    );
+    tmpOrigin.addScaledVector(tmpU, pU);
+    tmpOrigin.addScaledVector(tmpV, pV);
 
-    probeCam.position.copy(texelPos);
+    probeCam.position.copy(tmpOrigin);
 
-    texelPos.x += normalArray[faceNormalStart];
-    texelPos.y += normalArray[faceNormalStart + 1];
-    texelPos.z += normalArray[faceNormalStart + 2];
-
+    // random rotation (in face plane) @todo normalize axes?
     const upAngle = Math.random() * Math.PI;
     const upAngleCos = Math.cos(upAngle);
     const upAngleSin = Math.sin(upAngle);
 
-    probeCam.up.set(
-      dUx * upAngleCos - dVx * upAngleSin,
-      dUy * upAngleCos - dVy * upAngleSin,
-      dUz * upAngleCos - dVz * upAngleSin
-    ); // random rotation (in face plane) @todo normalize axes?
+    probeCam.up.set(0, 0, 0);
+    probeCam.up.addScaledVector(tmpU, upAngleCos);
+    probeCam.up.addScaledVector(tmpV, -upAngleSin);
 
-    probeCam.lookAt(texelPos);
+    // add normal to accumulator and look at it
+    const faceNormalStart = tmpFaceIndexes[0] * 3;
+    tmpOrigin.x += normalArray[faceNormalStart];
+    tmpOrigin.y += normalArray[faceNormalStart + 1];
+    tmpOrigin.z += normalArray[faceNormalStart + 2];
+
+    probeCam.lookAt(tmpOrigin);
 
     // then, transform camera into world space
     probeCam.applyMatrix4(mesh.matrixWorld);
