@@ -398,7 +398,7 @@ export function useAtlas(): {
   lightSceneRef: React.MutableRefObject<THREE.Scene>;
   lightSceneTexture: THREE.Texture;
   handleDebugClick: (event: PointerEvent) => void;
-  probeDebugTexture: THREE.Texture;
+  probeDebugTextures: THREE.Texture[];
 } {
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
 
@@ -412,18 +412,27 @@ export function useAtlas(): {
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
 
-  const probeDebugData = useMemo(() => {
-    return new Uint8Array(probeTargetSize * probeTargetSize * 4);
+  const probeDebugDataList = useMemo(() => {
+    return [
+      new Uint8Array(probeTargetSize * probeTargetSize * 4),
+      new Uint8Array(probeTargetSize * probeTargetSize * 4),
+      new Uint8Array(probeTargetSize * probeTargetSize * 4),
+      new Uint8Array(probeTargetSize * probeTargetSize * 4),
+      new Uint8Array(probeTargetSize * probeTargetSize * 4)
+    ];
   }, []);
 
-  const probeDebugTexture = useMemo(() => {
-    return new THREE.DataTexture(
-      probeDebugData,
-      probeTargetSize,
-      probeTargetSize,
-      THREE.RGBAFormat
+  const probeDebugTextures = useMemo(() => {
+    return probeDebugDataList.map(
+      (data) =>
+        new THREE.DataTexture(
+          data,
+          probeTargetSize,
+          probeTargetSize,
+          THREE.RGBAFormat
+        )
     );
-  }, [probeDebugData]);
+  }, [probeDebugDataList]);
 
   const atlasFaceFillIndexRef = useRef(0);
 
@@ -525,18 +534,6 @@ export function useAtlas(): {
       }
 
       atlasStack[0].texture.needsUpdate = true;
-
-      // mark debug texture for copying
-      // if (currentAtlasFaceIndex === 0 && faceTexelX === 0 && faceTexelY === 0) {
-      //   for (let i = 0; i < probeData.length; i += 4) {
-      //     probeDebugData[i] = Math.min(255, 255 * probeData[i]);
-      //     probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
-      //     probeDebugData[i + 2] = Math.min(255, 255 * probeData[i + 2]);
-      //     probeDebugData[i + 3] = 255;
-      //   }
-
-      //   probeDebugTexture.needsUpdate = true;
-      // }
     }
 
     for (let iteration = 0; iteration < iterationsPerFrame; iteration += 1) {
@@ -601,13 +598,29 @@ export function useAtlas(): {
       faceTexelY
     );
 
+    let debugIndex = 0;
     renderLightProbe(
       gl,
       item,
       faceTexelX,
       faceTexelY,
       lightScene,
-      (probeData, pixelStart, pixelCount) => {}
+      (probeData, pixelStart, pixelCount) => {
+        // copy viewport data and mark debug texture for copying
+        const probeDebugData = probeDebugDataList[debugIndex];
+        const probeDebugTexture = probeDebugTextures[debugIndex];
+
+        for (let i = 0; i < probeData.length; i += 4) {
+          probeDebugData[i] = Math.min(255, 255 * probeData[i]);
+          probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
+          probeDebugData[i + 2] = Math.min(255, 255 * probeData[i + 2]);
+          probeDebugData[i + 3] = 255;
+        }
+
+        probeDebugTexture.needsUpdate = true;
+
+        debugIndex += 1;
+      }
     );
   }
 
@@ -617,6 +630,6 @@ export function useAtlas(): {
     outputTexture: atlasStack[0].texture,
     lightSceneTexture: atlasStack[1].texture,
     handleDebugClick,
-    probeDebugTexture
+    probeDebugTextures
   };
 }

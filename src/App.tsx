@@ -155,7 +155,7 @@ function Scene() {
     lightSceneRef,
     lightSceneTexture,
     handleDebugClick,
-    probeDebugTexture
+    probeDebugTextures
   } = useAtlas();
 
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
@@ -195,10 +195,12 @@ function Scene() {
     <>
       <scene ref={debugSceneRef}>
         {/* render textures using probe-scene materials to avoid being affected by tone mapping */}
-        <mesh position={[10, 90, 0]}>
-          <planeBufferGeometry attach="geometry" args={[10, 10]} />
-          <ProbeDebugMaterial attach="material" lumMap={probeDebugTexture} />
-        </mesh>
+        {probeDebugTextures.map((tex, texIndex) => (
+          <mesh position={[5, 95 - texIndex * 9, 0]} key={texIndex}>
+            <planeBufferGeometry attach="geometry" args={[8, 8]} />
+            <ProbeDebugMaterial attach="material" lumMap={tex} />
+          </mesh>
+        ))}
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
           <ProbeDebugMaterial attach="material" lumMap={outputTexture} />
