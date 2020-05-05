@@ -154,6 +154,7 @@ function Scene() {
     outputTexture,
     lightSceneRef,
     lightSceneTexture,
+    handleDebugClick,
     probeDebugTexture
   } = useAtlas();
 
@@ -210,11 +211,11 @@ function Scene() {
           <meshBasicMaterial attach="material" color="#171717" />
         </mesh>
 
-        <mesh position={[0, 0, -1]} ref={mesh1Ref}>
+        <mesh position={[0, 0, -1]} ref={mesh1Ref} onClick={handleDebugClick}>
           <GridGeometry attach="geometry" ref={meshBuffer1Ref} />
           <FinalMeshMaterial attach="material" lumMap={outputTexture} />
         </mesh>
-        <mesh position={[-1.5, 0, 2]} ref={mesh2Ref}>
+        <mesh position={[-1.5, 0, 2]} ref={mesh2Ref} onClick={handleDebugClick}>
           <boxBufferGeometry
             attach="geometry"
             args={[2, 1, 4.5]}
@@ -222,7 +223,7 @@ function Scene() {
           />
           <FinalMeshMaterial attach="material" lumMap={outputTexture} />
         </mesh>
-        <mesh position={[1.5, 0, 2]} ref={mesh3Ref}>
+        <mesh position={[1.5, 0, 2]} ref={mesh3Ref} onClick={handleDebugClick}>
           <boxBufferGeometry
             attach="geometry"
             args={[2, 1, 4.5]}
@@ -230,7 +231,7 @@ function Scene() {
           />
           <FinalMeshMaterial attach="material" lumMap={outputTexture} />
         </mesh>
-        <mesh position={[0, 3, 3]} ref={mesh4Ref}>
+        <mesh position={[0, 3, 3]} ref={mesh4Ref} onClick={handleDebugClick}>
           <boxBufferGeometry
             attach="geometry"
             args={[3, 0.5, 3]}

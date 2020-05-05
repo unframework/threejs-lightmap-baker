@@ -1,5 +1,10 @@
 import React, { useRef, useState, useMemo } from 'react';
-import { useUpdate, useResource, useFrame } from 'react-three-fiber';
+import {
+  useUpdate,
+  useResource,
+  useFrame,
+  PointerEvent
+} from 'react-three-fiber';
 import * as THREE from 'three';
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
@@ -261,6 +266,7 @@ export function useAtlas(): {
   outputTexture: THREE.Texture;
   lightSceneRef: React.MutableRefObject<THREE.Scene>;
   lightSceneTexture: THREE.Texture;
+  handleDebugClick: (event: PointerEvent) => void;
   probeDebugTexture: THREE.Texture;
 } {
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
@@ -513,11 +519,23 @@ export function useAtlas(): {
     }
   }, 10);
 
+  function handleDebugClick(event: PointerEvent) {
+    console.log(event);
+
+    const quadIndex = Math.floor(event.faceIndex / 2);
+    const item = atlasInfo.find(
+      (item) => item.mesh === event.object && item.quadIndex === quadIndex
+    );
+
+    console.log(item);
+  }
+
   return {
     atlasInfo,
     lightSceneRef,
     outputTexture: atlasStack[0].texture,
     lightSceneTexture: atlasStack[1].texture,
+    handleDebugClick,
     probeDebugTexture
   };
 }
