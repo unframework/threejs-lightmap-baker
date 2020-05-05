@@ -194,7 +194,9 @@ export function useAtlas(): {
 
   const probeTargetSize = 32;
   const probeTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize);
+    return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
+      type: THREE.FloatType
+    });
   }, []);
 
   const probeCam = useMemo(() => {
@@ -206,17 +208,21 @@ export function useAtlas(): {
   }, []);
 
   const probeData = useMemo(() => {
+    return new Float32Array(probeTargetSize * probeTargetSize * 4);
+  }, []);
+
+  const probeDebugData = useMemo(() => {
     return new Uint8Array(probeTargetSize * probeTargetSize * 4);
   }, []);
 
   const probeDebugTexture = useMemo(() => {
     return new THREE.DataTexture(
-      probeData,
+      probeDebugData,
       probeTargetSize,
       probeTargetSize,
       THREE.RGBAFormat
     );
-  }, [probeData]);
+  }, [probeDebugData]);
 
   const atlasFaceFillIndexRef = useRef(0);
 
@@ -338,7 +344,8 @@ export function useAtlas(): {
       );
 
       // mark debug texture for copying
-      probeDebugTexture.needsUpdate = true;
+      // @todo proper copy
+      // probeDebugTexture.needsUpdate = true;
 
       const probeDataLength = probeData.length;
       let r = 0,
@@ -351,9 +358,9 @@ export function useAtlas(): {
       }
 
       const pixelCount = probeTargetSize * probeTargetSize;
-      const ar = Math.round(r / pixelCount);
-      const ag = Math.round(g / pixelCount);
-      const ab = Math.round(b / pixelCount);
+      const ar = Math.min(255, Math.round((255 * r) / pixelCount));
+      const ag = Math.min(255, Math.round((255 * g) / pixelCount));
+      const ab = Math.min(255, Math.round((255 * b) / pixelCount));
 
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
       atlasStack[0].data.set([ar, ag, ab], atlasTexelBase * 3);

@@ -6,6 +6,27 @@ import { useAtlas, useMeshWithAtlas } from './Atlas';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 
+const testLightMat = new THREE.ShaderMaterial({
+  uniforms: {
+    color: { value: new THREE.Color(0xffffff) },
+    intensity: { value: 4 }
+  },
+  vertexShader: `
+    void main() {
+      vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 color;
+    uniform float intensity;
+
+    void main() {
+      gl_FragColor = vec4( color * intensity, 1.0 );
+    }
+  `
+});
+
 function Scene() {
   const {
     atlasInfo,
@@ -110,12 +131,12 @@ function Scene() {
 
         <mesh position={[0, -4, 4]}>
           <boxBufferGeometry attach="geometry" args={[4, 2, 4]} />
-          <meshBasicMaterial attach="material" color="#ffffff" />
+          <primitive attach="material" object={testLightMat} dispose={null} />
         </mesh>
 
         <mesh position={[0, 8, 8]}>
           <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
-          <meshBasicMaterial attach="material" color="#80ffff" />
+          <primitive attach="material" object={testLightMat} dispose={null} />
         </mesh>
       </scene>
     </>
