@@ -24,6 +24,9 @@ const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
+const tmpNormal = new THREE.Vector3();
+const tmpLookAt = new THREE.Vector3();
+
 function fetchFaceIndexes(indexArray: ArrayLike<number>, faceIndex: number) {
   const vBase = faceIndex * 6;
 
@@ -112,18 +115,67 @@ function createAtlasTexture(
   return { data, texture };
 }
 
-function computeAverageRGB(probeData: Float32Array): [number, number, number] {
-  const probeDataLength = probeData.length;
+function setUpProbeUp(
+  probeCam: THREE.Camera,
+  mesh: THREE.Mesh,
+  origin: THREE.Vector3,
+  normal: THREE.Vector3,
+  uDir: THREE.Vector3
+) {
+  probeCam.position.copy(origin);
+
+  // align "up" to be along U-axis of face (for convenience)
+  probeCam.up.copy(uDir);
+
+  // add normal to accumulator and look at it
+  tmpLookAt.copy(normal);
+  tmpLookAt.add(origin);
+
+  probeCam.lookAt(tmpLookAt);
+  probeCam.scale.set(1, 1, 1);
+
+  // then, transform camera into world space
+  probeCam.applyMatrix4(mesh.matrixWorld);
+}
+
+function setUpProbeSide(
+  probeCam: THREE.Camera,
+  mesh: THREE.Mesh,
+  origin: THREE.Vector3,
+  normal: THREE.Vector3,
+  direction: THREE.Vector3,
+  directionSign: number
+) {
+  probeCam.position.copy(tmpOrigin);
+
+  // up is the normal
+  probeCam.up.copy(normal);
+
+  // add normal to accumulator and look at it
+  tmpLookAt.copy(tmpOrigin);
+  tmpLookAt.addScaledVector(direction, directionSign);
+
+  probeCam.lookAt(tmpLookAt);
+  probeCam.scale.set(1, 1, 1);
+
+  // then, transform camera into world space
+  probeCam.applyMatrix4(mesh.matrixWorld);
+}
+
+function computeAverageRGB(
+  probeData: Float32Array,
+  pixelCount: number
+): [number, number, number] {
+  const dataMax = pixelCount * 4;
   let r = 0,
     g = 0,
     b = 0;
-  for (let i = 0; i < probeDataLength; i += 4) {
+  for (let i = 0; i < dataMax; i += 4) {
     r += probeData[i];
     g += probeData[i + 1];
     b += probeData[i + 2];
   }
 
-  const pixelCount = probeDataLength / 4;
   const ar = r / pixelCount;
   const ag = g / pixelCount;
   const ab = b / pixelCount;
@@ -211,7 +263,7 @@ export function useAtlas(): {
 
   const atlasInfo: AtlasItem[] = useMemo(() => [], []);
 
-  const probeTargetSize = 32;
+  const probeTargetSize = 16;
   const probeTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
       type: THREE.FloatType
@@ -219,7 +271,7 @@ export function useAtlas(): {
   }, []);
 
   const probeCam = useMemo(() => {
-    const rtFov = 90; // full near-180 FOV actually works poorly
+    const rtFov = 90; // view cone must be quarter of the hemisphere
     const rtAspect = 1; // square render target
     const rtNear = 0.05;
     const rtFar = 50;
@@ -327,32 +379,12 @@ export function useAtlas(): {
       tmpOrigin.addScaledVector(tmpU, pU);
       tmpOrigin.addScaledVector(tmpV, pV);
 
-      probeCam.position.copy(tmpOrigin);
-
-      // random rotation (in face plane) @todo normalize axes?
-      const upAngle = Math.random() * Math.PI;
-      const upAngleCos = Math.cos(upAngle);
-      const upAngleSin = Math.sin(upAngle);
-
-      probeCam.up.set(0, 0, 0);
-      probeCam.up.addScaledVector(tmpU, upAngleCos);
-      probeCam.up.addScaledVector(tmpV, -upAngleSin);
-
-      // add normal to accumulator and look at it
-      const faceNormalStart = tmpFaceIndexes[0] * 3;
-      tmpOrigin.x += normalArray[faceNormalStart];
-      tmpOrigin.y += normalArray[faceNormalStart + 1];
-      tmpOrigin.z += normalArray[faceNormalStart + 2];
-
-      probeCam.lookAt(tmpOrigin);
-
-      // then, transform camera into world space
-      probeCam.applyMatrix4(mesh.matrixWorld);
+      tmpNormal.fromArray(normalArray, tmpFaceIndexes[0] * 3);
 
       gl.setRenderTarget(probeTarget);
-      gl.render(lightScene, probeCam);
-      gl.setRenderTarget(null);
 
+      setUpProbeUp(probeCam, mesh, tmpOrigin, tmpNormal, tmpU);
+      gl.render(lightScene, probeCam);
       gl.readRenderTargetPixels(
         probeTarget,
         0,
@@ -361,8 +393,63 @@ export function useAtlas(): {
         probeTargetSize,
         probeData
       );
+      const rgbUp = computeAverageRGB(probeData, probeData.length / 4);
 
-      const rgb = computeAverageRGB(probeData);
+      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, 1);
+      gl.render(lightScene, probeCam);
+      gl.readRenderTargetPixels(
+        probeTarget,
+        0,
+        0,
+        probeTargetSize,
+        probeTargetSize,
+        probeData
+      );
+      const rgbUF = computeAverageRGB(probeData, probeData.length / 4 / 2);
+
+      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, -1);
+      gl.render(lightScene, probeCam);
+      gl.readRenderTargetPixels(
+        probeTarget,
+        0,
+        0,
+        probeTargetSize,
+        probeTargetSize,
+        probeData
+      );
+      const rgbUB = computeAverageRGB(probeData, probeData.length / 4 / 2);
+
+      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, 1);
+      gl.render(lightScene, probeCam);
+      gl.readRenderTargetPixels(
+        probeTarget,
+        0,
+        0,
+        probeTargetSize,
+        probeTargetSize,
+        probeData
+      );
+      const rgbVF = computeAverageRGB(probeData, probeData.length / 4 / 2);
+
+      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, -1);
+      gl.render(lightScene, probeCam);
+      gl.readRenderTargetPixels(
+        probeTarget,
+        0,
+        0,
+        probeTargetSize,
+        probeTargetSize,
+        probeData
+      );
+      const rgbVB = computeAverageRGB(probeData, probeData.length / 4 / 2);
+
+      gl.setRenderTarget(null);
+
+      const rgb = [
+        (rgbUp[0] * 2 + rgbUF[0] + rgbUB[0] + rgbVF[0] + rgbVB[0]) / 6,
+        (rgbUp[1] * 2 + rgbUF[1] + rgbUB[1] + rgbVF[1] + rgbVB[1]) / 6,
+        (rgbUp[2] * 2 + rgbUF[2] + rgbUB[2] + rgbVF[2] + rgbVB[2]) / 6
+      ];
 
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
       atlasStack[0].data.set(rgb, atlasTexelBase * 3);
@@ -383,11 +470,7 @@ export function useAtlas(): {
       atlasStack[0].texture.needsUpdate = true;
 
       // mark debug texture for copying
-      if (
-        currentAtlasFaceIndex === 4 &&
-        faceTexelX === 10 &&
-        faceTexelY === 15
-      ) {
+      if (currentAtlasFaceIndex === 0 && faceTexelX === 8 && faceTexelY === 2) {
         for (let i = 0; i < probeData.length; i += 4) {
           probeDebugData[i] = Math.min(255, 255 * probeData[i]);
           probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
