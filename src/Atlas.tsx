@@ -211,24 +211,26 @@ export function useMeshWithAtlas(
 
       const indexes = meshBuffer.index.array;
       const posAttr = meshBuffer.attributes.position;
-      const uvAttr = meshBuffer.attributes.uv;
 
       const faceCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
+
+      const lumUVAttr = new THREE.Float32BufferAttribute(faceCount * 4 * 2, 2);
 
       for (let faceIndex = 0; faceIndex < faceCount; faceIndex += 1) {
         const atlasFaceIndex = atlasInfo.length;
 
         fetchFaceIndexes(indexes, faceIndex);
+
         const { left, top, sizeU, sizeV } = computeFaceUV(
           atlasFaceIndex,
           posAttr.array,
           tmpFaceIndexes
         );
 
-        uvAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
-        uvAttr.setXY(tmpFaceIndexes[1], left, top);
-        uvAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
-        uvAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
+        lumUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
+        lumUVAttr.setXY(tmpFaceIndexes[1], left, top);
+        lumUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
+        lumUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
 
         atlasInfo.push({
           mesh: mesh,
@@ -241,6 +243,12 @@ export function useMeshWithAtlas(
           pixelFillCount: 0
         });
       }
+
+      // store illumination UV as dedicated attribute
+      meshBuffer.setAttribute(
+        'lumUV',
+        lumUVAttr.setUsage(THREE.StaticDrawUsage)
+      );
     },
     [meshBuffer]
   );

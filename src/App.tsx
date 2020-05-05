@@ -51,6 +51,42 @@ const ProbeMeshMaterial: React.FC<{
     },
 
     vertexShader: `
+      attribute vec2 lumUV;
+      varying vec2 vUV;
+
+      void main() {
+        vUV = lumUV;
+
+        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D lum;
+      varying vec2 vUV;
+
+      void main() {
+        gl_FragColor = texture2D(lum, vUV);
+      }
+    `
+  });
+
+  // disposable managed object
+  return (
+    <primitive object={material} attach={attach} uniforms-lum-value={lumMap} />
+  );
+};
+
+const ProbeDebugMaterial: React.FC<{
+  attach?: string;
+  lumMap: THREE.Texture;
+}> = ({ attach, lumMap }) => {
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      lum: { value: null }
+    },
+
+    vertexShader: `
       varying vec2 vUV;
 
       void main() {
@@ -86,10 +122,11 @@ const FinalMeshMaterial: React.FC<{
     },
 
     vertexShader: `
+      attribute vec2 lumUV;
       varying vec2 vUV;
 
       void main() {
-        vUV = uv;
+        vUV = lumUV;
 
         vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
         gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
@@ -159,11 +196,11 @@ function Scene() {
         {/* render textures using probe-scene materials to avoid being affected by tone mapping */}
         <mesh position={[10, 90, 0]}>
           <planeBufferGeometry attach="geometry" args={[10, 10]} />
-          <ProbeMeshMaterial attach="material" lumMap={probeDebugTexture} />
+          <ProbeDebugMaterial attach="material" lumMap={probeDebugTexture} />
         </mesh>
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <ProbeMeshMaterial attach="material" lumMap={outputTexture} />
+          <ProbeDebugMaterial attach="material" lumMap={outputTexture} />
         </mesh>
       </scene>
 
