@@ -2,6 +2,8 @@ import React, { useRef, useState, useMemo } from 'react';
 import { useUpdate, useResource, useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
+const iterationsPerFrame = 10; // how many texels to fill per frame
+
 const atlasWidth = 128;
 const atlasHeight = 128;
 
@@ -221,129 +223,143 @@ export function useAtlas(): {
       return;
     }
 
-    // get current atlas face we are filling up
-    const currentAtlasFaceIndex = atlasFaceFillIndexRef.current;
-    const atlasFaceInfo = atlasInfo[currentAtlasFaceIndex];
+    function iterate() {
+      // get current atlas face we are filling up
+      const currentAtlasFaceIndex = atlasFaceFillIndexRef.current;
+      const atlasFaceInfo = atlasInfo[currentAtlasFaceIndex];
 
-    const { mesh, buffer, faceIndex, left, top, right, bottom } = atlasFaceInfo;
-    const itemSizeU = (right - left) * atlasWidth;
-    const itemSizeV = (bottom - top) * atlasHeight;
-    const faceTexelCols = Math.ceil(itemSizeU);
-    const faceTexelRows = Math.ceil(itemSizeV);
+      const {
+        mesh,
+        buffer,
+        faceIndex,
+        left,
+        top,
+        right,
+        bottom
+      } = atlasFaceInfo;
+      const itemSizeU = (right - left) * atlasWidth;
+      const itemSizeV = (bottom - top) * atlasHeight;
+      const faceTexelCols = Math.ceil(itemSizeU);
+      const faceTexelRows = Math.ceil(itemSizeV);
 
-    // even texel offset from face origin inside texture data
-    const fillCount = atlasFaceInfo.pixelFillCount;
+      // even texel offset from face origin inside texture data
+      const fillCount = atlasFaceInfo.pixelFillCount;
 
-    const faceTexelX = fillCount % faceTexelCols;
-    const faceTexelY = Math.floor(fillCount / faceTexelCols);
+      const faceTexelX = fillCount % faceTexelCols;
+      const faceTexelY = Math.floor(fillCount / faceTexelCols);
 
-    atlasFaceInfo.pixelFillCount =
-      (fillCount + 1) % (faceTexelRows * faceTexelCols);
+      atlasFaceInfo.pixelFillCount =
+        (fillCount + 1) % (faceTexelRows * faceTexelCols);
 
-    // tick up face index when this one is done
-    if (atlasFaceInfo.pixelFillCount === 0) {
-      atlasFaceFillIndexRef.current =
-        (currentAtlasFaceIndex + 1) % atlasInfo.length;
+      // tick up face index when this one is done
+      if (atlasFaceInfo.pixelFillCount === 0) {
+        atlasFaceFillIndexRef.current =
+          (currentAtlasFaceIndex + 1) % atlasInfo.length;
 
-      // tick up atlas texture stack once all faces are done
-      if (atlasFaceFillIndexRef.current === 0) {
-        setAtlasStack((prev) => {
-          // promote items up one level, taking last one to be the new first one
-          const last = prev[prev.length - 1];
-          return [last, ...prev.slice(0, -1)];
-        });
+        // tick up atlas texture stack once all faces are done
+        if (atlasFaceFillIndexRef.current === 0) {
+          setAtlasStack((prev) => {
+            // promote items up one level, taking last one to be the new first one
+            const last = prev[prev.length - 1];
+            return [last, ...prev.slice(0, -1)];
+          });
+        }
       }
+
+      // find texel inside atlas, as rounded to texel boundary
+      const atlasTexelLeft = left * atlasWidth;
+      const atlasTexelTop = top * atlasWidth;
+      const atlasTexelX = Math.floor(atlasTexelLeft) + faceTexelX;
+      const atlasTexelY = Math.floor(atlasTexelTop) + faceTexelY;
+
+      // compute rounded texel's U and V position within face
+      // (biasing to be in middle of texel physical square)
+      const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / itemSizeU;
+      const pV = (atlasTexelY + 0.5 - atlasTexelTop) / itemSizeV;
+
+      // read vertex position for this face and interpolate along U and V axes
+      if (!buffer.index) {
+        throw new Error('no indexes');
+      }
+      const indexes = buffer.index.array;
+      const posArray = buffer.attributes.position.array;
+      const normalArray = buffer.attributes.normal.array;
+
+      // get face vertex positions
+      fetchFaceIndexes(indexes, faceIndex);
+      fetchFaceUV(posArray, tmpFaceIndexes);
+
+      // compute face dimensions
+      tmpU.sub(tmpOrigin);
+      tmpV.sub(tmpOrigin);
+
+      // set camera to match texel, first in mesh-local space
+      tmpOrigin.addScaledVector(tmpU, pU);
+      tmpOrigin.addScaledVector(tmpV, pV);
+
+      probeCam.position.copy(tmpOrigin);
+
+      // random rotation (in face plane) @todo normalize axes?
+      const upAngle = Math.random() * Math.PI;
+      const upAngleCos = Math.cos(upAngle);
+      const upAngleSin = Math.sin(upAngle);
+
+      probeCam.up.set(0, 0, 0);
+      probeCam.up.addScaledVector(tmpU, upAngleCos);
+      probeCam.up.addScaledVector(tmpV, -upAngleSin);
+
+      // add normal to accumulator and look at it
+      const faceNormalStart = tmpFaceIndexes[0] * 3;
+      tmpOrigin.x += normalArray[faceNormalStart];
+      tmpOrigin.y += normalArray[faceNormalStart + 1];
+      tmpOrigin.z += normalArray[faceNormalStart + 2];
+
+      probeCam.lookAt(tmpOrigin);
+
+      // then, transform camera into world space
+      probeCam.applyMatrix4(mesh.matrixWorld);
+
+      gl.setRenderTarget(probeTarget);
+      gl.render(lightScene, probeCam);
+      gl.setRenderTarget(null);
+
+      gl.readRenderTargetPixels(
+        probeTarget,
+        0,
+        0,
+        probeTargetSize,
+        probeTargetSize,
+        probeData
+      );
+
+      // mark debug texture for copying
+      probeDebugTexture.needsUpdate = true;
+
+      const probeDataLength = probeData.length;
+      let r = 0,
+        g = 0,
+        b = 0;
+      for (let i = 0; i < probeDataLength; i += 4) {
+        r += probeData[i];
+        g += probeData[i + 1];
+        b += probeData[i + 2];
+      }
+
+      const pixelCount = probeTargetSize * probeTargetSize;
+      const ar = Math.round(r / pixelCount);
+      const ag = Math.round(g / pixelCount);
+      const ab = Math.round(b / pixelCount);
+
+      atlasStack[0].data.set(
+        [ar, ag, ab],
+        (atlasTexelY * atlasWidth + atlasTexelX) * 3
+      );
+      atlasStack[0].texture.needsUpdate = true;
     }
 
-    // find texel inside atlas, as rounded to texel boundary
-    const atlasTexelLeft = left * atlasWidth;
-    const atlasTexelTop = top * atlasWidth;
-    const atlasTexelX = Math.floor(atlasTexelLeft) + faceTexelX;
-    const atlasTexelY = Math.floor(atlasTexelTop) + faceTexelY;
-
-    // compute rounded texel's U and V position within face
-    // (biasing to be in middle of texel physical square)
-    const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / itemSizeU;
-    const pV = (atlasTexelY + 0.5 - atlasTexelTop) / itemSizeV;
-
-    // read vertex position for this face and interpolate along U and V axes
-    if (!buffer.index) {
-      throw new Error('no indexes');
+    for (let iteration = 0; iteration < iterationsPerFrame; iteration += 1) {
+      iterate();
     }
-    const indexes = buffer.index.array;
-    const posArray = buffer.attributes.position.array;
-    const normalArray = buffer.attributes.normal.array;
-
-    // get face vertex positions
-    fetchFaceIndexes(indexes, faceIndex);
-    fetchFaceUV(posArray, tmpFaceIndexes);
-
-    // compute face dimensions
-    tmpU.sub(tmpOrigin);
-    tmpV.sub(tmpOrigin);
-
-    // set camera to match texel, first in mesh-local space
-    tmpOrigin.addScaledVector(tmpU, pU);
-    tmpOrigin.addScaledVector(tmpV, pV);
-
-    probeCam.position.copy(tmpOrigin);
-
-    // random rotation (in face plane) @todo normalize axes?
-    const upAngle = Math.random() * Math.PI;
-    const upAngleCos = Math.cos(upAngle);
-    const upAngleSin = Math.sin(upAngle);
-
-    probeCam.up.set(0, 0, 0);
-    probeCam.up.addScaledVector(tmpU, upAngleCos);
-    probeCam.up.addScaledVector(tmpV, -upAngleSin);
-
-    // add normal to accumulator and look at it
-    const faceNormalStart = tmpFaceIndexes[0] * 3;
-    tmpOrigin.x += normalArray[faceNormalStart];
-    tmpOrigin.y += normalArray[faceNormalStart + 1];
-    tmpOrigin.z += normalArray[faceNormalStart + 2];
-
-    probeCam.lookAt(tmpOrigin);
-
-    // then, transform camera into world space
-    probeCam.applyMatrix4(mesh.matrixWorld);
-
-    gl.setRenderTarget(probeTarget);
-    gl.render(lightScene, probeCam);
-    gl.setRenderTarget(null);
-
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
-      0,
-      probeTargetSize,
-      probeTargetSize,
-      probeData
-    );
-
-    // mark debug texture for copying
-    probeDebugTexture.needsUpdate = true;
-
-    const probeDataLength = probeData.length;
-    let r = 0,
-      g = 0,
-      b = 0;
-    for (let i = 0; i < probeDataLength; i += 4) {
-      r += probeData[i];
-      g += probeData[i + 1];
-      b += probeData[i + 2];
-    }
-
-    const pixelCount = probeTargetSize * probeTargetSize;
-    const ar = Math.round(r / pixelCount);
-    const ag = Math.round(g / pixelCount);
-    const ab = Math.round(b / pixelCount);
-
-    atlasStack[0].data.set(
-      [ar, ag, ab],
-      (atlasTexelY * atlasWidth + atlasTexelX) * 3
-    );
-    atlasStack[0].texture.needsUpdate = true;
   }, 10);
 
   return {
