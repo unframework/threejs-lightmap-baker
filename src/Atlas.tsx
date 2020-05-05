@@ -4,8 +4,11 @@ import * as THREE from 'three';
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
-const atlasWidth = 128;
-const atlasHeight = 128;
+const atlasWidth = 256;
+const atlasHeight = 256;
+
+const bleedOffsetU = 2 / atlasWidth;
+const bleedOffsetV = 2 / atlasHeight;
 
 const itemSizeU = 0.1;
 const itemSizeV = 0.1;
@@ -63,12 +66,12 @@ function computeFaceUV(
   const dUdim = Math.min(atlasItemMaxDim, tmpU.length());
   const dVdim = Math.min(atlasItemMaxDim, tmpV.length());
 
-  const left = itemColumn * (itemSizeU + itemUVMargin);
-  const top = itemRow * (itemSizeV + itemUVMargin);
-  const right = left + itemSizeU * (dUdim / atlasItemMaxDim);
-  const bottom = top + itemSizeV * (dVdim / atlasItemMaxDim);
+  const left = itemColumn * (itemSizeU + itemUVMargin) + bleedOffsetU;
+  const top = itemRow * (itemSizeV + itemUVMargin) + bleedOffsetV;
+  const sizeU = itemSizeU * (dUdim / atlasItemMaxDim);
+  const sizeV = itemSizeV * (dVdim / atlasItemMaxDim);
 
-  return { left, top, right, bottom };
+  return { left, top, sizeU, sizeV };
 }
 
 function createAtlasTexture(
@@ -114,8 +117,8 @@ export interface AtlasItem {
   faceIndex: number;
   left: number;
   top: number;
-  right: number;
-  bottom: number;
+  sizeU: number;
+  sizeV: number;
   pixelFillCount: number;
 }
 
@@ -144,16 +147,16 @@ export function useMeshWithAtlas(
         const atlasFaceIndex = atlasInfo.length;
 
         fetchFaceIndexes(indexes, faceIndex);
-        const { left, top, right, bottom } = computeFaceUV(
+        const { left, top, sizeU, sizeV } = computeFaceUV(
           atlasFaceIndex,
           posAttr.array,
           tmpFaceIndexes
         );
 
-        uvAttr.setXY(tmpFaceIndexes[0], left, bottom);
+        uvAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
         uvAttr.setXY(tmpFaceIndexes[1], left, top);
-        uvAttr.setXY(tmpFaceIndexes[2], right, top);
-        uvAttr.setXY(tmpFaceIndexes[3], right, bottom);
+        uvAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
+        uvAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
 
         atlasInfo.push({
           mesh: mesh,
@@ -161,8 +164,8 @@ export function useMeshWithAtlas(
           faceIndex,
           left,
           top,
-          right,
-          bottom,
+          sizeU,
+          sizeV,
           pixelFillCount: 0
         });
       }
@@ -234,15 +237,17 @@ export function useAtlas(): {
         faceIndex,
         left,
         top,
-        right,
-        bottom
+        sizeU,
+        sizeV
       } = atlasFaceInfo;
-      const itemSizeU = (right - left) * atlasWidth;
-      const itemSizeV = (bottom - top) * atlasHeight;
-      const faceTexelCols = Math.ceil(itemSizeU);
-      const faceTexelRows = Math.ceil(itemSizeV);
 
-      // even texel offset from face origin inside texture data
+      const texelSizeU = sizeU * atlasWidth;
+      const texelSizeV = sizeV * atlasHeight;
+
+      const faceTexelCols = Math.ceil(texelSizeU);
+      const faceTexelRows = Math.ceil(texelSizeV);
+
+      // relative texel offset from face origin inside texture data
       const fillCount = atlasFaceInfo.pixelFillCount;
 
       const faceTexelX = fillCount % faceTexelCols;
@@ -274,8 +279,8 @@ export function useAtlas(): {
 
       // compute rounded texel's U and V position within face
       // (biasing to be in middle of texel physical square)
-      const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / itemSizeU;
-      const pV = (atlasTexelY + 0.5 - atlasTexelTop) / itemSizeV;
+      const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / texelSizeU;
+      const pV = (atlasTexelY + 0.5 - atlasTexelTop) / texelSizeV;
 
       // read vertex position for this face and interpolate along U and V axes
       if (!buffer.index) {
@@ -350,10 +355,25 @@ export function useAtlas(): {
       const ag = Math.round(g / pixelCount);
       const ab = Math.round(b / pixelCount);
 
-      atlasStack[0].data.set(
-        [ar, ag, ab],
-        (atlasTexelY * atlasWidth + atlasTexelX) * 3
-      );
+      const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
+      atlasStack[0].data.set([ar, ag, ab], atlasTexelBase * 3);
+
+      // propagate pixel value to seam bleed offset area if needed
+      if (faceTexelX === 0) {
+        atlasStack[0].data.set([ar, ag, ab], (atlasTexelBase - 1) * 3);
+      }
+
+      if (faceTexelY === 0) {
+        atlasStack[0].data.set([ar, ag, ab], (atlasTexelBase - atlasWidth) * 3);
+      }
+
+      if (faceTexelX === 0 && faceTexelY === 0) {
+        atlasStack[0].data.set(
+          [ar, ag, ab],
+          (atlasTexelBase - atlasWidth - 1) * 3
+        );
+      }
+
       atlasStack[0].texture.needsUpdate = true;
     }
 
