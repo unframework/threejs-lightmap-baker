@@ -178,7 +178,7 @@ export function useAtlas(): {
     const rtFov = 90; // full near-180 FOV actually works poorly
     const rtAspect = 1; // square render target
     const rtNear = 0.05;
-    const rtFar = 10;
+    const rtFar = 50;
     return new THREE.PerspectiveCamera(rtFov, rtAspect, rtNear, rtFar);
   }, []);
 
@@ -195,7 +195,7 @@ export function useAtlas(): {
     );
   }, [probeData]);
 
-  const atlasFaceFillIndexRef = useRef(4); // @todo use 0 start
+  const atlasFaceFillIndexRef = useRef(0);
 
   useFrame(({ gl, scene }) => {
     // wait until atlas is initialized
@@ -228,8 +228,7 @@ export function useAtlas(): {
         (currentAtlasFaceIndex + 1) % atlasInfo.length;
 
       // tick up atlas texture stack once all faces are done
-      // @todo start with face 0
-      if (atlasFaceFillIndexRef.current === 4) {
+      if (atlasFaceFillIndexRef.current === 0) {
         setAtlasStack((prev) => {
           // promote items up one level, taking last one to be the new first one
           const last = prev[prev.length - 1];

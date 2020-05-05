@@ -27,10 +27,7 @@ function Scene() {
   }, 20);
 
   const mesh1Pos: [number, number, number] = [0, 0, -2];
-  const mesh1Args: [number, number, number] = [5, 5, 2];
   const mesh2Pos: [number, number, number] = [0, 0, 2];
-  const mesh2Args: [number, number, number] = [1, 1, 5];
-  const lightPos: [number, number, number] = [5, -5, 10];
 
   return (
     <>
@@ -45,9 +42,9 @@ function Scene() {
         </mesh>
 
         <mesh position={mesh1Pos} ref={mesh1Ref}>
-          <boxBufferGeometry
+          <planeBufferGeometry
             attach="geometry"
-            args={mesh1Args}
+            args={[5, 5]}
             ref={meshBuffer1Ref}
           />
           <meshBasicMaterial attach="material" map={outputTexture} />
@@ -55,7 +52,7 @@ function Scene() {
         <mesh position={mesh2Pos} ref={mesh2Ref}>
           <boxBufferGeometry
             attach="geometry"
-            args={mesh2Args}
+            args={[1, 1, 5]}
             ref={meshBuffer2Ref}
           />
           <meshBasicMaterial attach="material" map={outputTexture} />
@@ -77,9 +74,14 @@ function Scene() {
           <meshBasicMaterial attach="material" map={lightSceneTexture} />
         </mesh>
 
-        <mesh position={lightPos}>
+        <mesh position={[10, -10, 20]}>
           <boxBufferGeometry attach="geometry" args={[8, 8, 8]} />
-          <meshBasicMaterial attach="material" color="white" />
+          <meshBasicMaterial attach="material" color="#ffffff" />
+        </mesh>
+
+        <mesh position={[-8, -8, 20]}>
+          <boxBufferGeometry attach="geometry" args={[4, 4, 4]} />
+          <meshBasicMaterial attach="material" color="#ff8080" />
         </mesh>
       </scene>
     </>
