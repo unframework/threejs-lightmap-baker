@@ -164,13 +164,14 @@ function setUpProbeSide(
 
 function computeAverageRGB(
   probeData: Float32Array,
+  pixelStart: number,
   pixelCount: number
 ): [number, number, number] {
-  const dataMax = pixelCount * 4;
+  const dataMax = (pixelStart + pixelCount) * 4;
   let r = 0,
     g = 0,
     b = 0;
-  for (let i = 0; i < dataMax; i += 4) {
+  for (let i = pixelStart * 4; i < dataMax; i += 4) {
     r += probeData[i];
     g += probeData[i + 1];
     b += probeData[i + 2];
@@ -264,6 +265,7 @@ export function useAtlas(): {
   const atlasInfo: AtlasItem[] = useMemo(() => [], []);
 
   const probeTargetSize = 16;
+  const probePixelCount = probeTargetSize * probeTargetSize;
   const probeTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
       type: THREE.FloatType
@@ -393,7 +395,7 @@ export function useAtlas(): {
         probeTargetSize,
         probeData
       );
-      const rgbUp = computeAverageRGB(probeData, probeData.length / 4);
+      const rgbUp = computeAverageRGB(probeData, 0, probePixelCount);
 
       setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, 1);
       gl.render(lightScene, probeCam);
@@ -405,7 +407,11 @@ export function useAtlas(): {
         probeTargetSize,
         probeData
       );
-      const rgbUF = computeAverageRGB(probeData, probeData.length / 4 / 2);
+      const rgbUF = computeAverageRGB(
+        probeData,
+        probePixelCount / 2,
+        probePixelCount / 2
+      );
 
       setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, -1);
       gl.render(lightScene, probeCam);
@@ -417,7 +423,11 @@ export function useAtlas(): {
         probeTargetSize,
         probeData
       );
-      const rgbUB = computeAverageRGB(probeData, probeData.length / 4 / 2);
+      const rgbUB = computeAverageRGB(
+        probeData,
+        probePixelCount / 2,
+        probePixelCount / 2
+      );
 
       setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, 1);
       gl.render(lightScene, probeCam);
@@ -429,7 +439,11 @@ export function useAtlas(): {
         probeTargetSize,
         probeData
       );
-      const rgbVF = computeAverageRGB(probeData, probeData.length / 4 / 2);
+      const rgbVF = computeAverageRGB(
+        probeData,
+        probePixelCount / 2,
+        probePixelCount / 2
+      );
 
       setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, -1);
       gl.render(lightScene, probeCam);
@@ -441,7 +455,11 @@ export function useAtlas(): {
         probeTargetSize,
         probeData
       );
-      const rgbVB = computeAverageRGB(probeData, probeData.length / 4 / 2);
+      const rgbVB = computeAverageRGB(
+        probeData,
+        probePixelCount / 2,
+        probePixelCount / 2
+      );
 
       gl.setRenderTarget(null);
 
@@ -470,7 +488,7 @@ export function useAtlas(): {
       atlasStack[0].texture.needsUpdate = true;
 
       // mark debug texture for copying
-      if (currentAtlasFaceIndex === 0 && faceTexelX === 8 && faceTexelY === 2) {
+      if (currentAtlasFaceIndex === 0 && faceTexelX === 0 && faceTexelY === 0) {
         for (let i = 0; i < probeData.length; i += 4) {
           probeDebugData[i] = Math.min(255, 255 * probeData[i]);
           probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
