@@ -344,10 +344,6 @@ export function useAtlas(): {
         probeData
       );
 
-      // mark debug texture for copying
-      // @todo proper copy
-      // probeDebugTexture.needsUpdate = true;
-
       const probeDataLength = probeData.length;
       let r = 0,
         g = 0,
@@ -383,6 +379,22 @@ export function useAtlas(): {
       }
 
       atlasStack[0].texture.needsUpdate = true;
+
+      // mark debug texture for copying
+      if (
+        currentAtlasFaceIndex === 4 &&
+        faceTexelX === 10 &&
+        faceTexelY === 15
+      ) {
+        for (let i = 0; i < probeDataLength; i += 4) {
+          probeDebugData[i] = Math.min(255, 255 * probeData[i]);
+          probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
+          probeDebugData[i + 2] = Math.min(255, 255 * probeData[i + 2]);
+          probeDebugData[i + 3] = 255;
+        }
+
+        probeDebugTexture.needsUpdate = true;
+      }
     }
 
     for (let iteration = 0; iteration < iterationsPerFrame; iteration += 1) {

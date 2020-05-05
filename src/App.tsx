@@ -139,6 +139,9 @@ function Scene() {
   const [meshBuffer3Ref, meshBuffer3] = useResource<THREE.BufferGeometry>();
   const mesh3Ref = useMeshWithAtlas(atlasInfo, meshBuffer3);
 
+  const [meshBuffer4Ref, meshBuffer4] = useResource<THREE.BufferGeometry>();
+  const mesh4Ref = useMeshWithAtlas(atlasInfo, meshBuffer4);
+
   useFrame(({ gl, camera }) => {
     gl.render(mainScene, camera);
   }, 20);
@@ -190,6 +193,14 @@ function Scene() {
           />
           <FinalMeshMaterial attach="material" lumMap={outputTexture} />
         </mesh>
+        <mesh position={[0, 3, 3]} ref={mesh4Ref}>
+          <boxBufferGeometry
+            attach="geometry"
+            args={[3, 0.5, 3]}
+            ref={meshBuffer4Ref}
+          />
+          <FinalMeshMaterial attach="material" lumMap={outputTexture} />
+        </mesh>
       </scene>
 
       <scene ref={lightSceneRef}>
@@ -207,16 +218,23 @@ function Scene() {
           </mesh>
         )}
 
-        {mesh3Ref.current && meshBuffer2 && (
+        {mesh3Ref.current && meshBuffer3 && (
           <mesh position={mesh3Ref.current.position}>
             <primitive attach="geometry" object={meshBuffer3} dispose={null} />
             <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
           </mesh>
         )}
 
+        {mesh4Ref.current && meshBuffer4 && (
+          <mesh position={mesh4Ref.current.position}>
+            <primitive attach="geometry" object={meshBuffer4} dispose={null} />
+            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
+          </mesh>
+        )}
+
         <mesh position={[0, -4, 4]}>
           <boxBufferGeometry attach="geometry" args={[4, 2, 4]} />
-          <ProbeLightMaterial attach="material" intensity={4} />
+          <ProbeLightMaterial attach="material" intensity={10} />
         </mesh>
 
         <mesh position={[0, 8, 8]}>
