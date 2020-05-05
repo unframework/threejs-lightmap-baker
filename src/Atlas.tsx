@@ -95,9 +95,9 @@ function createAtlasTexture(
 
       const on = tileX % 2 === tileY % 2;
 
-      data[stride] = on ? 40 : 240;
-      data[stride + 1] = 128;
-      data[stride + 2] = on ? 240 : 40;
+      data[stride] = on ? 0.2 : 0.8;
+      data[stride + 1] = 0.5;
+      data[stride + 2] = on ? 0.8 : 0.2;
     }
   }
 
