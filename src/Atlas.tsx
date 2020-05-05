@@ -483,7 +483,7 @@ export function useAtlas(): {
       let r = 0,
         g = 0,
         b = 0,
-        totalPixelCount = 0;
+        totalDivider = 0;
 
       renderLightProbe(
         gl,
@@ -495,20 +495,28 @@ export function useAtlas(): {
           const dataMax = (pixelStart + pixelCount) * 4;
 
           for (let i = pixelStart * 4; i < dataMax; i += 4) {
-            r += probeData[i];
-            g += probeData[i + 1];
-            b += probeData[i + 2];
-          }
+            // compute offset from center (with a bias for target pixel size)
+            const px = i / 4;
+            const pdx = (px % probeTargetSize) + 0.5;
+            const pyx = Math.floor(px / probeTargetSize) + 0.5;
+            const dx = Math.abs(pdx / probeTargetSize - 0.5);
+            const dy = Math.abs(pyx / probeTargetSize - 0.5);
 
-          totalPixelCount += pixelCount;
+            // compute multiplier as affected by inclination of corresponding ray
+            const span = Math.hypot(dx * 2, dy * 2);
+            const hypo = Math.hypot(span, 1);
+            const area = 1 / hypo;
+
+            r += area * probeData[i];
+            g += area * probeData[i + 1];
+            b += area * probeData[i + 2];
+
+            totalDivider += area;
+          }
         }
       );
 
-      const rgb = [
-        r / totalPixelCount,
-        g / totalPixelCount,
-        b / totalPixelCount
-      ];
+      const rgb = [r / totalDivider, g / totalDivider, b / totalDivider];
 
       // find texel inside atlas, as rounded to texel boundary
       const atlasTexelLeft = Math.floor(left * atlasWidth);
@@ -611,9 +619,21 @@ export function useAtlas(): {
         const probeDebugTexture = probeDebugTextures[debugIndex];
 
         for (let i = 0; i < probeData.length; i += 4) {
-          probeDebugData[i] = Math.min(255, 255 * probeData[i]);
-          probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
-          probeDebugData[i + 2] = Math.min(255, 255 * probeData[i + 2]);
+          // compute offset from center (with a bias for target pixel size)
+          const px = i / 4;
+          const pdx = (px % probeTargetSize) + 0.5;
+          const pyx = Math.floor(px / probeTargetSize) + 0.5;
+          const dx = Math.abs(pdx / probeTargetSize - 0.5);
+          const dy = Math.abs(pyx / probeTargetSize - 0.5);
+
+          // compute multiplier as affected by inclination of corresponding ray
+          const span = Math.hypot(dx * 2, dy * 2);
+          const hypo = Math.hypot(span, 1);
+          const area = 1 / hypo;
+
+          probeDebugData[i] = area * Math.min(255, 255 * probeData[i]);
+          probeDebugData[i + 1] = area * Math.min(255, 255 * probeData[i + 1]);
+          probeDebugData[i + 2] = area * Math.min(255, 255 * probeData[i + 2]);
           probeDebugData[i + 3] = 255;
         }
 
