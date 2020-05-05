@@ -72,10 +72,14 @@ function createAtlasTexture(
 
       const stride = i * 3;
 
-      const v = x % 8 === 0 || y % 8 === 0 ? 0 : 255;
-      data[stride] = v;
-      data[stride + 1] = v;
-      data[stride + 2] = v;
+      const tileX = Math.floor(x / 4);
+      const tileY = Math.floor(y / 4);
+
+      const on = tileX % 2 === tileY % 2;
+
+      data[stride] = on ? 40 : 240;
+      data[stride + 1] = 128;
+      data[stride + 2] = on ? 240 : 40;
     }
   }
 
