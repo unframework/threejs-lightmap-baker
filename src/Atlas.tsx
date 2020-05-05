@@ -27,8 +27,8 @@ const tmpV = new THREE.Vector3();
 const tmpNormal = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
 
-function fetchFaceIndexes(indexArray: ArrayLike<number>, faceIndex: number) {
-  const vBase = faceIndex * 6;
+function fetchFaceIndexes(indexArray: ArrayLike<number>, quadIndex: number) {
+  const vBase = quadIndex * 6;
 
   // pattern is ABD, BCD
   tmpFaceIndexes[0] = indexArray[vBase];
@@ -39,12 +39,12 @@ function fetchFaceIndexes(indexArray: ArrayLike<number>, faceIndex: number) {
 
 function fetchFaceUV(
   posArray: ArrayLike<number>,
-  faceIndexes: [number, number, number, number]
+  quadIndexes: [number, number, number, number]
 ) {
   // get face vertex positions
-  const facePosOrigin = faceIndexes[1] * 3;
-  const facePosU = faceIndexes[2] * 3;
-  const facePosV = faceIndexes[0] * 3;
+  const facePosOrigin = quadIndexes[1] * 3;
+  const facePosU = quadIndexes[2] * 3;
+  const facePosV = quadIndexes[0] * 3;
 
   tmpOrigin.fromArray(posArray, facePosOrigin);
   tmpU.fromArray(posArray, facePosU);
@@ -54,7 +54,7 @@ function fetchFaceUV(
 function computeFaceUV(
   atlasFaceIndex: number,
   posArray: ArrayLike<number>,
-  faceIndexes: ArrayLike<number>
+  quadIndexes: ArrayLike<number>
 ) {
   const itemColumn = atlasFaceIndex % itemsPerRow;
   const itemRow = Math.floor(atlasFaceIndex / itemsPerRow);
@@ -186,7 +186,7 @@ function computeAverageRGB(
 export interface AtlasItem {
   mesh: THREE.Mesh;
   buffer: THREE.BufferGeometry;
-  faceIndex: number;
+  quadIndex: number;
   left: number;
   top: number;
   sizeU: number;
@@ -212,14 +212,14 @@ export function useMeshWithAtlas(
       const indexes = meshBuffer.index.array;
       const posAttr = meshBuffer.attributes.position;
 
-      const faceCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
+      const quadCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
 
-      const lumUVAttr = new THREE.Float32BufferAttribute(faceCount * 4 * 2, 2);
+      const lumUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
 
-      for (let faceIndex = 0; faceIndex < faceCount; faceIndex += 1) {
+      for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
         const atlasFaceIndex = atlasInfo.length;
 
-        fetchFaceIndexes(indexes, faceIndex);
+        fetchFaceIndexes(indexes, quadIndex);
 
         const { left, top, sizeU, sizeV } = computeFaceUV(
           atlasFaceIndex,
@@ -235,7 +235,7 @@ export function useMeshWithAtlas(
         atlasInfo.push({
           mesh: mesh,
           buffer: meshBuffer,
-          faceIndex,
+          quadIndex,
           left,
           top,
           sizeU,
@@ -321,7 +321,7 @@ export function useAtlas(): {
       const {
         mesh,
         buffer,
-        faceIndex,
+        quadIndex,
         left,
         top,
         sizeU,
@@ -378,7 +378,7 @@ export function useAtlas(): {
       const normalArray = buffer.attributes.normal.array;
 
       // get face vertex positions
-      fetchFaceIndexes(indexes, faceIndex);
+      fetchFaceIndexes(indexes, quadIndex);
       fetchFaceUV(posArray, tmpFaceIndexes);
 
       // compute face dimensions
