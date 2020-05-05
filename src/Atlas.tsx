@@ -1,5 +1,6 @@
 import React, { useRef, useState, useMemo } from 'react';
 import {
+  useThree,
   useUpdate,
   useResource,
   useFrame,
@@ -32,6 +33,10 @@ const tmpV = new THREE.Vector3();
 const tmpNormal = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
 
+const tmpOriginUV = new THREE.Vector2();
+const tmpUUV = new THREE.Vector2();
+const tmpVUV = new THREE.Vector2();
+
 function fetchFaceIndexes(indexArray: ArrayLike<number>, quadIndex: number) {
   const vBase = quadIndex * 6;
 
@@ -42,7 +47,7 @@ function fetchFaceIndexes(indexArray: ArrayLike<number>, quadIndex: number) {
   tmpFaceIndexes[3] = indexArray[vBase + 5];
 }
 
-function fetchFaceUV(
+function fetchFaceAxes(
   posArray: ArrayLike<number>,
   quadIndexes: [number, number, number, number]
 ) {
@@ -56,6 +61,20 @@ function fetchFaceUV(
   tmpV.fromArray(posArray, facePosV);
 }
 
+function fetchFaceUVs(
+  uvArray: ArrayLike<number>,
+  quadIndexes: [number, number, number, number]
+) {
+  // get face vertex positions
+  const offsetOrigin = quadIndexes[1] * 2;
+  const offsetU = quadIndexes[2] * 2;
+  const offsetV = quadIndexes[0] * 2;
+
+  tmpOriginUV.fromArray(uvArray, offsetOrigin);
+  tmpUUV.fromArray(uvArray, offsetU);
+  tmpVUV.fromArray(uvArray, offsetV);
+}
+
 function computeFaceUV(
   atlasFaceIndex: number,
   posArray: ArrayLike<number>,
@@ -65,7 +84,7 @@ function computeFaceUV(
   const itemRow = Math.floor(atlasFaceIndex / itemsPerRow);
 
   // get face vertex positions
-  fetchFaceUV(posArray, tmpFaceIndexes);
+  fetchFaceAxes(posArray, tmpFaceIndexes);
 
   // compute face dimensions
   tmpU.sub(tmpOrigin);
@@ -292,7 +311,7 @@ function useLightProbe(probeTargetSize: number) {
 
     // get face vertex positions
     fetchFaceIndexes(indexes, quadIndex);
-    fetchFaceUV(posArray, tmpFaceIndexes);
+    fetchFaceAxes(posArray, tmpFaceIndexes);
 
     // compute face dimensions
     tmpU.sub(tmpOrigin);
@@ -372,6 +391,7 @@ function useLightProbe(probeTargetSize: number) {
   return renderLightProbe;
 }
 
+// @todo split into atlas setup and texel probe sweep render loop
 export function useAtlas(): {
   atlasInfo: AtlasItem[];
   outputTexture: THREE.Texture;
@@ -426,7 +446,7 @@ export function useAtlas(): {
       const faceTexelCols = Math.ceil(texelSizeU);
       const faceTexelRows = Math.ceil(texelSizeV);
 
-      // relative texel offset from face origin inside texture data
+      // relative integer texel offset from face origin inside texture data
       const fillCount = atlasFaceInfo.pixelFillCount;
 
       const faceTexelX = fillCount % faceTexelCols;
@@ -449,12 +469,6 @@ export function useAtlas(): {
           });
         }
       }
-
-      // find texel inside atlas, as rounded to texel boundary
-      const atlasTexelLeft = left * atlasWidth;
-      const atlasTexelTop = top * atlasWidth;
-      const atlasTexelX = Math.floor(atlasTexelLeft) + faceTexelX;
-      const atlasTexelY = Math.floor(atlasTexelTop) + faceTexelY;
 
       // render the probe viewports and collect pixel aggregate
       let r = 0,
@@ -486,6 +500,12 @@ export function useAtlas(): {
         g / totalPixelCount,
         b / totalPixelCount
       ];
+
+      // find texel inside atlas, as rounded to texel boundary
+      const atlasTexelLeft = Math.floor(left * atlasWidth);
+      const atlasTexelTop = Math.floor(top * atlasWidth);
+      const atlasTexelX = atlasTexelLeft + faceTexelX;
+      const atlasTexelY = atlasTexelTop + faceTexelY;
 
       // store computed illumination value
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
@@ -524,15 +544,71 @@ export function useAtlas(): {
     }
   }, 10);
 
-  function handleDebugClick(event: PointerEvent) {
-    console.log(event);
+  const { gl } = useThree();
 
+  function handleDebugClick(event: PointerEvent) {
     const quadIndex = Math.floor(event.faceIndex / 2);
-    const item = atlasInfo.find(
+    const itemIndex = atlasInfo.findIndex(
       (item) => item.mesh === event.object && item.quadIndex === quadIndex
     );
 
-    console.log(item);
+    if (itemIndex === -1) {
+      return;
+    }
+
+    const item = atlasInfo[itemIndex];
+    const { mesh, buffer, left, top } = item;
+
+    if (!buffer.index) {
+      return;
+    }
+
+    // get atlas texture UV (not precomputed by Three since it is in custom attribute)
+    fetchFaceIndexes(buffer.index.array, quadIndex);
+
+    fetchFaceAxes(buffer.attributes.position.array, tmpFaceIndexes);
+    tmpOrigin.applyMatrix4(mesh.matrixWorld);
+    tmpU.applyMatrix4(mesh.matrixWorld);
+    tmpV.applyMatrix4(mesh.matrixWorld);
+
+    fetchFaceUVs(buffer.attributes.lumUV.array, tmpFaceIndexes);
+
+    const clickAtlasUV = new THREE.Vector2();
+    THREE.Triangle.getUV(
+      event.point,
+      tmpOrigin,
+      tmpU,
+      tmpV,
+      tmpOriginUV,
+      tmpUUV,
+      tmpVUV,
+      clickAtlasUV
+    );
+
+    // find integer texel offset inside atlas item
+    const atlasTexelLeft = Math.floor(left * atlasWidth);
+    const atlasTexelTop = Math.floor(top * atlasWidth);
+
+    const faceTexelX = Math.floor(clickAtlasUV.x * atlasWidth - atlasTexelLeft);
+    const faceTexelY = Math.floor(clickAtlasUV.y * atlasHeight - atlasTexelTop);
+
+    console.log(
+      'probing item',
+      itemIndex,
+      '@',
+      quadIndex,
+      faceTexelX,
+      faceTexelY
+    );
+
+    renderLightProbe(
+      gl,
+      item,
+      faceTexelX,
+      faceTexelY,
+      lightScene,
+      (probeData, pixelStart, pixelCount) => {}
+    );
   }
 
   return {
