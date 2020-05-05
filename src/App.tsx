@@ -6,26 +6,75 @@ import { useAtlas, useMeshWithAtlas } from './Atlas';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 
-const testLightMat = new THREE.ShaderMaterial({
-  uniforms: {
-    color: { value: new THREE.Color(0xffffff) },
-    intensity: { value: 4 }
-  },
-  vertexShader: `
-    void main() {
-      vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-      gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-    }
-  `,
-  fragmentShader: `
-    uniform vec3 color;
-    uniform float intensity;
+const ProbeLightMaterial: React.FC<{ attach?: string; intensity: number }> = ({
+  attach,
+  intensity
+}) => {
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(0xffffff) },
+      intensity: { value: 1 }
+    },
+    vertexShader: `
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 color;
+      uniform float intensity;
 
-    void main() {
-      gl_FragColor = vec4( color * intensity, 1.0 );
-    }
-  `
-});
+      void main() {
+        gl_FragColor = vec4( color * intensity, 1.0 );
+      }
+    `
+  });
+
+  // disposable managed object
+  return (
+    <primitive
+      object={material}
+      attach={attach}
+      uniforms-intensity-value={intensity}
+    />
+  );
+};
+
+const ProbeMeshMaterial: React.FC<{
+  attach?: string;
+  lumMap: THREE.Texture;
+}> = ({ attach, lumMap }) => {
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      lum: { value: null }
+    },
+
+    vertexShader: `
+      varying vec2 vUV;
+
+      void main() {
+        vUV = uv;
+
+        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D lum;
+      varying vec2 vUV;
+
+      void main() {
+        gl_FragColor = texture2D(lum, vUV);
+      }
+    `
+  });
+
+  // disposable managed object
+  return (
+    <primitive object={material} attach={attach} uniforms-lum-value={lumMap} />
+  );
+};
 
 function Scene() {
   const {
@@ -87,7 +136,7 @@ function Scene() {
 
         <mesh position={[0, 0, -1]} ref={mesh1Ref}>
           <GridGeometry attach="geometry" ref={meshBuffer1Ref} />
-          <meshBasicMaterial attach="material" map={outputTexture} />
+          <ProbeMeshMaterial attach="material" lumMap={outputTexture} />
         </mesh>
         <mesh position={[-1.5, 0, 2]} ref={mesh2Ref}>
           <boxBufferGeometry
@@ -95,7 +144,7 @@ function Scene() {
             args={[2, 1, 4.5]}
             ref={meshBuffer2Ref}
           />
-          <meshBasicMaterial attach="material" map={outputTexture} />
+          <ProbeMeshMaterial attach="material" lumMap={outputTexture} />
         </mesh>
         <mesh position={[1.5, 0, 2]} ref={mesh3Ref}>
           <boxBufferGeometry
@@ -103,7 +152,7 @@ function Scene() {
             args={[2, 1, 4.5]}
             ref={meshBuffer3Ref}
           />
-          <meshBasicMaterial attach="material" map={outputTexture} />
+          <ProbeMeshMaterial attach="material" lumMap={outputTexture} />
         </mesh>
       </scene>
 
@@ -111,32 +160,32 @@ function Scene() {
         {mesh1Ref.current && meshBuffer1 && (
           <mesh position={mesh1Ref.current.position}>
             <primitive attach="geometry" object={meshBuffer1} dispose={null} />
-            <meshBasicMaterial attach="material" map={lightSceneTexture} />
+            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
           </mesh>
         )}
 
         {mesh2Ref.current && meshBuffer2 && (
           <mesh position={mesh2Ref.current.position}>
             <primitive attach="geometry" object={meshBuffer2} dispose={null} />
-            <meshBasicMaterial attach="material" map={lightSceneTexture} />
+            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
           </mesh>
         )}
 
         {mesh3Ref.current && meshBuffer2 && (
           <mesh position={mesh3Ref.current.position}>
             <primitive attach="geometry" object={meshBuffer3} dispose={null} />
-            <meshBasicMaterial attach="material" map={lightSceneTexture} />
+            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
           </mesh>
         )}
 
         <mesh position={[0, -4, 4]}>
           <boxBufferGeometry attach="geometry" args={[4, 2, 4]} />
-          <primitive attach="material" object={testLightMat} dispose={null} />
+          <ProbeLightMaterial attach="material" intensity={4} />
         </mesh>
 
         <mesh position={[0, 8, 8]}>
           <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
-          <primitive attach="material" object={testLightMat} dispose={null} />
+          <ProbeLightMaterial attach="material" intensity={0.8} />
         </mesh>
       </scene>
     </>

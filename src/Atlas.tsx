@@ -80,7 +80,7 @@ function createAtlasTexture(
   fillWithPattern?: boolean
 ) {
   const atlasSize = atlasWidth * atlasHeight;
-  const data = new Uint8Array(3 * atlasSize);
+  const data = new Float32Array(3 * atlasSize);
 
   if (fillWithPattern) {
     // pre-fill with a test pattern
@@ -105,7 +105,8 @@ function createAtlasTexture(
     data,
     atlasWidth,
     atlasHeight,
-    THREE.RGBFormat
+    THREE.RGBFormat,
+    THREE.FloatType
   );
 
   return { data, texture };
@@ -358,9 +359,9 @@ export function useAtlas(): {
       }
 
       const pixelCount = probeTargetSize * probeTargetSize;
-      const ar = Math.min(255, Math.round((255 * r) / pixelCount));
-      const ag = Math.min(255, Math.round((255 * g) / pixelCount));
-      const ab = Math.min(255, Math.round((255 * b) / pixelCount));
+      const ar = r / pixelCount;
+      const ag = g / pixelCount;
+      const ab = b / pixelCount;
 
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
       atlasStack[0].data.set([ar, ag, ab], atlasTexelBase * 3);
