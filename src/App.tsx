@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 import { useAtlas, useMeshWithAtlas } from './Atlas';
 import SceneControls from './SceneControls';
+import GridGeometry from './GridGeometry';
 
 function Scene() {
   const {
@@ -64,11 +65,7 @@ function Scene() {
         </mesh>
 
         <mesh position={[0, 0, -1]} ref={mesh1Ref}>
-          <planeBufferGeometry
-            attach="geometry"
-            args={[5, 5]}
-            ref={meshBuffer1Ref}
-          />
+          <GridGeometry attach="geometry" ref={meshBuffer1Ref} />
           <meshBasicMaterial attach="material" map={outputTexture} />
         </mesh>
         <mesh position={[-1.5, 0, 2]} ref={mesh2Ref}>
@@ -106,7 +103,7 @@ function Scene() {
 
         {mesh3Ref.current && meshBuffer2 && (
           <mesh position={mesh3Ref.current.position}>
-            <primitive attach="geometry" object={meshBuffer2} dispose={null} />
+            <primitive attach="geometry" object={meshBuffer3} dispose={null} />
             <meshBasicMaterial attach="material" map={lightSceneTexture} />
           </mesh>
         )}
