@@ -167,27 +167,6 @@ function setUpProbeSide(
   probeCam.applyMatrix4(mesh.matrixWorld);
 }
 
-function computeAverageRGB(
-  probeData: Float32Array,
-  pixelStart: number,
-  pixelCount: number
-): [number, number, number] {
-  const dataMax = (pixelStart + pixelCount) * 4;
-  let r = 0,
-    g = 0,
-    b = 0;
-  for (let i = pixelStart * 4; i < dataMax; i += 4) {
-    r += probeData[i];
-    g += probeData[i + 1];
-    b += probeData[i + 2];
-  }
-
-  const ar = r / pixelCount;
-  const ag = g / pixelCount;
-  const ab = b / pixelCount;
-  return [ar, ag, ab];
-}
-
 export interface AtlasItem {
   mesh: THREE.Mesh;
   buffer: THREE.BufferGeometry;
@@ -261,24 +240,7 @@ export function useMeshWithAtlas(
   return meshRef;
 }
 
-export function useAtlas(): {
-  atlasInfo: AtlasItem[];
-  outputTexture: THREE.Texture;
-  lightSceneRef: React.MutableRefObject<THREE.Scene>;
-  lightSceneTexture: THREE.Texture;
-  handleDebugClick: (event: PointerEvent) => void;
-  probeDebugTexture: THREE.Texture;
-} {
-  const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
-
-  const [atlasStack, setAtlasStack] = useState(() => [
-    createAtlasTexture(atlasWidth, atlasHeight, true),
-    createAtlasTexture(atlasWidth, atlasHeight)
-  ]);
-
-  const atlasInfo: AtlasItem[] = useMemo(() => [], []);
-
-  const probeTargetSize = 16;
+function useLightProbe(probeTargetSize: number) {
   const probePixelCount = probeTargetSize * probeTargetSize;
   const probeTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
@@ -297,6 +259,138 @@ export function useAtlas(): {
   const probeData = useMemo(() => {
     return new Float32Array(probeTargetSize * probeTargetSize * 4);
   }, []);
+
+  function renderLightProbe(
+    gl: THREE.WebGLRenderer,
+    atlasFaceInfo: AtlasItem,
+    faceTexelX: number,
+    faceTexelY: number,
+    lightScene: THREE.Scene,
+    handleProbeData: (
+      rgbaData: Float32Array,
+      pixelStart: number,
+      pixelCount: number
+    ) => void
+  ) {
+    const { mesh, buffer, quadIndex, sizeU, sizeV } = atlasFaceInfo;
+
+    const texelSizeU = sizeU * atlasWidth;
+    const texelSizeV = sizeV * atlasHeight;
+
+    // compute rounded texel's U and V position within face
+    // (biasing to be in middle of texel physical square)
+    const pU = (faceTexelX + 0.5) / texelSizeU;
+    const pV = (faceTexelY + 0.5) / texelSizeV;
+
+    // read vertex position for this face and interpolate along U and V axes
+    if (!buffer.index) {
+      throw new Error('no indexes');
+    }
+    const indexes = buffer.index.array;
+    const posArray = buffer.attributes.position.array;
+    const normalArray = buffer.attributes.normal.array;
+
+    // get face vertex positions
+    fetchFaceIndexes(indexes, quadIndex);
+    fetchFaceUV(posArray, tmpFaceIndexes);
+
+    // compute face dimensions
+    tmpU.sub(tmpOrigin);
+    tmpV.sub(tmpOrigin);
+
+    // set camera to match texel, first in mesh-local space
+    tmpOrigin.addScaledVector(tmpU, pU);
+    tmpOrigin.addScaledVector(tmpV, pV);
+
+    tmpNormal.fromArray(normalArray, tmpFaceIndexes[0] * 3);
+
+    gl.setRenderTarget(probeTarget);
+
+    setUpProbeUp(probeCam, mesh, tmpOrigin, tmpNormal, tmpU);
+    gl.render(lightScene, probeCam);
+    gl.readRenderTargetPixels(
+      probeTarget,
+      0,
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeData
+    );
+    handleProbeData(probeData, 0, probePixelCount);
+
+    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, 1);
+    gl.render(lightScene, probeCam);
+    gl.readRenderTargetPixels(
+      probeTarget,
+      0,
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeData
+    );
+    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
+
+    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, -1);
+    gl.render(lightScene, probeCam);
+    gl.readRenderTargetPixels(
+      probeTarget,
+      0,
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeData
+    );
+    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
+
+    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, 1);
+    gl.render(lightScene, probeCam);
+    gl.readRenderTargetPixels(
+      probeTarget,
+      0,
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeData
+    );
+    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
+
+    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, -1);
+    gl.render(lightScene, probeCam);
+    gl.readRenderTargetPixels(
+      probeTarget,
+      0,
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeData
+    );
+    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
+
+    gl.setRenderTarget(null);
+  }
+
+  return renderLightProbe;
+}
+
+export function useAtlas(): {
+  atlasInfo: AtlasItem[];
+  outputTexture: THREE.Texture;
+  lightSceneRef: React.MutableRefObject<THREE.Scene>;
+  lightSceneTexture: THREE.Texture;
+  handleDebugClick: (event: PointerEvent) => void;
+  probeDebugTexture: THREE.Texture;
+} {
+  const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
+
+  const [atlasStack, setAtlasStack] = useState(() => [
+    createAtlasTexture(atlasWidth, atlasHeight, true),
+    createAtlasTexture(atlasWidth, atlasHeight)
+  ]);
+
+  const atlasInfo: AtlasItem[] = useMemo(() => [], []);
+
+  const probeTargetSize = 16;
+  const renderLightProbe = useLightProbe(probeTargetSize);
 
   const probeDebugData = useMemo(() => {
     return new Uint8Array(probeTargetSize * probeTargetSize * 4);
@@ -324,15 +418,7 @@ export function useAtlas(): {
       const currentAtlasFaceIndex = atlasFaceFillIndexRef.current;
       const atlasFaceInfo = atlasInfo[currentAtlasFaceIndex];
 
-      const {
-        mesh,
-        buffer,
-        quadIndex,
-        left,
-        top,
-        sizeU,
-        sizeV
-      } = atlasFaceInfo;
+      const { left, top, sizeU, sizeV } = atlasFaceInfo;
 
       const texelSizeU = sizeU * atlasWidth;
       const texelSizeV = sizeV * atlasHeight;
@@ -370,123 +456,42 @@ export function useAtlas(): {
       const atlasTexelX = Math.floor(atlasTexelLeft) + faceTexelX;
       const atlasTexelY = Math.floor(atlasTexelTop) + faceTexelY;
 
-      // compute rounded texel's U and V position within face
-      // (biasing to be in middle of texel physical square)
-      const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / texelSizeU;
-      const pV = (atlasTexelY + 0.5 - atlasTexelTop) / texelSizeV;
+      // render the probe viewports and collect pixel aggregate
+      let r = 0,
+        g = 0,
+        b = 0,
+        totalPixelCount = 0;
 
-      // read vertex position for this face and interpolate along U and V axes
-      if (!buffer.index) {
-        throw new Error('no indexes');
-      }
-      const indexes = buffer.index.array;
-      const posArray = buffer.attributes.position.array;
-      const normalArray = buffer.attributes.normal.array;
+      renderLightProbe(
+        gl,
+        atlasFaceInfo,
+        faceTexelX,
+        faceTexelY,
+        lightScene,
+        (probeData, pixelStart, pixelCount) => {
+          const dataMax = (pixelStart + pixelCount) * 4;
 
-      // get face vertex positions
-      fetchFaceIndexes(indexes, quadIndex);
-      fetchFaceUV(posArray, tmpFaceIndexes);
+          for (let i = pixelStart * 4; i < dataMax; i += 4) {
+            r += probeData[i];
+            g += probeData[i + 1];
+            b += probeData[i + 2];
+          }
 
-      // compute face dimensions
-      tmpU.sub(tmpOrigin);
-      tmpV.sub(tmpOrigin);
-
-      // set camera to match texel, first in mesh-local space
-      tmpOrigin.addScaledVector(tmpU, pU);
-      tmpOrigin.addScaledVector(tmpV, pV);
-
-      tmpNormal.fromArray(normalArray, tmpFaceIndexes[0] * 3);
-
-      gl.setRenderTarget(probeTarget);
-
-      setUpProbeUp(probeCam, mesh, tmpOrigin, tmpNormal, tmpU);
-      gl.render(lightScene, probeCam);
-      gl.readRenderTargetPixels(
-        probeTarget,
-        0,
-        0,
-        probeTargetSize,
-        probeTargetSize,
-        probeData
+          totalPixelCount += pixelCount;
+        }
       );
-      const rgbUp = computeAverageRGB(probeData, 0, probePixelCount);
-
-      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, 1);
-      gl.render(lightScene, probeCam);
-      gl.readRenderTargetPixels(
-        probeTarget,
-        0,
-        0,
-        probeTargetSize,
-        probeTargetSize,
-        probeData
-      );
-      const rgbUF = computeAverageRGB(
-        probeData,
-        probePixelCount / 2,
-        probePixelCount / 2
-      );
-
-      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, -1);
-      gl.render(lightScene, probeCam);
-      gl.readRenderTargetPixels(
-        probeTarget,
-        0,
-        0,
-        probeTargetSize,
-        probeTargetSize,
-        probeData
-      );
-      const rgbUB = computeAverageRGB(
-        probeData,
-        probePixelCount / 2,
-        probePixelCount / 2
-      );
-
-      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, 1);
-      gl.render(lightScene, probeCam);
-      gl.readRenderTargetPixels(
-        probeTarget,
-        0,
-        0,
-        probeTargetSize,
-        probeTargetSize,
-        probeData
-      );
-      const rgbVF = computeAverageRGB(
-        probeData,
-        probePixelCount / 2,
-        probePixelCount / 2
-      );
-
-      setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, -1);
-      gl.render(lightScene, probeCam);
-      gl.readRenderTargetPixels(
-        probeTarget,
-        0,
-        0,
-        probeTargetSize,
-        probeTargetSize,
-        probeData
-      );
-      const rgbVB = computeAverageRGB(
-        probeData,
-        probePixelCount / 2,
-        probePixelCount / 2
-      );
-
-      gl.setRenderTarget(null);
 
       const rgb = [
-        (rgbUp[0] * 2 + rgbUF[0] + rgbUB[0] + rgbVF[0] + rgbVB[0]) / 6,
-        (rgbUp[1] * 2 + rgbUF[1] + rgbUB[1] + rgbVF[1] + rgbVB[1]) / 6,
-        (rgbUp[2] * 2 + rgbUF[2] + rgbUB[2] + rgbVF[2] + rgbVB[2]) / 6
+        r / totalPixelCount,
+        g / totalPixelCount,
+        b / totalPixelCount
       ];
 
+      // store computed illumination value
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
       atlasStack[0].data.set(rgb, atlasTexelBase * 3);
 
-      // propagate pixel value to seam bleed offset area if needed
+      // propagate texel value to seam bleed offset area if needed
       if (faceTexelX === 0) {
         atlasStack[0].data.set(rgb, (atlasTexelBase - 1) * 3);
       }
@@ -502,16 +507,16 @@ export function useAtlas(): {
       atlasStack[0].texture.needsUpdate = true;
 
       // mark debug texture for copying
-      if (currentAtlasFaceIndex === 0 && faceTexelX === 0 && faceTexelY === 0) {
-        for (let i = 0; i < probeData.length; i += 4) {
-          probeDebugData[i] = Math.min(255, 255 * probeData[i]);
-          probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
-          probeDebugData[i + 2] = Math.min(255, 255 * probeData[i + 2]);
-          probeDebugData[i + 3] = 255;
-        }
+      // if (currentAtlasFaceIndex === 0 && faceTexelX === 0 && faceTexelY === 0) {
+      //   for (let i = 0; i < probeData.length; i += 4) {
+      //     probeDebugData[i] = Math.min(255, 255 * probeData[i]);
+      //     probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
+      //     probeDebugData[i + 2] = Math.min(255, 255 * probeData[i + 2]);
+      //     probeDebugData[i + 3] = 255;
+      //   }
 
-        probeDebugTexture.needsUpdate = true;
-      }
+      //   probeDebugTexture.needsUpdate = true;
+      // }
     }
 
     for (let iteration = 0; iteration < iterationsPerFrame; iteration += 1) {
