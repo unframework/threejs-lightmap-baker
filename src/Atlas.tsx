@@ -112,6 +112,24 @@ function createAtlasTexture(
   return { data, texture };
 }
 
+function computeAverageRGB(probeData: Float32Array): [number, number, number] {
+  const probeDataLength = probeData.length;
+  let r = 0,
+    g = 0,
+    b = 0;
+  for (let i = 0; i < probeDataLength; i += 4) {
+    r += probeData[i];
+    g += probeData[i + 1];
+    b += probeData[i + 2];
+  }
+
+  const pixelCount = probeDataLength / 4;
+  const ar = r / pixelCount;
+  const ag = g / pixelCount;
+  const ab = b / pixelCount;
+  return [ar, ag, ab];
+}
+
 export interface AtlasItem {
   mesh: THREE.Mesh;
   buffer: THREE.BufferGeometry;
@@ -344,38 +362,22 @@ export function useAtlas(): {
         probeData
       );
 
-      const probeDataLength = probeData.length;
-      let r = 0,
-        g = 0,
-        b = 0;
-      for (let i = 0; i < probeDataLength; i += 4) {
-        r += probeData[i];
-        g += probeData[i + 1];
-        b += probeData[i + 2];
-      }
-
-      const pixelCount = probeTargetSize * probeTargetSize;
-      const ar = r / pixelCount;
-      const ag = g / pixelCount;
-      const ab = b / pixelCount;
+      const rgb = computeAverageRGB(probeData);
 
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
-      atlasStack[0].data.set([ar, ag, ab], atlasTexelBase * 3);
+      atlasStack[0].data.set(rgb, atlasTexelBase * 3);
 
       // propagate pixel value to seam bleed offset area if needed
       if (faceTexelX === 0) {
-        atlasStack[0].data.set([ar, ag, ab], (atlasTexelBase - 1) * 3);
+        atlasStack[0].data.set(rgb, (atlasTexelBase - 1) * 3);
       }
 
       if (faceTexelY === 0) {
-        atlasStack[0].data.set([ar, ag, ab], (atlasTexelBase - atlasWidth) * 3);
+        atlasStack[0].data.set(rgb, (atlasTexelBase - atlasWidth) * 3);
       }
 
       if (faceTexelX === 0 && faceTexelY === 0) {
-        atlasStack[0].data.set(
-          [ar, ag, ab],
-          (atlasTexelBase - atlasWidth - 1) * 3
-        );
+        atlasStack[0].data.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
       }
 
       atlasStack[0].texture.needsUpdate = true;
@@ -386,7 +388,7 @@ export function useAtlas(): {
         faceTexelX === 10 &&
         faceTexelY === 15
       ) {
-        for (let i = 0; i < probeDataLength; i += 4) {
+        for (let i = 0; i < probeData.length; i += 4) {
           probeDebugData[i] = Math.min(255, 255 * probeData[i]);
           probeDebugData[i + 1] = Math.min(255, 255 * probeData[i + 1]);
           probeDebugData[i + 2] = Math.min(255, 255 * probeData[i + 2]);
