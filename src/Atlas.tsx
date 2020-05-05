@@ -5,21 +5,22 @@ import * as THREE from 'three';
 const atlasWidth = 128;
 const atlasHeight = 128;
 
-const faceTexW = 0.1;
-const faceTexH = 0.1;
-const texMargin = 0.025;
+const itemSizeU = 0.1;
+const itemSizeV = 0.1;
+const itemUVMargin = 0.025;
 
-const atlasFaceMaxDim = 5;
+// maximum physical dimension of a stored item's face
+const atlasItemMaxDim = 5;
 
-const facesPerRow = Math.floor(1 / (faceTexW + texMargin));
+const itemsPerRow = Math.floor(1 / (itemSizeU + itemUVMargin));
 
 function computeFaceUV(
   atlasFaceIndex: number,
   faceIndex: number,
   posArray: ArrayLike<number>
 ) {
-  const faceColumn = atlasFaceIndex % facesPerRow;
-  const faceRow = Math.floor(atlasFaceIndex / facesPerRow);
+  const itemColumn = atlasFaceIndex % itemsPerRow;
+  const itemRow = Math.floor(atlasFaceIndex / itemsPerRow);
 
   // get face vertex positions
   const facePosStart = faceIndex * 4 * 3;
@@ -44,13 +45,13 @@ function computeFaceUV(
     posArray[facePosV + 2] - oz
   );
 
-  const dUdim = Math.min(atlasFaceMaxDim, dU.length());
-  const dVdim = Math.min(atlasFaceMaxDim, dV.length());
+  const dUdim = Math.min(atlasItemMaxDim, dU.length());
+  const dVdim = Math.min(atlasItemMaxDim, dV.length());
 
-  const left = faceColumn * (faceTexW + texMargin);
-  const top = faceRow * (faceTexH + texMargin);
-  const right = left + faceTexW * (dUdim / atlasFaceMaxDim);
-  const bottom = top + faceTexH * (dVdim / atlasFaceMaxDim);
+  const left = itemColumn * (itemSizeU + itemUVMargin);
+  const top = itemRow * (itemSizeV + itemUVMargin);
+  const right = left + itemSizeU * (dUdim / atlasItemMaxDim);
+  const bottom = top + itemSizeV * (dVdim / atlasItemMaxDim);
 
   return { left, top, right, bottom };
 }
@@ -164,32 +165,31 @@ export function useAtlas(): {
 
   const atlasInfo: AtlasItem[] = useMemo(() => [], []);
 
-  const rtWidth = 32;
-  const rtHeight = 32;
-  const testTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(rtWidth, rtHeight);
+  const probeTargetSize = 32;
+  const probeTarget = useMemo(() => {
+    return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize);
   }, []);
 
-  const testCam = useMemo(() => {
+  const probeCam = useMemo(() => {
     const rtFov = 90; // full near-180 FOV actually works poorly
-    const rtAspect = rtWidth / rtHeight;
+    const rtAspect = 1; // square render target
     const rtNear = 0.05;
     const rtFar = 10;
     return new THREE.PerspectiveCamera(rtFov, rtAspect, rtNear, rtFar);
   }, []);
 
-  const testBuffer = useMemo(() => {
-    return new Uint8Array(rtWidth * rtHeight * 4);
+  const probeData = useMemo(() => {
+    return new Uint8Array(probeTargetSize * probeTargetSize * 4);
   }, []);
 
   const probeDebugTexture = useMemo(() => {
     return new THREE.DataTexture(
-      testBuffer,
-      rtWidth,
-      rtHeight,
+      probeData,
+      probeTargetSize,
+      probeTargetSize,
       THREE.RGBAFormat
     );
-  }, []);
+  }, [probeData]);
 
   const atlasFaceFillIndexRef = useRef(4); // @todo use 0 start
 
@@ -204,10 +204,10 @@ export function useAtlas(): {
     const atlasFaceInfo = atlasInfo[currentAtlasFaceIndex];
 
     const { mesh, buffer, faceIndex, left, top, right, bottom } = atlasFaceInfo;
-    const faceTexW = (right - left) * atlasWidth;
-    const faceTexH = (bottom - top) * atlasHeight;
-    const faceTexelCols = Math.ceil(faceTexW);
-    const faceTexelRows = Math.ceil(faceTexH);
+    const itemSizeU = (right - left) * atlasWidth;
+    const itemSizeV = (bottom - top) * atlasHeight;
+    const faceTexelCols = Math.ceil(itemSizeU);
+    const faceTexelRows = Math.ceil(itemSizeV);
 
     // even texel offset from face origin inside texture data
     const fillCount = atlasFaceInfo.pixelFillCount;
@@ -226,7 +226,6 @@ export function useAtlas(): {
       // tick up atlas texture stack once all faces are done
       // @todo start with face 0
       if (atlasFaceFillIndexRef.current === 4) {
-        console.log('update stack');
         setAtlasStack((prev) => {
           // promote items up one level, taking last one to be the new first one
           const last = prev[prev.length - 1];
@@ -243,8 +242,8 @@ export function useAtlas(): {
 
     // compute rounded texel's U and V position within face
     // (biasing to be in middle of texel physical square)
-    const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / faceTexW;
-    const pV = (atlasTexelY + 0.5 - atlasTexelTop) / faceTexH;
+    const pU = (atlasTexelX + 0.5 - atlasTexelLeft) / itemSizeU;
+    const pV = (atlasTexelY + 0.5 - atlasTexelTop) / itemSizeV;
 
     // read vertex position for this face and interpolate along U and V axes
     const posArray = buffer.attributes.position.array;
@@ -277,7 +276,7 @@ export function useAtlas(): {
       oz + dUz * pU + dVz * pV
     );
 
-    testCam.position.copy(texelPos);
+    probeCam.position.copy(texelPos);
 
     texelPos.x += normalArray[faceNormalStart];
     texelPos.y += normalArray[faceNormalStart + 1];
@@ -287,35 +286,44 @@ export function useAtlas(): {
     const upAngleCos = Math.cos(upAngle);
     const upAngleSin = Math.sin(upAngle);
 
-    testCam.up.set(
+    probeCam.up.set(
       dUx * upAngleCos - dVx * upAngleSin,
       dUy * upAngleCos - dVy * upAngleSin,
       dUz * upAngleCos - dVz * upAngleSin
     ); // random rotation (in face plane) @todo normalize axes?
 
-    testCam.lookAt(texelPos);
+    probeCam.lookAt(texelPos);
 
     // then, transform camera into world space
-    testCam.applyMatrix4(mesh.matrixWorld);
+    probeCam.applyMatrix4(mesh.matrixWorld);
 
-    gl.setRenderTarget(testTarget);
-    gl.render(lightScene, testCam);
+    gl.setRenderTarget(probeTarget);
+    gl.render(lightScene, probeCam);
     gl.setRenderTarget(null);
 
-    gl.readRenderTargetPixels(testTarget, 0, 0, rtWidth, rtHeight, testBuffer);
+    gl.readRenderTargetPixels(
+      probeTarget,
+      0,
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeData
+    );
+
+    // mark debug texture for copying
     probeDebugTexture.needsUpdate = true;
 
-    const rtLength = testBuffer.length;
+    const probeDataLength = probeData.length;
     let r = 0,
       g = 0,
       b = 0;
-    for (let i = 0; i < rtLength; i += 4) {
-      r += testBuffer[i];
-      g += testBuffer[i + 1];
-      b += testBuffer[i + 2];
+    for (let i = 0; i < probeDataLength; i += 4) {
+      r += probeData[i];
+      g += probeData[i + 1];
+      b += probeData[i + 2];
     }
 
-    const pixelCount = rtWidth * rtHeight;
+    const pixelCount = probeTargetSize * probeTargetSize;
     const ar = Math.round(r / pixelCount);
     const ag = Math.round(g / pixelCount);
     const ab = Math.round(b / pixelCount);
