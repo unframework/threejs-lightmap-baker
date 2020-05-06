@@ -2,7 +2,10 @@ import React, { useMemo } from 'react';
 import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useAtlas, useMeshWithAtlas } from './Atlas';
+import IrradianceSurfaceManager, {
+  useMeshWithAtlas
+} from './IrradianceSurfaceManager';
+import { useIrradianceRenderer } from './IrradianceRenderer';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 
@@ -150,13 +153,12 @@ const FinalMeshMaterial: React.FC<{
 
 function Scene() {
   const {
-    atlasInfo,
     outputTexture,
     lightSceneRef,
     lightSceneTexture,
     handleDebugClick,
     probeDebugTextures
-  } = useAtlas();
+  } = useIrradianceRenderer();
 
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
@@ -169,16 +171,16 @@ function Scene() {
   }, [size]);
 
   const [meshBuffer1Ref, meshBuffer1] = useResource<THREE.BufferGeometry>();
-  const mesh1Ref = useMeshWithAtlas(atlasInfo, meshBuffer1);
+  const mesh1Ref = useMeshWithAtlas(meshBuffer1);
 
   const [meshBuffer2Ref, meshBuffer2] = useResource<THREE.BufferGeometry>();
-  const mesh2Ref = useMeshWithAtlas(atlasInfo, meshBuffer2);
+  const mesh2Ref = useMeshWithAtlas(meshBuffer2);
 
   const [meshBuffer3Ref, meshBuffer3] = useResource<THREE.BufferGeometry>();
-  const mesh3Ref = useMeshWithAtlas(atlasInfo, meshBuffer3);
+  const mesh3Ref = useMeshWithAtlas(meshBuffer3);
 
   const [meshBuffer4Ref, meshBuffer4] = useResource<THREE.BufferGeometry>();
-  const mesh4Ref = useMeshWithAtlas(atlasInfo, meshBuffer4);
+  const mesh4Ref = useMeshWithAtlas(meshBuffer4);
 
   useFrame(({ gl, camera }) => {
     gl.render(mainScene, camera);
@@ -297,7 +299,9 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      <Scene />
+      <IrradianceSurfaceManager>
+        <Scene />
+      </IrradianceSurfaceManager>
 
       <SceneControls />
     </Canvas>

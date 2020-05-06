@@ -1,29 +1,20 @@
 import React, { useRef, useState, useMemo } from 'react';
 import {
   useThree,
-  useUpdate,
   useResource,
   useFrame,
   PointerEvent
 } from 'react-three-fiber';
 import * as THREE from 'three';
 
+import {
+  atlasWidth,
+  atlasHeight,
+  useIrradianceAtlasContext,
+  AtlasItem
+} from './IrradianceSurfaceManager';
+
 const iterationsPerFrame = 10; // how many texels to fill per frame
-
-const atlasWidth = 256;
-const atlasHeight = 256;
-
-const bleedOffsetU = 2 / atlasWidth;
-const bleedOffsetV = 2 / atlasHeight;
-
-const itemSizeU = 0.1;
-const itemSizeV = 0.1;
-const itemUVMargin = 0.025;
-
-// maximum physical dimension of a stored item's face
-const atlasItemMaxDim = 5;
-
-const itemsPerRow = Math.floor(1 / (itemSizeU + itemUVMargin));
 
 const tmpFaceIndexes: [number, number, number, number] = [-1, -1, -1, -1];
 const tmpOrigin = new THREE.Vector3();
@@ -37,6 +28,7 @@ const tmpOriginUV = new THREE.Vector2();
 const tmpUUV = new THREE.Vector2();
 const tmpVUV = new THREE.Vector2();
 
+// @todo cache this info inside atlas item
 function fetchFaceIndexes(indexArray: ArrayLike<number>, quadIndex: number) {
   const vBase = quadIndex * 6;
 
@@ -73,32 +65,6 @@ function fetchFaceUVs(
   tmpOriginUV.fromArray(uvArray, offsetOrigin);
   tmpUUV.fromArray(uvArray, offsetU);
   tmpVUV.fromArray(uvArray, offsetV);
-}
-
-function computeFaceUV(
-  atlasFaceIndex: number,
-  posArray: ArrayLike<number>,
-  quadIndexes: ArrayLike<number>
-) {
-  const itemColumn = atlasFaceIndex % itemsPerRow;
-  const itemRow = Math.floor(atlasFaceIndex / itemsPerRow);
-
-  // get face vertex positions
-  fetchFaceAxes(posArray, tmpFaceIndexes);
-
-  // compute face dimensions
-  tmpU.sub(tmpOrigin);
-  tmpV.sub(tmpOrigin);
-
-  const dUdim = Math.min(atlasItemMaxDim, tmpU.length());
-  const dVdim = Math.min(atlasItemMaxDim, tmpV.length());
-
-  const left = itemColumn * (itemSizeU + itemUVMargin) + bleedOffsetU;
-  const top = itemRow * (itemSizeV + itemUVMargin) + bleedOffsetV;
-  const sizeU = itemSizeU * (dUdim / atlasItemMaxDim);
-  const sizeV = itemSizeV * (dVdim / atlasItemMaxDim);
-
-  return { left, top, sizeU, sizeV };
 }
 
 function createAtlasTexture(
@@ -184,79 +150,6 @@ function setUpProbeSide(
 
   // then, transform camera into world space
   probeCam.applyMatrix4(mesh.matrixWorld);
-}
-
-export interface AtlasItem {
-  mesh: THREE.Mesh;
-  buffer: THREE.BufferGeometry;
-  quadIndex: number;
-  left: number;
-  top: number;
-  sizeU: number;
-  sizeV: number;
-  pixelFillCount: number;
-}
-
-export function useMeshWithAtlas(
-  atlasInfo: AtlasItem[],
-  meshBuffer: THREE.BufferGeometry | undefined
-) {
-  const meshRef = useUpdate<THREE.Mesh>(
-    (mesh) => {
-      // wait until geometry buffer is initialized
-      if (!meshBuffer) {
-        return;
-      }
-
-      if (!meshBuffer.index) {
-        throw new Error('expecting indexed mesh buffer');
-      }
-
-      const indexes = meshBuffer.index.array;
-      const posAttr = meshBuffer.attributes.position;
-
-      const quadCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
-
-      const lumUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
-
-      for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
-        const atlasFaceIndex = atlasInfo.length;
-
-        fetchFaceIndexes(indexes, quadIndex);
-
-        const { left, top, sizeU, sizeV } = computeFaceUV(
-          atlasFaceIndex,
-          posAttr.array,
-          tmpFaceIndexes
-        );
-
-        lumUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
-        lumUVAttr.setXY(tmpFaceIndexes[1], left, top);
-        lumUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
-        lumUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
-
-        atlasInfo.push({
-          mesh: mesh,
-          buffer: meshBuffer,
-          quadIndex,
-          left,
-          top,
-          sizeU,
-          sizeV,
-          pixelFillCount: 0
-        });
-      }
-
-      // store illumination UV as dedicated attribute
-      meshBuffer.setAttribute(
-        'lumUV',
-        lumUVAttr.setUsage(THREE.StaticDrawUsage)
-      );
-    },
-    [meshBuffer]
-  );
-
-  return meshRef;
 }
 
 function useLightProbe(probeTargetSize: number) {
@@ -392,22 +285,21 @@ function useLightProbe(probeTargetSize: number) {
 }
 
 // @todo split into atlas setup and texel probe sweep render loop
-export function useAtlas(): {
-  atlasInfo: AtlasItem[];
+export function useIrradianceRenderer(): {
   outputTexture: THREE.Texture;
   lightSceneRef: React.MutableRefObject<THREE.Scene>;
   lightSceneTexture: THREE.Texture;
   handleDebugClick: (event: PointerEvent) => void;
   probeDebugTextures: THREE.Texture[];
 } {
+  const atlasInfo = useIrradianceAtlasContext();
+
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
 
   const [atlasStack, setAtlasStack] = useState(() => [
     createAtlasTexture(atlasWidth, atlasHeight, true),
     createAtlasTexture(atlasWidth, atlasHeight)
   ]);
-
-  const atlasInfo: AtlasItem[] = useMemo(() => [], []);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
@@ -645,7 +537,6 @@ export function useAtlas(): {
   }
 
   return {
-    atlasInfo,
     lightSceneRef,
     outputTexture: atlasStack[0].texture,
     lightSceneTexture: atlasStack[1].texture,
