@@ -94,67 +94,64 @@ export interface AtlasItem {
   sizeV: number;
 }
 
-// @todo rename
-export function useMeshWithAtlas(meshBuffer: THREE.BufferGeometry | undefined) {
+export const IrradianceSurface: React.FC<{
+  children: React.ReactElement<{}, 'mesh'>;
+}> = ({ children }) => {
   const atlasInfo = useIrradianceAtlasContext();
 
-  const meshRef = useUpdate<THREE.Mesh>(
-    (mesh) => {
-      // wait until geometry buffer is initialized
-      if (!meshBuffer) {
-        return;
-      }
+  const meshRef = useUpdate<THREE.Mesh>((mesh) => {
+    const meshBuffer = mesh.geometry;
 
-      if (!meshBuffer.index) {
-        throw new Error('expecting indexed mesh buffer');
-      }
+    if (!(meshBuffer instanceof THREE.BufferGeometry)) {
+      throw new Error('expected buffer geometry');
+    }
 
-      const indexes = meshBuffer.index.array;
-      const posAttr = meshBuffer.attributes.position;
+    if (!meshBuffer.index) {
+      throw new Error('expecting indexed mesh buffer');
+    }
 
-      const quadCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
+    const indexes = meshBuffer.index.array;
+    const posAttr = meshBuffer.attributes.position;
 
-      const lumUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
+    const quadCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
 
-      for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
-        const atlasFaceIndex = atlasInfo.length;
+    const lumUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
 
-        fetchFaceIndexes(indexes, quadIndex);
+    for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
+      const atlasFaceIndex = atlasInfo.length;
 
-        const { left, top, sizeU, sizeV } = computeFaceUV(
-          atlasFaceIndex,
-          posAttr.array,
-          tmpFaceIndexes
-        );
+      fetchFaceIndexes(indexes, quadIndex);
 
-        lumUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
-        lumUVAttr.setXY(tmpFaceIndexes[1], left, top);
-        lumUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
-        lumUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
-
-        atlasInfo.push({
-          mesh: mesh,
-          buffer: meshBuffer,
-          quadIndex,
-          left,
-          top,
-          sizeU,
-          sizeV,
-          pixelFillCount: 0
-        });
-      }
-
-      // store illumination UV as dedicated attribute
-      meshBuffer.setAttribute(
-        'lumUV',
-        lumUVAttr.setUsage(THREE.StaticDrawUsage)
+      const { left, top, sizeU, sizeV } = computeFaceUV(
+        atlasFaceIndex,
+        posAttr.array,
+        tmpFaceIndexes
       );
-    },
-    [meshBuffer]
-  );
 
-  return meshRef;
-}
+      lumUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
+      lumUVAttr.setXY(tmpFaceIndexes[1], left, top);
+      lumUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
+      lumUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
+
+      atlasInfo.push({
+        mesh: mesh,
+        buffer: meshBuffer,
+        quadIndex,
+        left,
+        top,
+        sizeU,
+        sizeV
+      });
+    }
+
+    // store illumination UV as dedicated attribute
+    meshBuffer.setAttribute('lumUV', lumUVAttr.setUsage(THREE.StaticDrawUsage));
+  }, []);
+
+  return React.cloneElement(children, { ref: meshRef }, [
+    ...children.props.children
+  ]);
+};
 
 const IrradianceSurfaceManager: React.FC = ({ children }) => {
   const atlasInfo: AtlasItem[] = useMemo(() => [], []);

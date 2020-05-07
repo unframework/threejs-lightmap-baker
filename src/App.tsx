@@ -3,7 +3,7 @@ import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import IrradianceSurfaceManager, {
-  useMeshWithAtlas
+  IrradianceSurface
 } from './IrradianceSurfaceManager';
 import { useIrradianceRenderer } from './IrradianceRenderer';
 import SceneControls from './SceneControls';
@@ -32,24 +32,6 @@ function Scene() {
     const aspect = size.height / size.width;
     return new THREE.OrthographicCamera(0, 100, 100, 100 * (1 - aspect), -1, 1);
   }, [size]);
-
-  const [meshBuffer1Ref, meshBuffer1] = useResource<THREE.BufferGeometry>();
-  const mesh1Ref = useMeshWithAtlas(meshBuffer1);
-
-  const [meshBuffer2Ref, meshBuffer2] = useResource<THREE.BufferGeometry>();
-  const mesh2Ref = useMeshWithAtlas(meshBuffer2);
-
-  const [meshBuffer3Ref, meshBuffer3] = useResource<THREE.BufferGeometry>();
-  const mesh3Ref = useMeshWithAtlas(meshBuffer3);
-
-  const [meshBuffer4Ref, meshBuffer4] = useResource<THREE.BufferGeometry>();
-  const mesh4Ref = useMeshWithAtlas(meshBuffer4);
-
-  const [lightBuffer1Ref, lightBuffer1] = useResource<THREE.BufferGeometry>();
-  const light1Ref = useMeshWithAtlas(lightBuffer1);
-
-  const [lightBuffer2Ref, lightBuffer2] = useResource<THREE.BufferGeometry>();
-  const light2Ref = useMeshWithAtlas(lightBuffer2);
 
   useFrame(({ gl, camera }) => {
     gl.render(mainScene, camera);
@@ -85,60 +67,44 @@ function Scene() {
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <mesh position={[0, 0, -1]} ref={mesh1Ref} onClick={handleDebugClick}>
-            <GridGeometry attach="geometry" ref={meshBuffer1Ref} />
-            <IrradianceMeshMaterial attach="material" />
-          </mesh>
-          <mesh
-            position={[-1.5, 0, 2]}
-            ref={mesh2Ref}
-            onClick={handleDebugClick}
-          >
-            <boxBufferGeometry
-              attach="geometry"
-              args={[2, 1, 4.5]}
-              ref={meshBuffer2Ref}
-            />
-            <IrradianceMeshMaterial attach="material" />
-          </mesh>
-          <mesh
-            position={[1.5, 0, 2]}
-            ref={mesh3Ref}
-            onClick={handleDebugClick}
-          >
-            <boxBufferGeometry
-              attach="geometry"
-              args={[2, 1, 4.5]}
-              ref={meshBuffer3Ref}
-            />
-            <IrradianceMeshMaterial attach="material" />
-          </mesh>
-          <mesh position={[0, 3, 3]} ref={mesh4Ref} onClick={handleDebugClick}>
-            <boxBufferGeometry
-              attach="geometry"
-              args={[3, 0.5, 3]}
-              ref={meshBuffer4Ref}
-            />
-            <IrradianceMeshMaterial attach="material" />
-          </mesh>
+          <IrradianceSurface>
+            <mesh position={[0, 0, -1]} onClick={handleDebugClick}>
+              <GridGeometry attach="geometry" />
+              <IrradianceMeshMaterial attach="material" />
+            </mesh>
+          </IrradianceSurface>
+          <IrradianceSurface>
+            <mesh position={[-1.5, 0, 2]} onClick={handleDebugClick}>
+              <boxBufferGeometry attach="geometry" args={[2, 1, 4.5]} />
+              <IrradianceMeshMaterial attach="material" />
+            </mesh>
+          </IrradianceSurface>
+          <IrradianceSurface>
+            <mesh position={[1.5, 0, 2]} onClick={handleDebugClick}>
+              <boxBufferGeometry attach="geometry" args={[2, 1, 4.5]} />
+              <IrradianceMeshMaterial attach="material" />
+            </mesh>
+          </IrradianceSurface>
+          <IrradianceSurface>
+            <mesh position={[0, 3, 3]} onClick={handleDebugClick}>
+              <boxBufferGeometry attach="geometry" args={[3, 0.5, 3]} />
+              <IrradianceMeshMaterial attach="material" />
+            </mesh>
+          </IrradianceSurface>
 
-          <mesh position={[0, -10, 10]} ref={light1Ref}>
-            <boxBufferGeometry
-              ref={lightBuffer1Ref}
-              attach="geometry"
-              args={[6, 2, 6]}
-            />
-            <IrradianceLightMaterial attach="material" intensity={10} />
-          </mesh>
+          <IrradianceSurface>
+            <mesh position={[0, -10, 10]}>
+              <boxBufferGeometry attach="geometry" args={[6, 2, 6]} />
+              <IrradianceLightMaterial attach="material" intensity={10} />
+            </mesh>
+          </IrradianceSurface>
 
-          <mesh position={[0, 8, 8]} ref={light2Ref}>
-            <boxBufferGeometry
-              ref={lightBuffer2Ref}
-              attach="geometry"
-              args={[2, 2, 2]}
-            />
-            <IrradianceLightMaterial attach="material" intensity={5} />
-          </mesh>
+          <IrradianceSurface>
+            <mesh position={[0, 8, 8]}>
+              <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+              <IrradianceLightMaterial attach="material" intensity={5} />
+            </mesh>
+          </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
 
