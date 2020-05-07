@@ -1,10 +1,5 @@
-import React, { useLayoutEffect, useState, useMemo } from 'react';
-import {
-  useThree,
-  useResource,
-  useFrame,
-  PointerEvent
-} from 'react-three-fiber';
+import React, { useLayoutEffect, useState, useMemo, useRef } from 'react';
+import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import {
@@ -13,6 +8,8 @@ import {
   useIrradianceAtlasContext,
   AtlasItem
 } from './IrradianceSurfaceManager';
+
+import { ProbeLightMaterial, ProbeMeshMaterial } from './IrradianceMaterials';
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
@@ -65,6 +62,56 @@ function fetchFaceUVs(
   tmpOriginUV.fromArray(uvArray, offsetOrigin);
   tmpUUV.fromArray(uvArray, offsetU);
   tmpVUV.fromArray(uvArray, offsetV);
+}
+
+function getLightProbeSceneElement(
+  atlasInfo: AtlasItem[],
+  lastTexture: THREE.Texture
+) {
+  const doneMeshes = new Set<THREE.Mesh>();
+
+  const lightSceneMeshes: THREE.Mesh[] = [];
+
+  for (const item of atlasInfo) {
+    const { mesh, buffer } = item;
+
+    // deduplicate multiple items from one mesh
+    if (doneMeshes.has(mesh)) {
+      continue;
+    }
+
+    doneMeshes.add(mesh);
+
+    // new mesh instance reusing existing geometry object directly, while material is set later
+    const lightSceneMesh = new THREE.Mesh(buffer);
+
+    // apply world transform (we don't bother re-creating scene hierarchy)
+    lightSceneMesh.applyMatrix4(mesh.matrixWorld);
+
+    lightSceneMeshes.push(lightSceneMesh);
+  }
+
+  // @todo proper light setup
+  return (
+    <scene>
+      {lightSceneMeshes.map((mesh, meshIndex) => (
+        // let the object be auto-disposed of
+        <primitive object={mesh} key={meshIndex}>
+          <ProbeMeshMaterial lumMap={lastTexture} />
+        </primitive>
+      ))}
+
+      <mesh position={[0, -4, 4]}>
+        <boxBufferGeometry attach="geometry" args={[4, 2, 4]} />
+        <ProbeLightMaterial attach="material" intensity={10} />
+      </mesh>
+
+      <mesh position={[0, 8, 8]}>
+        <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+        <ProbeLightMaterial attach="material" intensity={0.8} />
+      </mesh>
+    </scene>
+  );
 }
 
 function createAtlasTexture(
@@ -287,56 +334,73 @@ function useLightProbe(probeTargetSize: number) {
 // @todo split into atlas setup and texel probe sweep render loop
 export function useIrradianceRenderer(): {
   outputTexture: THREE.Texture;
-  lightSceneRef: React.MutableRefObject<THREE.Scene>;
-  lightSceneTexture: THREE.Texture;
+  lightSceneElement: React.ReactElement | null;
   handleDebugClick: (event: PointerEvent) => void;
   probeDebugTextures: THREE.Texture[];
 } {
   const atlasInfo = useIrradianceAtlasContext();
 
-  const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
+  // @todo fully manage the light scene lifecycle?
+  const lightSceneRef = useRef<THREE.Scene>();
 
   const [
-    { activeOutput, activeOutputData, activeItemCounter, lastOutput, passes },
+    {
+      activeOutput,
+      activeOutputData,
+      activeItemCounter,
+      lightSceneElement,
+      passes
+    },
     setProcessingState
   ] = useState<{
     activeOutput: THREE.DataTexture;
-    activeOutputData: Float32Array | null; // null means completed
+    activeOutputData: Float32Array;
     activeItemCounter: [number, number];
-    lastOutput: THREE.DataTexture;
+    lightSceneElement: React.ReactElement | null; // non-null triggers processing
     passes: number;
   }>(() => {
-    const [initialTexture] = createAtlasTexture(atlasWidth, atlasHeight);
+    const [initialTexture, initialData] = createAtlasTexture(
+      atlasWidth,
+      atlasHeight
+    );
 
     return {
       activeOutput: initialTexture,
-      activeOutputData: null,
+      activeOutputData: initialData,
       activeItemCounter: [0, 0], // directly changed in place to avoid re-renders
-      lastOutput: initialTexture, // @todo set to null
+      lightSceneElement: null,
       passes: 0
     };
   });
 
   // automatically kick off new processing when ready
   useLayoutEffect(() => {
-    if (!activeOutputData && passes < 3) {
-      setProcessingState((prev) => {
-        const [nextTexture, nextData] = createAtlasTexture(
-          atlasWidth,
-          atlasHeight,
-          true
-        );
+    if (!lightSceneElement && passes < 3) {
+      // wait for scene to populate @todo fix this
+      setTimeout(() => {
+        setProcessingState((prev) => {
+          const [nextTexture, nextData] = createAtlasTexture(
+            atlasWidth,
+            atlasHeight,
+            true
+          );
 
-        return {
-          ...prev,
-          activeOutput: nextTexture,
-          activeOutputData: nextData,
-          activeItemCounter: [0, 0],
-          lastOutput: prev.activeOutput
-        };
-      });
+          return {
+            ...prev,
+            activeOutput: nextTexture,
+            activeOutputData: nextData,
+            activeItemCounter: [0, 0],
+            lightSceneElement: React.cloneElement(
+              getLightProbeSceneElement(atlasInfo, prev.activeOutput),
+              {
+                ref: lightSceneRef
+              }
+            )
+          };
+        });
+      }, 0);
     }
-  }, [activeOutputData, passes]);
+  }, [atlasInfo, lightSceneRef, lightSceneElement, passes]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
@@ -363,18 +427,18 @@ export function useIrradianceRenderer(): {
     );
   }, [probeDebugDataList]);
 
-  useFrame(({ gl, scene }) => {
+  useFrame(({ gl }) => {
     // wait until atlas is initialized
     if (atlasInfo.length === 0) {
       return;
     }
 
-    if (activeOutputData === null) {
+    // ensure light scene has been instantiated
+    if (!lightSceneRef.current) {
       return;
     }
 
-    // local var for type safety
-    const textureData = activeOutputData;
+    const lightScene = lightSceneRef.current; // local var for type safety
 
     function computeTexel(
       atlasFaceInfo: AtlasItem,
@@ -428,19 +492,19 @@ export function useIrradianceRenderer(): {
 
       // store computed illumination value
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
-      textureData.set(rgb, atlasTexelBase * 3);
+      activeOutputData.set(rgb, atlasTexelBase * 3);
 
       // propagate texel value to seam bleed offset area if needed
       if (faceTexelX === 0) {
-        textureData.set(rgb, (atlasTexelBase - 1) * 3);
+        activeOutputData.set(rgb, (atlasTexelBase - 1) * 3);
       }
 
       if (faceTexelY === 0) {
-        textureData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
+        activeOutputData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
       }
 
       if (faceTexelX === 0 && faceTexelY === 0) {
-        textureData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
+        activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
       }
 
       activeOutput.needsUpdate = true;
@@ -486,7 +550,7 @@ export function useIrradianceRenderer(): {
         setProcessingState((prev) => {
           return {
             ...prev,
-            activeOutputData: null,
+            lightSceneElement: null,
             passes: prev.passes + 1
           };
         });
@@ -500,6 +564,8 @@ export function useIrradianceRenderer(): {
   const { gl } = useThree();
 
   function handleDebugClick(event: PointerEvent) {
+    return; // @todo fix this
+
     const quadIndex = Math.floor(event.faceIndex / 2);
     const itemIndex = atlasInfo.findIndex(
       (item) => item.mesh === event.object && item.quadIndex === quadIndex
@@ -593,9 +659,8 @@ export function useIrradianceRenderer(): {
   }
 
   return {
-    lightSceneRef,
     outputTexture: activeOutput,
-    lightSceneTexture: lastOutput,
+    lightSceneElement,
     handleDebugClick,
     probeDebugTextures
   };

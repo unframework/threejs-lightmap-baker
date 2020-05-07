@@ -9,8 +9,6 @@ import { useIrradianceRenderer } from './IrradianceRenderer';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import {
-  ProbeLightMaterial,
-  ProbeMeshMaterial,
   FinalMeshMaterial,
   IrradianceDebugMaterial,
   IrradianceTextureContext
@@ -19,8 +17,7 @@ import {
 function Scene() {
   const {
     outputTexture,
-    lightSceneRef,
-    lightSceneTexture,
+    lightSceneElement,
     handleDebugClick,
     probeDebugTextures
   } = useIrradianceRenderer();
@@ -120,45 +117,7 @@ function Scene() {
         </scene>
       </IrradianceTextureContext.Provider>
 
-      <scene ref={lightSceneRef}>
-        {mesh1Ref.current && meshBuffer1 && (
-          <mesh position={mesh1Ref.current.position}>
-            <primitive attach="geometry" object={meshBuffer1} dispose={null} />
-            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
-          </mesh>
-        )}
-
-        {mesh2Ref.current && meshBuffer2 && (
-          <mesh position={mesh2Ref.current.position}>
-            <primitive attach="geometry" object={meshBuffer2} dispose={null} />
-            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
-          </mesh>
-        )}
-
-        {mesh3Ref.current && meshBuffer3 && (
-          <mesh position={mesh3Ref.current.position}>
-            <primitive attach="geometry" object={meshBuffer3} dispose={null} />
-            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
-          </mesh>
-        )}
-
-        {mesh4Ref.current && meshBuffer4 && (
-          <mesh position={mesh4Ref.current.position}>
-            <primitive attach="geometry" object={meshBuffer4} dispose={null} />
-            <ProbeMeshMaterial attach="material" lumMap={lightSceneTexture} />
-          </mesh>
-        )}
-
-        <mesh position={[0, -4, 4]}>
-          <boxBufferGeometry attach="geometry" args={[4, 2, 4]} />
-          <ProbeLightMaterial attach="material" intensity={10} />
-        </mesh>
-
-        <mesh position={[0, 8, 8]}>
-          <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
-          <ProbeLightMaterial attach="material" intensity={0.8} />
-        </mesh>
-      </scene>
+      {lightSceneElement}
     </>
   );
 }
