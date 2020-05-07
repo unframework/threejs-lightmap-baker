@@ -16,6 +16,7 @@ function useIrradianceTexture() {
   return texture;
 }
 
+// @todo move to baker logic
 export const ProbeLightMaterial: React.FC<{
   attach?: string;
   intensity: number;
@@ -87,7 +88,7 @@ export const ProbeMeshMaterial: React.FC<{
   );
 };
 
-export const FinalMeshMaterial: React.FC<{
+export const IrradianceMeshMaterial: React.FC<{
   attach?: string;
 }> = ({ attach }) => {
   const lumMap = useIrradianceTexture();
@@ -121,6 +122,41 @@ export const FinalMeshMaterial: React.FC<{
   // disposable managed object
   return (
     <primitive object={material} attach={attach} uniforms-lum-value={lumMap} />
+  );
+};
+
+export const IrradianceLightMaterial: React.FC<{
+  attach?: string;
+  intensity: number;
+}> = ({ attach, intensity }) => {
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      color: { value: new THREE.Color(0xffffff) },
+      intensity: { value: 1 }
+    },
+    vertexShader: `
+      void main() {
+        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 color;
+      uniform float intensity;
+
+      void main() {
+        gl_FragColor = vec4(toneMapping(color * intensity), 1.0);
+      }
+    `
+  });
+
+  // disposable managed object
+  return (
+    <primitive
+      object={material}
+      attach={attach}
+      uniforms-intensity-value={intensity}
+    />
   );
 };
 

@@ -9,7 +9,12 @@ import {
   AtlasItem
 } from './IrradianceSurfaceManager';
 
-import { ProbeLightMaterial, ProbeMeshMaterial } from './IrradianceMaterials';
+import {
+  ProbeLightMaterial,
+  ProbeMeshMaterial,
+  IrradianceLightMaterial,
+  IrradianceMeshMaterial
+} from './IrradianceMaterials';
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
@@ -71,6 +76,7 @@ function getLightProbeSceneElement(
   const doneMeshes = new Set<THREE.Mesh>();
 
   const lightSceneMeshes: THREE.Mesh[] = [];
+  const lightSceneLights: { mesh: THREE.Mesh; intensity: number }[] = [];
 
   for (const item of atlasInfo) {
     const { mesh, buffer } = item;
@@ -88,7 +94,15 @@ function getLightProbeSceneElement(
     // apply world transform (we don't bother re-creating scene hierarchy)
     lightSceneMesh.applyMatrix4(mesh.matrixWorld);
 
-    lightSceneMeshes.push(lightSceneMesh);
+    // @todo store this properly in atlas information
+    if (mesh.material.uniforms.intensity) {
+      lightSceneLights.push({
+        mesh: lightSceneMesh,
+        intensity: mesh.material.uniforms.intensity.value
+      });
+    } else {
+      lightSceneMeshes.push(lightSceneMesh);
+    }
   }
 
   // @todo proper light setup
@@ -97,19 +111,16 @@ function getLightProbeSceneElement(
       {lightSceneMeshes.map((mesh, meshIndex) => (
         // let the object be auto-disposed of
         <primitive object={mesh} key={meshIndex}>
-          <ProbeMeshMaterial lumMap={lastTexture} />
+          <ProbeMeshMaterial attach="material" lumMap={lastTexture} />
         </primitive>
       ))}
 
-      <mesh position={[0, -4, 4]}>
-        <boxBufferGeometry attach="geometry" args={[4, 2, 4]} />
-        <ProbeLightMaterial attach="material" intensity={10} />
-      </mesh>
-
-      <mesh position={[0, 8, 8]}>
-        <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
-        <ProbeLightMaterial attach="material" intensity={0.8} />
-      </mesh>
+      {lightSceneLights.map(({ mesh, intensity }, meshIndex) => (
+        // let the object be auto-disposed of
+        <primitive object={mesh} key={meshIndex}>
+          <ProbeLightMaterial attach="material" intensity={intensity} />
+        </primitive>
+      ))}
     </scene>
   );
 }
@@ -564,8 +575,6 @@ export function useIrradianceRenderer(): {
   const { gl } = useThree();
 
   function handleDebugClick(event: PointerEvent) {
-    return; // @todo fix this
-
     const quadIndex = Math.floor(event.faceIndex / 2);
     const itemIndex = atlasInfo.findIndex(
       (item) => item.mesh === event.object && item.quadIndex === quadIndex
@@ -579,6 +588,12 @@ export function useIrradianceRenderer(): {
     const { mesh, buffer, left, top } = item;
 
     if (!buffer.index) {
+      return;
+    }
+
+    const lightScene = lightSceneRef.current;
+
+    if (!lightScene) {
       return;
     }
 

@@ -9,7 +9,8 @@ import { useIrradianceRenderer } from './IrradianceRenderer';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import {
-  FinalMeshMaterial,
+  IrradianceMeshMaterial,
+  IrradianceLightMaterial,
   IrradianceDebugMaterial,
   IrradianceTextureContext
 } from './IrradianceMaterials';
@@ -43,6 +44,12 @@ function Scene() {
 
   const [meshBuffer4Ref, meshBuffer4] = useResource<THREE.BufferGeometry>();
   const mesh4Ref = useMeshWithAtlas(meshBuffer4);
+
+  const [lightBuffer1Ref, lightBuffer1] = useResource<THREE.BufferGeometry>();
+  const light1Ref = useMeshWithAtlas(lightBuffer1);
+
+  const [lightBuffer2Ref, lightBuffer2] = useResource<THREE.BufferGeometry>();
+  const light2Ref = useMeshWithAtlas(lightBuffer2);
 
   useFrame(({ gl, camera }) => {
     gl.render(mainScene, camera);
@@ -80,7 +87,7 @@ function Scene() {
 
           <mesh position={[0, 0, -1]} ref={mesh1Ref} onClick={handleDebugClick}>
             <GridGeometry attach="geometry" ref={meshBuffer1Ref} />
-            <FinalMeshMaterial attach="material" />
+            <IrradianceMeshMaterial attach="material" />
           </mesh>
           <mesh
             position={[-1.5, 0, 2]}
@@ -92,7 +99,7 @@ function Scene() {
               args={[2, 1, 4.5]}
               ref={meshBuffer2Ref}
             />
-            <FinalMeshMaterial attach="material" />
+            <IrradianceMeshMaterial attach="material" />
           </mesh>
           <mesh
             position={[1.5, 0, 2]}
@@ -104,7 +111,7 @@ function Scene() {
               args={[2, 1, 4.5]}
               ref={meshBuffer3Ref}
             />
-            <FinalMeshMaterial attach="material" />
+            <IrradianceMeshMaterial attach="material" />
           </mesh>
           <mesh position={[0, 3, 3]} ref={mesh4Ref} onClick={handleDebugClick}>
             <boxBufferGeometry
@@ -112,7 +119,25 @@ function Scene() {
               args={[3, 0.5, 3]}
               ref={meshBuffer4Ref}
             />
-            <FinalMeshMaterial attach="material" />
+            <IrradianceMeshMaterial attach="material" />
+          </mesh>
+
+          <mesh position={[0, -4, 4]} ref={light1Ref}>
+            <boxBufferGeometry
+              ref={lightBuffer1Ref}
+              attach="geometry"
+              args={[4, 2, 4]}
+            />
+            <IrradianceLightMaterial attach="material" intensity={10} />
+          </mesh>
+
+          <mesh position={[0, 8, 8]} ref={light2Ref}>
+            <boxBufferGeometry
+              ref={lightBuffer2Ref}
+              attach="geometry"
+              args={[2, 2, 2]}
+            />
+            <IrradianceLightMaterial attach="material" intensity={0.8} />
           </mesh>
         </scene>
       </IrradianceTextureContext.Provider>
