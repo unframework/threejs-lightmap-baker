@@ -72,14 +72,8 @@ const Scene: React.FC<{ loadedMesh: THREE.Mesh }> = ({ loadedMesh }) => {
             <primitive object={loadedMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface lightIntensity={8}>
-            <mesh position={[0, -1.5, 5]}>
-              <boxBufferGeometry attach="geometry" args={[10, 2, 0.5]} />
-            </mesh>
-          </IrradianceSurface>
-
-          <IrradianceSurface lightIntensity={8}>
-            <mesh position={[0, 1.5, 5]}>
+          <IrradianceSurface lightIntensity={12}>
+            <mesh position={[0, 2, 6]}>
               <boxBufferGeometry attach="geometry" args={[10, 2, 0.5]} />
             </mesh>
           </IrradianceSurface>
