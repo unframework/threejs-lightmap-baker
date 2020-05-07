@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useLayoutEffect, useState, useMemo } from 'react';
 import {
   useThree,
   useResource,
@@ -71,7 +71,7 @@ function createAtlasTexture(
   atlasWidth: number,
   atlasHeight: number,
   fillWithPattern?: boolean
-) {
+): [THREE.Texture, Float32Array] {
   const atlasSize = atlasWidth * atlasHeight;
   const data = new Float32Array(3 * atlasSize);
 
@@ -102,7 +102,7 @@ function createAtlasTexture(
     THREE.FloatType
   );
 
-  return { data, texture };
+  return [texture, data];
 }
 
 function setUpProbeUp(
@@ -296,10 +296,47 @@ export function useIrradianceRenderer(): {
 
   const [lightSceneRef, lightScene] = useResource<THREE.Scene>();
 
-  const [atlasStack, setAtlasStack] = useState(() => [
-    createAtlasTexture(atlasWidth, atlasHeight, true),
-    createAtlasTexture(atlasWidth, atlasHeight)
-  ]);
+  const [
+    { activeOutput, activeOutputData, activeItemCounter, lastOutput, passes },
+    setProcessingState
+  ] = useState<{
+    activeOutput: THREE.DataTexture;
+    activeOutputData: Float32Array | null; // null means completed
+    activeItemCounter: [number, number];
+    lastOutput: THREE.DataTexture;
+    passes: number;
+  }>(() => {
+    const [initialTexture] = createAtlasTexture(atlasWidth, atlasHeight);
+
+    return {
+      activeOutput: initialTexture,
+      activeOutputData: null,
+      activeItemCounter: [0, 0], // directly changed in place to avoid re-renders
+      lastOutput: initialTexture, // @todo set to null
+      passes: 0
+    };
+  });
+
+  // automatically kick off new processing when ready
+  useLayoutEffect(() => {
+    if (!activeOutputData && passes < 3) {
+      setProcessingState((prev) => {
+        const [nextTexture, nextData] = createAtlasTexture(
+          atlasWidth,
+          atlasHeight,
+          true
+        );
+
+        return {
+          ...prev,
+          activeOutput: nextTexture,
+          activeOutputData: nextData,
+          activeItemCounter: [0, 0],
+          lastOutput: prev.activeOutput
+        };
+      });
+    }
+  }, [activeOutputData, passes]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
@@ -326,51 +363,26 @@ export function useIrradianceRenderer(): {
     );
   }, [probeDebugDataList]);
 
-  const atlasFaceFillIndexRef = useRef(0);
-
   useFrame(({ gl, scene }) => {
     // wait until atlas is initialized
     if (atlasInfo.length === 0) {
       return;
     }
 
-    function iterate() {
-      // get current atlas face we are filling up
-      const currentAtlasFaceIndex = atlasFaceFillIndexRef.current;
-      const atlasFaceInfo = atlasInfo[currentAtlasFaceIndex];
+    if (activeOutputData === null) {
+      return;
+    }
 
-      const { left, top, sizeU, sizeV } = atlasFaceInfo;
+    // local var for type safety
+    const textureData = activeOutputData;
 
-      const texelSizeU = sizeU * atlasWidth;
-      const texelSizeV = sizeV * atlasHeight;
-
-      const faceTexelCols = Math.ceil(texelSizeU);
-      const faceTexelRows = Math.ceil(texelSizeV);
-
-      // relative integer texel offset from face origin inside texture data
-      const fillCount = atlasFaceInfo.pixelFillCount;
-
-      const faceTexelX = fillCount % faceTexelCols;
-      const faceTexelY = Math.floor(fillCount / faceTexelCols);
-
-      atlasFaceInfo.pixelFillCount =
-        (fillCount + 1) % (faceTexelRows * faceTexelCols);
-
-      // tick up face index when this one is done
-      if (atlasFaceInfo.pixelFillCount === 0) {
-        atlasFaceFillIndexRef.current =
-          (currentAtlasFaceIndex + 1) % atlasInfo.length;
-
-        // tick up atlas texture stack once all faces are done
-        if (atlasFaceFillIndexRef.current === 0) {
-          setAtlasStack((prev) => {
-            // promote items up one level, taking last one to be the new first one
-            const last = prev[prev.length - 1];
-            return [last, ...prev.slice(0, -1)];
-          });
-        }
-      }
-
+    function computeTexel(
+      atlasFaceInfo: AtlasItem,
+      faceTexelX: number,
+      faceTexelY: number,
+      atlasTexelLeft: number,
+      atlasTexelTop: number
+    ) {
       // render the probe viewports and collect pixel aggregate
       let r = 0,
         g = 0,
@@ -411,33 +423,77 @@ export function useIrradianceRenderer(): {
       const rgb = [r / totalDivider, g / totalDivider, b / totalDivider];
 
       // find texel inside atlas, as rounded to texel boundary
-      const atlasTexelLeft = Math.floor(left * atlasWidth);
-      const atlasTexelTop = Math.floor(top * atlasWidth);
       const atlasTexelX = atlasTexelLeft + faceTexelX;
       const atlasTexelY = atlasTexelTop + faceTexelY;
 
       // store computed illumination value
       const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
-      atlasStack[0].data.set(rgb, atlasTexelBase * 3);
+      textureData.set(rgb, atlasTexelBase * 3);
 
       // propagate texel value to seam bleed offset area if needed
       if (faceTexelX === 0) {
-        atlasStack[0].data.set(rgb, (atlasTexelBase - 1) * 3);
+        textureData.set(rgb, (atlasTexelBase - 1) * 3);
       }
 
       if (faceTexelY === 0) {
-        atlasStack[0].data.set(rgb, (atlasTexelBase - atlasWidth) * 3);
+        textureData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
       }
 
       if (faceTexelX === 0 && faceTexelY === 0) {
-        atlasStack[0].data.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
+        textureData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
       }
 
-      atlasStack[0].texture.needsUpdate = true;
+      activeOutput.needsUpdate = true;
     }
 
     for (let iteration = 0; iteration < iterationsPerFrame; iteration += 1) {
-      iterate();
+      const [currentItemIndex, fillCount] = activeItemCounter;
+
+      // get current atlas face we are filling up
+      const atlasFaceInfo = atlasInfo[currentItemIndex];
+
+      const { left, top, sizeU, sizeV } = atlasFaceInfo;
+
+      const texelSizeU = sizeU * atlasWidth;
+      const texelSizeV = sizeV * atlasHeight;
+
+      const faceTexelCols = Math.ceil(texelSizeU);
+      const faceTexelRows = Math.ceil(texelSizeV);
+
+      // relative integer texel offset from face origin inside texture data
+      const faceTexelX = fillCount % faceTexelCols;
+      const faceTexelY = Math.floor(fillCount / faceTexelCols);
+
+      const atlasTexelLeft = Math.floor(left * atlasWidth);
+      const atlasTexelTop = Math.floor(top * atlasWidth);
+
+      computeTexel(
+        atlasFaceInfo,
+        faceTexelX,
+        faceTexelY,
+        atlasTexelLeft,
+        atlasTexelTop
+      );
+
+      if (fillCount < faceTexelRows * faceTexelCols - 1) {
+        // tick up face index when this one is done
+        activeItemCounter[1] = fillCount + 1;
+      } else if (currentItemIndex < atlasInfo.length - 1) {
+        activeItemCounter[0] = currentItemIndex + 1;
+        activeItemCounter[1] = 0;
+      } else {
+        // mark state as completed once all faces are done
+        setProcessingState((prev) => {
+          return {
+            ...prev,
+            activeOutputData: null,
+            passes: prev.passes + 1
+          };
+        });
+
+        // exit current iteration loop
+        break;
+      }
     }
   }, 10);
 
@@ -538,8 +594,8 @@ export function useIrradianceRenderer(): {
 
   return {
     lightSceneRef,
-    outputTexture: atlasStack[0].texture,
-    lightSceneTexture: atlasStack[1].texture,
+    outputTexture: activeOutput,
+    lightSceneTexture: lastOutput,
     handleDebugClick,
     probeDebugTextures
   };

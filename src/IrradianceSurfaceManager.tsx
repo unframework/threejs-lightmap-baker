@@ -92,7 +92,6 @@ export interface AtlasItem {
   top: number;
   sizeU: number;
   sizeV: number;
-  pixelFillCount: number;
 }
 
 // @todo rename
