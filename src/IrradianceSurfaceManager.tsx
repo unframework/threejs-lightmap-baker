@@ -124,7 +124,7 @@ function computeFaceUV(
 
 export const IrradianceSurface: React.FC<{
   lightIntensity?: number; // @todo just accept albedo and luminosity
-  children: React.ReactElement<{}, 'mesh'>;
+  children: React.ReactElement<{}, 'mesh' | 'primitive'>;
 }> = ({ lightIntensity, children }) => {
   const { albedoItems, illuminationItems } = useIrradianceAtlasContext();
 

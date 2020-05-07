@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
   IrradianceSurface
@@ -13,7 +14,9 @@ import {
   IrradianceTextureContext
 } from './IrradianceMaterials';
 
-function Scene() {
+import sceneUrl from './tile-game-room1.glb';
+
+const Scene: React.FC<{ loadedMesh: THREE.Mesh }> = ({ loadedMesh }) => {
   const {
     outputTexture,
     lightSceneElement,
@@ -66,35 +69,18 @@ function Scene() {
           </mesh>
 
           <IrradianceSurface>
-            <mesh position={[0, 0, -1]} onClick={handleDebugClick}>
-              <GridGeometry attach="geometry" />
-            </mesh>
+            <primitive object={loadedMesh} dispose={null} />
           </IrradianceSurface>
-          <IrradianceSurface>
-            <mesh position={[-1.5, 0, 2]} onClick={handleDebugClick}>
-              <boxBufferGeometry attach="geometry" args={[2, 1, 4.5]} />
-            </mesh>
-          </IrradianceSurface>
-          <IrradianceSurface>
-            <mesh position={[1.5, 0, 2]} onClick={handleDebugClick}>
-              <boxBufferGeometry attach="geometry" args={[2, 1, 4.5]} />
-            </mesh>
-          </IrradianceSurface>
-          <IrradianceSurface>
-            <mesh position={[0, 3, 3]} onClick={handleDebugClick}>
-              <boxBufferGeometry attach="geometry" args={[3, 0.5, 3]} />
+
+          <IrradianceSurface lightIntensity={8}>
+            <mesh position={[0, -1.5, 5]}>
+              <boxBufferGeometry attach="geometry" args={[10, 2, 0.5]} />
             </mesh>
           </IrradianceSurface>
 
-          <IrradianceSurface lightIntensity={10}>
-            <mesh position={[0, -10, 10]}>
-              <boxBufferGeometry attach="geometry" args={[6, 2, 6]} />
-            </mesh>
-          </IrradianceSurface>
-
-          <IrradianceSurface lightIntensity={5}>
-            <mesh position={[0, 8, 8]}>
-              <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+          <IrradianceSurface lightIntensity={8}>
+            <mesh position={[0, 1.5, 5]}>
+              <boxBufferGeometry attach="geometry" args={[10, 2, 0.5]} />
             </mesh>
           </IrradianceSurface>
         </scene>
@@ -103,9 +89,21 @@ function Scene() {
       {lightSceneElement}
     </>
   );
-}
+};
 
 function App() {
+  const [loadedMesh, setLoadedMesh] = useState<THREE.Mesh | null>(null);
+
+  useEffect(() => {
+    new GLTFLoader().load(sceneUrl, (data) => {
+      data.scene.traverse((object) => {
+        if (object instanceof THREE.Mesh) {
+          setLoadedMesh(object);
+        }
+      });
+    });
+  }, []);
+
   return (
     <Canvas
       camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
@@ -116,9 +114,11 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      <IrradianceSurfaceManager>
-        <Scene />
-      </IrradianceSurfaceManager>
+      {loadedMesh ? (
+        <IrradianceSurfaceManager>
+          <Scene loadedMesh={loadedMesh} />
+        </IrradianceSurfaceManager>
+      ) : null}
 
       <SceneControls />
     </Canvas>
