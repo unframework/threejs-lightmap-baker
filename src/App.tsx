@@ -9,8 +9,6 @@ import { useIrradianceRenderer } from './IrradianceRenderer';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import {
-  IrradianceMeshMaterial,
-  IrradianceLightMaterial,
   IrradianceDebugMaterial,
   IrradianceTextureContext
 } from './IrradianceMaterials';
@@ -70,39 +68,33 @@ function Scene() {
           <IrradianceSurface>
             <mesh position={[0, 0, -1]} onClick={handleDebugClick}>
               <GridGeometry attach="geometry" />
-              <IrradianceMeshMaterial attach="material" />
             </mesh>
           </IrradianceSurface>
           <IrradianceSurface>
             <mesh position={[-1.5, 0, 2]} onClick={handleDebugClick}>
               <boxBufferGeometry attach="geometry" args={[2, 1, 4.5]} />
-              <IrradianceMeshMaterial attach="material" />
             </mesh>
           </IrradianceSurface>
           <IrradianceSurface>
             <mesh position={[1.5, 0, 2]} onClick={handleDebugClick}>
               <boxBufferGeometry attach="geometry" args={[2, 1, 4.5]} />
-              <IrradianceMeshMaterial attach="material" />
             </mesh>
           </IrradianceSurface>
           <IrradianceSurface>
             <mesh position={[0, 3, 3]} onClick={handleDebugClick}>
               <boxBufferGeometry attach="geometry" args={[3, 0.5, 3]} />
-              <IrradianceMeshMaterial attach="material" />
             </mesh>
           </IrradianceSurface>
 
-          <IrradianceSurface>
+          <IrradianceSurface lightIntensity={10}>
             <mesh position={[0, -10, 10]}>
               <boxBufferGeometry attach="geometry" args={[6, 2, 6]} />
-              <IrradianceLightMaterial attach="material" intensity={10} />
             </mesh>
           </IrradianceSurface>
 
-          <IrradianceSurface>
+          <IrradianceSurface lightIntensity={5}>
             <mesh position={[0, 8, 8]}>
               <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
-              <IrradianceLightMaterial attach="material" intensity={5} />
             </mesh>
           </IrradianceSurface>
         </scene>

@@ -2,6 +2,11 @@ import React, { useMemo, useContext } from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
+import {
+  IrradianceMeshMaterial,
+  IrradianceLightMaterial
+} from './IrradianceMaterials';
+
 export const atlasWidth = 256;
 export const atlasHeight = 256;
 
@@ -95,8 +100,9 @@ export interface AtlasItem {
 }
 
 export const IrradianceSurface: React.FC<{
+  lightIntensity?: number; // @todo just accept albedo and luminosity
   children: React.ReactElement<{}, 'mesh'>;
-}> = ({ children }) => {
+}> = ({ lightIntensity, children }) => {
   const atlasInfo = useIrradianceAtlasContext();
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
@@ -148,9 +154,16 @@ export const IrradianceSurface: React.FC<{
     meshBuffer.setAttribute('lumUV', lumUVAttr.setUsage(THREE.StaticDrawUsage));
   }, []);
 
-  return React.cloneElement(children, { ref: meshRef }, [
-    ...children.props.children
-  ]);
+  return React.cloneElement(
+    children,
+    { ref: meshRef },
+    children.props.children,
+    lightIntensity === undefined ? (
+      <IrradianceMeshMaterial attach="material" />
+    ) : (
+      <IrradianceLightMaterial attach="material" intensity={lightIntensity} />
+    )
+  );
 };
 
 const IrradianceSurfaceManager: React.FC = ({ children }) => {
