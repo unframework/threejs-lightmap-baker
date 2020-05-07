@@ -122,11 +122,11 @@ function Scene() {
             <IrradianceMeshMaterial attach="material" />
           </mesh>
 
-          <mesh position={[0, -4, 4]} ref={light1Ref}>
+          <mesh position={[0, -10, 10]} ref={light1Ref}>
             <boxBufferGeometry
               ref={lightBuffer1Ref}
               attach="geometry"
-              args={[4, 2, 4]}
+              args={[6, 2, 6]}
             />
             <IrradianceLightMaterial attach="material" intensity={10} />
           </mesh>
@@ -137,7 +137,7 @@ function Scene() {
               attach="geometry"
               args={[2, 2, 2]}
             />
-            <IrradianceLightMaterial attach="material" intensity={0.8} />
+            <IrradianceLightMaterial attach="material" intensity={5} />
           </mesh>
         </scene>
       </IrradianceTextureContext.Provider>
