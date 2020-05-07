@@ -10,17 +10,20 @@ import {
 export const atlasWidth = 256;
 export const atlasHeight = 256;
 
-const bleedOffsetU = 2 / atlasWidth;
-const bleedOffsetV = 2 / atlasHeight;
+const bleedOffsetU = 1 / atlasWidth;
+const bleedOffsetV = 1 / atlasHeight;
 
-const itemSizeU = 0.1;
-const itemSizeV = 0.1;
-const itemUVMargin = 0.025;
+const itemCellU = 1 / 8;
+const itemCellV = 1 / 8;
+const itemTexelU = Math.floor(atlasWidth * itemCellU) - 2;
+const itemTexelV = Math.floor(atlasHeight * itemCellV) - 2;
+const itemSizeU = itemTexelU / atlasWidth;
+const itemSizeV = itemTexelV / atlasHeight;
 
 // maximum physical dimension of a stored item's face
 const atlasItemMaxDim = 5;
 
-const itemsPerRow = Math.floor(1 / (itemSizeU + itemUVMargin));
+const itemsPerRow = Math.floor(1 / itemCellU);
 
 const tmpFaceIndexes: [number, number, number, number] = [-1, -1, -1, -1];
 const tmpOrigin = new THREE.Vector3();
@@ -102,10 +105,19 @@ function computeFaceUV(
   const dUdim = Math.min(atlasItemMaxDim, tmpU.length());
   const dVdim = Math.min(atlasItemMaxDim, tmpV.length());
 
-  const left = itemColumn * (itemSizeU + itemUVMargin) + bleedOffsetU;
-  const top = itemRow * (itemSizeV + itemUVMargin) + bleedOffsetV;
-  const sizeU = itemSizeU * (dUdim / atlasItemMaxDim);
-  const sizeV = itemSizeV * (dVdim / atlasItemMaxDim);
+  const texelU = Math.max(
+    1,
+    Math.floor(atlasWidth * itemSizeU * (dUdim / atlasItemMaxDim))
+  );
+  const texelV = Math.max(
+    1,
+    Math.floor(atlasHeight * itemSizeV * (dVdim / atlasItemMaxDim))
+  );
+
+  const left = itemColumn * itemCellU + bleedOffsetU;
+  const top = itemRow * itemCellV + bleedOffsetV;
+  const sizeU = texelU / atlasWidth;
+  const sizeV = texelV / atlasHeight;
 
   return { left, top, sizeU, sizeV };
 }
