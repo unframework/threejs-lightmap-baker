@@ -38,12 +38,14 @@ export interface AtlasItem {
   top: number;
   sizeU: number;
   sizeV: number;
+  map?: THREE.Texture;
 }
 
 export interface AtlasIlluminationItem {
   mesh: THREE.Mesh;
   buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine
-  intensity: number;
+  amount: number;
+  map?: THREE.Texture;
 }
 
 export interface Atlas {
@@ -122,21 +124,25 @@ function computeFaceUV(
   return { left, top, sizeU, sizeV };
 }
 
+// @todo allow both albedo and luminosity at once
 export const IrradianceSurface: React.FC<{
-  lightIntensity?: number; // @todo just accept albedo and luminosity
+  albedoMap?: THREE.Texture;
+  luminosityMap?: THREE.Texture;
+  luminosityAmount?: number;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
-}> = ({ lightIntensity, children }) => {
+}> = ({ albedoMap, luminosityMap, luminosityAmount, children }) => {
   const { albedoItems, illuminationItems } = useIrradianceAtlasContext();
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
 
     // if light mode, register as such and skip albedo items
-    if (lightIntensity !== undefined) {
+    if (luminosityAmount !== undefined) {
       illuminationItems.push({
         mesh,
         buffer: meshBuffer,
-        intensity: lightIntensity
+        amount: luminosityAmount,
+        map: luminosityMap
       });
 
       return;
@@ -176,6 +182,7 @@ export const IrradianceSurface: React.FC<{
       albedoItems.push({
         mesh: mesh,
         buffer: meshBuffer,
+        map: albedoMap,
         quadIndex,
         left,
         top,
@@ -192,10 +199,14 @@ export const IrradianceSurface: React.FC<{
     children,
     { ref: meshRef },
     children.props.children,
-    lightIntensity === undefined ? (
-      <IrradianceMeshMaterial attach="material" />
+    luminosityAmount === undefined ? (
+      <IrradianceMeshMaterial attach="material" map={albedoMap} />
     ) : (
-      <IrradianceLightMaterial attach="material" intensity={lightIntensity} />
+      <IrradianceLightMaterial
+        attach="material"
+        amount={luminosityAmount}
+        map={luminosityMap}
+      />
     )
   );
 };

@@ -10,12 +10,7 @@ import {
   AtlasItem
 } from './IrradianceSurfaceManager';
 
-import {
-  ProbeLightMaterial,
-  ProbeMeshMaterial,
-  IrradianceLightMaterial,
-  IrradianceMeshMaterial
-} from './IrradianceMaterials';
+import { ProbeLightMaterial, ProbeMeshMaterial } from './IrradianceMaterials';
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
@@ -79,7 +74,7 @@ function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
   return (
     <scene>
       {albedoItems.map((item, itemIndex) => {
-        const { mesh, buffer } = item;
+        const { mesh, buffer, map } = item;
 
         // deduplicate multiple items from one mesh
         // @todo organize the item data by mesh
@@ -98,13 +93,17 @@ function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
         // let the object be auto-disposed of
         return (
           <primitive object={cloneMesh} key={itemIndex}>
-            <ProbeMeshMaterial attach="material" lumMap={lastTexture} />
+            <ProbeMeshMaterial
+              attach="material"
+              map={map}
+              lumMap={lastTexture}
+            />
           </primitive>
         );
       })}
 
       {illuminationItems.map((item, itemIndex) => {
-        const { mesh, buffer, intensity } = item;
+        const { mesh, buffer, amount, map } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
         const cloneMesh = new THREE.Mesh(buffer);
@@ -115,7 +114,7 @@ function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
         // let the object be auto-disposed of
         return (
           <primitive object={cloneMesh} key={itemIndex}>
-            <ProbeLightMaterial attach="material" intensity={intensity} />
+            <ProbeLightMaterial attach="material" amount={amount} map={map} />
           </primitive>
         );
       })}
