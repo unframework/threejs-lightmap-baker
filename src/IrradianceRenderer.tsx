@@ -449,6 +449,8 @@ export function useIrradianceRenderer(): {
       atlasFaceInfo: AtlasItem,
       faceTexelX: number,
       faceTexelY: number,
+      faceTexelCols: number,
+      faceTexelRows: number,
       atlasTexelLeft: number,
       atlasTexelTop: number
     ) {
@@ -502,14 +504,28 @@ export function useIrradianceRenderer(): {
       // propagate texel value to seam bleed offset area if needed
       if (faceTexelX === 0) {
         activeOutputData.set(rgb, (atlasTexelBase - 1) * 3);
+      } else if (faceTexelX === faceTexelCols - 1) {
+        activeOutputData.set(rgb, (atlasTexelBase + 1) * 3);
       }
 
       if (faceTexelY === 0) {
         activeOutputData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
+      } else if (faceTexelY === faceTexelRows - 1) {
+        activeOutputData.set(rgb, (atlasTexelBase + atlasWidth) * 3);
       }
 
-      if (faceTexelX === 0 && faceTexelY === 0) {
-        activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
+      if (faceTexelX === 0) {
+        if (faceTexelY === 0) {
+          activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
+        } else if (faceTexelY === faceTexelRows - 1) {
+          activeOutputData.set(rgb, (atlasTexelBase + atlasWidth - 1) * 3);
+        }
+      } else if (faceTexelX === faceTexelCols - 1) {
+        if (faceTexelY === 0) {
+          activeOutputData.set(rgb, (atlasTexelBase - atlasWidth + 1) * 3);
+        } else if (faceTexelY === faceTexelRows - 1) {
+          activeOutputData.set(rgb, (atlasTexelBase + atlasWidth + 1) * 3);
+        }
       }
 
       activeOutput.needsUpdate = true;
@@ -540,6 +556,8 @@ export function useIrradianceRenderer(): {
         atlasFaceInfo,
         faceTexelX,
         faceTexelY,
+        faceTexelCols,
+        faceTexelRows,
         atlasTexelLeft,
         atlasTexelTop
       );
