@@ -6,6 +6,7 @@ import {
   atlasWidth,
   atlasHeight,
   useIrradianceAtlasContext,
+  Atlas,
   AtlasItem
 } from './IrradianceSurfaceManager';
 
@@ -69,58 +70,55 @@ function fetchFaceUVs(
   tmpVUV.fromArray(uvArray, offsetV);
 }
 
-function getLightProbeSceneElement(
-  atlasInfo: AtlasItem[],
-  lastTexture: THREE.Texture
-) {
+function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
+  const { albedoItems, illuminationItems } = atlas;
+
   const doneMeshes = new Set<THREE.Mesh>();
-
-  const lightSceneMeshes: THREE.Mesh[] = [];
-  const lightSceneLights: { mesh: THREE.Mesh; intensity: number }[] = [];
-
-  for (const item of atlasInfo) {
-    const { mesh, buffer } = item;
-
-    // deduplicate multiple items from one mesh
-    if (doneMeshes.has(mesh)) {
-      continue;
-    }
-
-    doneMeshes.add(mesh);
-
-    // new mesh instance reusing existing geometry object directly, while material is set later
-    const lightSceneMesh = new THREE.Mesh(buffer);
-
-    // apply world transform (we don't bother re-creating scene hierarchy)
-    lightSceneMesh.applyMatrix4(mesh.matrixWorld);
-
-    // @todo store this properly in atlas information
-    if (mesh.material.uniforms.intensity) {
-      lightSceneLights.push({
-        mesh: lightSceneMesh,
-        intensity: mesh.material.uniforms.intensity.value
-      });
-    } else {
-      lightSceneMeshes.push(lightSceneMesh);
-    }
-  }
 
   // @todo proper light setup
   return (
     <scene>
-      {lightSceneMeshes.map((mesh, meshIndex) => (
-        // let the object be auto-disposed of
-        <primitive object={mesh} key={meshIndex}>
-          <ProbeMeshMaterial attach="material" lumMap={lastTexture} />
-        </primitive>
-      ))}
+      {albedoItems.map((item, itemIndex) => {
+        const { mesh, buffer } = item;
 
-      {lightSceneLights.map(({ mesh, intensity }, meshIndex) => (
+        // deduplicate multiple items from one mesh
+        // @todo organize the item data by mesh
+        if (doneMeshes.has(mesh)) {
+          return null;
+        }
+
+        doneMeshes.add(mesh);
+
+        // new mesh instance reusing existing geometry object directly, while material is set later
+        const cloneMesh = new THREE.Mesh(buffer);
+
+        // apply world transform (we don't bother re-creating scene hierarchy)
+        cloneMesh.applyMatrix4(mesh.matrixWorld);
+
         // let the object be auto-disposed of
-        <primitive object={mesh} key={meshIndex}>
-          <ProbeLightMaterial attach="material" intensity={intensity} />
-        </primitive>
-      ))}
+        return (
+          <primitive object={cloneMesh} key={itemIndex}>
+            <ProbeMeshMaterial attach="material" lumMap={lastTexture} />
+          </primitive>
+        );
+      })}
+
+      {illuminationItems.map((item, itemIndex) => {
+        const { mesh, buffer, intensity } = item;
+
+        // new mesh instance reusing existing geometry object directly, while material is set later
+        const cloneMesh = new THREE.Mesh(buffer);
+
+        // apply world transform (we don't bother re-creating scene hierarchy)
+        cloneMesh.applyMatrix4(mesh.matrixWorld);
+
+        // let the object be auto-disposed of
+        return (
+          <primitive object={cloneMesh} key={itemIndex}>
+            <ProbeLightMaterial attach="material" intensity={intensity} />
+          </primitive>
+        );
+      })}
     </scene>
   );
 }
@@ -349,7 +347,7 @@ export function useIrradianceRenderer(): {
   handleDebugClick: (event: PointerEvent) => void;
   probeDebugTextures: THREE.Texture[];
 } {
-  const atlasInfo = useIrradianceAtlasContext();
+  const atlas = useIrradianceAtlasContext();
 
   // @todo fully manage the light scene lifecycle?
   const lightSceneRef = useRef<THREE.Scene>();
@@ -402,7 +400,7 @@ export function useIrradianceRenderer(): {
             activeOutputData: nextData,
             activeItemCounter: [0, 0],
             lightSceneElement: React.cloneElement(
-              getLightProbeSceneElement(atlasInfo, prev.activeOutput),
+              getLightProbeSceneElement(atlas, prev.activeOutput),
               {
                 ref: lightSceneRef
               }
@@ -411,7 +409,7 @@ export function useIrradianceRenderer(): {
         });
       }, 0);
     }
-  }, [atlasInfo, lightSceneRef, lightSceneElement, passes]);
+  }, [atlas, lightSceneRef, lightSceneElement, passes]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
@@ -439,17 +437,13 @@ export function useIrradianceRenderer(): {
   }, [probeDebugDataList]);
 
   useFrame(({ gl }) => {
-    // wait until atlas is initialized
-    if (atlasInfo.length === 0) {
-      return;
-    }
-
     // ensure light scene has been instantiated
     if (!lightSceneRef.current) {
       return;
     }
 
     const lightScene = lightSceneRef.current; // local var for type safety
+    const { albedoItems } = atlas;
 
     function computeTexel(
       atlasFaceInfo: AtlasItem,
@@ -525,7 +519,7 @@ export function useIrradianceRenderer(): {
       const [currentItemIndex, fillCount] = activeItemCounter;
 
       // get current atlas face we are filling up
-      const atlasFaceInfo = atlasInfo[currentItemIndex];
+      const atlasFaceInfo = albedoItems[currentItemIndex];
 
       const { left, top, sizeU, sizeV } = atlasFaceInfo;
 
@@ -553,7 +547,7 @@ export function useIrradianceRenderer(): {
       if (fillCount < faceTexelRows * faceTexelCols - 1) {
         // tick up face index when this one is done
         activeItemCounter[1] = fillCount + 1;
-      } else if (currentItemIndex < atlasInfo.length - 1) {
+      } else if (currentItemIndex < albedoItems.length - 1) {
         activeItemCounter[0] = currentItemIndex + 1;
         activeItemCounter[1] = 0;
       } else {
@@ -575,8 +569,10 @@ export function useIrradianceRenderer(): {
   const { gl } = useThree();
 
   function handleDebugClick(event: PointerEvent) {
+    const { albedoItems } = atlas;
+
     const quadIndex = Math.floor(event.faceIndex / 2);
-    const itemIndex = atlasInfo.findIndex(
+    const itemIndex = albedoItems.findIndex(
       (item) => item.mesh === event.object && item.quadIndex === quadIndex
     );
 
@@ -584,7 +580,7 @@ export function useIrradianceRenderer(): {
       return;
     }
 
-    const item = atlasInfo[itemIndex];
+    const item = albedoItems[itemIndex];
     const { mesh, buffer, left, top } = item;
 
     if (!buffer.index) {

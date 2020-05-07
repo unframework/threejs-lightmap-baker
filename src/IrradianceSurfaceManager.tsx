@@ -27,7 +27,28 @@ const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
-const IrradianceAtlasContext = React.createContext<AtlasItem[] | null>(null);
+export interface AtlasItem {
+  mesh: THREE.Mesh;
+  buffer: THREE.BufferGeometry;
+  quadIndex: number;
+  left: number;
+  top: number;
+  sizeU: number;
+  sizeV: number;
+}
+
+export interface AtlasIlluminationItem {
+  mesh: THREE.Mesh;
+  buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine
+  intensity: number;
+}
+
+export interface Atlas {
+  albedoItems: AtlasItem[];
+  illuminationItems: AtlasIlluminationItem[];
+}
+
+const IrradianceAtlasContext = React.createContext<Atlas | null>(null);
 
 export function useIrradianceAtlasContext() {
   const atlasInfo = useContext(IrradianceAtlasContext);
@@ -89,24 +110,25 @@ function computeFaceUV(
   return { left, top, sizeU, sizeV };
 }
 
-export interface AtlasItem {
-  mesh: THREE.Mesh;
-  buffer: THREE.BufferGeometry;
-  quadIndex: number;
-  left: number;
-  top: number;
-  sizeU: number;
-  sizeV: number;
-}
-
 export const IrradianceSurface: React.FC<{
   lightIntensity?: number; // @todo just accept albedo and luminosity
   children: React.ReactElement<{}, 'mesh'>;
 }> = ({ lightIntensity, children }) => {
-  const atlasInfo = useIrradianceAtlasContext();
+  const { albedoItems, illuminationItems } = useIrradianceAtlasContext();
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
+
+    // if light mode, register as such and skip albedo items
+    if (lightIntensity !== undefined) {
+      illuminationItems.push({
+        mesh,
+        buffer: meshBuffer,
+        intensity: lightIntensity
+      });
+
+      return;
+    }
 
     if (!(meshBuffer instanceof THREE.BufferGeometry)) {
       throw new Error('expected buffer geometry');
@@ -124,7 +146,7 @@ export const IrradianceSurface: React.FC<{
     const lumUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
 
     for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
-      const atlasFaceIndex = atlasInfo.length;
+      const atlasFaceIndex = albedoItems.length;
 
       fetchFaceIndexes(indexes, quadIndex);
 
@@ -139,7 +161,7 @@ export const IrradianceSurface: React.FC<{
       lumUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
       lumUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
 
-      atlasInfo.push({
+      albedoItems.push({
         mesh: mesh,
         buffer: meshBuffer,
         quadIndex,
@@ -167,10 +189,16 @@ export const IrradianceSurface: React.FC<{
 };
 
 const IrradianceSurfaceManager: React.FC = ({ children }) => {
-  const atlasInfo: AtlasItem[] = useMemo(() => [], []);
+  const atlas: Atlas = useMemo(
+    () => ({
+      albedoItems: [],
+      illuminationItems: []
+    }),
+    []
+  );
 
   return (
-    <IrradianceAtlasContext.Provider value={atlasInfo}>
+    <IrradianceAtlasContext.Provider value={atlas}>
       {children}
     </IrradianceAtlasContext.Provider>
   );
