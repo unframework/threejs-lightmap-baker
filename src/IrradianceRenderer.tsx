@@ -93,7 +93,7 @@ function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
               albedoMap={albedoMap}
               emissiveIntensity={emissiveIntensity}
               emissiveMap={emissiveMap}
-              lumMap={lastTexture}
+              irradianceMap={lastTexture}
             />
           </primitive>
         );
@@ -598,7 +598,7 @@ export function useIrradianceRenderer(): {
     tmpU.applyMatrix4(mesh.matrixWorld);
     tmpV.applyMatrix4(mesh.matrixWorld);
 
-    fetchFaceUVs(buffer.attributes.lumUV.array, tmpFaceIndexes);
+    fetchFaceUVs(buffer.attributes.atlasUV.array, tmpFaceIndexes);
 
     const clickAtlasUV = new THREE.Vector2();
     THREE.Triangle.getUV(

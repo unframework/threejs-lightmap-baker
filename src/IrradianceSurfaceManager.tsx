@@ -162,7 +162,7 @@ export const IrradianceSurface: React.FC<{
 
     const quadCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
 
-    const lumUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
+    const atlasUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
 
     for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
       const atlasFaceIndex = quads.length;
@@ -175,10 +175,10 @@ export const IrradianceSurface: React.FC<{
         tmpFaceIndexes
       );
 
-      lumUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
-      lumUVAttr.setXY(tmpFaceIndexes[1], left, top);
-      lumUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
-      lumUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
+      atlasUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
+      atlasUVAttr.setXY(tmpFaceIndexes[1], left, top);
+      atlasUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
+      atlasUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
 
       quads.push({
         mesh: mesh,
@@ -193,7 +193,10 @@ export const IrradianceSurface: React.FC<{
     }
 
     // store illumination UV as dedicated attribute
-    meshBuffer.setAttribute('lumUV', lumUVAttr.setUsage(THREE.StaticDrawUsage));
+    meshBuffer.setAttribute(
+      'atlasUV',
+      atlasUVAttr.setUsage(THREE.StaticDrawUsage)
+    );
   }, []);
 
   return React.cloneElement(

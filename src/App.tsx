@@ -58,12 +58,15 @@ const Scene: React.FC<{
         {probeDebugTextures.map((tex, texIndex) => (
           <mesh position={[5, 95 - texIndex * 9, 0]} key={texIndex}>
             <planeBufferGeometry attach="geometry" args={[8, 8]} />
-            <IrradianceDebugMaterial attach="material" lumMap={tex} />
+            <IrradianceDebugMaterial attach="material" irradianceMap={tex} />
           </mesh>
         ))}
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <IrradianceDebugMaterial attach="material" lumMap={outputTexture} />
+          <IrradianceDebugMaterial
+            attach="material"
+            irradianceMap={outputTexture}
+          />
         </mesh>
       </scene>
 

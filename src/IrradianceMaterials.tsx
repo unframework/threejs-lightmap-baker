@@ -31,24 +31,24 @@ export const ProbeMeshMaterial: React.FC<{
   albedoMap?: THREE.Texture;
   emissiveIntensity?: number;
   emissiveMap?: THREE.Texture;
-  lumMap: THREE.Texture;
-}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap, lumMap }) => {
+  irradianceMap: THREE.Texture;
+}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap, irradianceMap }) => {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       albedoMap: { value: null },
       emissiveMap: { value: null },
       emissiveIntensity: { value: null },
-      lum: { value: null }
+      irradianceMap: { value: null }
     },
 
     vertexShader: `
-      attribute vec2 lumUV;
+      attribute vec2 atlasUV;
       varying vec2 vUV;
-      varying vec2 vLumUV;
+      varying vec2 vAtlasUV;
 
       void main() {
         vUV = uv;
-        vLumUV = lumUV;
+        vAtlasUV = atlasUV;
 
         vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
         gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
@@ -58,13 +58,13 @@ export const ProbeMeshMaterial: React.FC<{
       uniform float emissiveIntensity;
       uniform sampler2D albedoMap;
       uniform sampler2D emissiveMap;
-      uniform sampler2D lum;
+      uniform sampler2D irradianceMap;
       varying vec2 vUV;
-      varying vec2 vLumUV;
+      varying vec2 vAtlasUV;
 
       void main() {
         vec4 base = texture2D(albedoMap, vUV);
-        vec4 irradiance = texture2D(lum, vLumUV);
+        vec4 irradiance = texture2D(irradianceMap, vAtlasUV);
         vec4 emit = vec4(texture2D(emissiveMap, vUV).rgb * emissiveIntensity, 1.0);
         gl_FragColor = base * irradiance + emit;
       }
@@ -79,7 +79,7 @@ export const ProbeMeshMaterial: React.FC<{
       uniforms-albedoMap-value={albedoMap || defaultTexture}
       uniforms-emissiveMap-value={emissiveMap || defaultTexture}
       uniforms-emissiveIntensity-value={emissiveIntensity || 0}
-      uniforms-lum-value={lumMap}
+      uniforms-irradianceMap-value={irradianceMap}
     />
   );
 };
@@ -91,24 +91,24 @@ export const IrradianceMeshMaterial: React.FC<{
   emissiveIntensity?: number;
   emissiveMap?: THREE.Texture;
 }> = ({ attach, albedoMap, emissiveIntensity, emissiveMap }) => {
-  const lumMap = useIrradianceTexture();
+  const irradianceMap = useIrradianceTexture();
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
       albedoMap: { value: null },
       emissiveMap: { value: null },
       emissiveIntensity: { value: null },
-      lum: { value: null }
+      irradianceMap: { value: null }
     },
 
     vertexShader: `
-      attribute vec2 lumUV;
+      attribute vec2 atlasUV;
       varying vec2 vUV;
-      varying vec2 vLumUV;
+      varying vec2 vAtlasUV;
 
       void main() {
         vUV = uv;
-        vLumUV = lumUV;
+        vAtlasUV = atlasUV;
 
         vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
         gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
@@ -118,9 +118,9 @@ export const IrradianceMeshMaterial: React.FC<{
       uniform float emissiveIntensity;
       uniform sampler2D albedoMap;
       uniform sampler2D emissiveMap;
-      uniform sampler2D lum;
+      uniform sampler2D irradianceMap;
       varying vec2 vUV;
-      varying vec2 vLumUV;
+      varying vec2 vAtlasUV;
 
       void main() {
         // drastically reduce emissive intensity at display time to preserve colour
@@ -128,7 +128,7 @@ export const IrradianceMeshMaterial: React.FC<{
 
         vec3 base = texture2D(albedoMap, vUV).rgb;
         vec3 emit = texture2D(emissiveMap, vUV).rgb * emissiveFaded;
-        vec3 irradiance = texture2D(lum, vLumUV).rgb;
+        vec3 irradiance = texture2D(irradianceMap, vAtlasUV).rgb;
         gl_FragColor = vec4(toneMapping(base * irradiance + emit), 1.0);
       }
     `
@@ -142,18 +142,18 @@ export const IrradianceMeshMaterial: React.FC<{
       uniforms-albedoMap-value={albedoMap || defaultTexture}
       uniforms-emissiveMap-value={emissiveMap || defaultTexture}
       uniforms-emissiveIntensity-value={emissiveIntensity || 0}
-      uniforms-lum-value={lumMap}
+      uniforms-irradianceMap-value={irradianceMap}
     />
   );
 };
 
 export const IrradianceDebugMaterial: React.FC<{
   attach?: string;
-  lumMap: THREE.Texture;
-}> = ({ attach, lumMap }) => {
+  irradianceMap: THREE.Texture;
+}> = ({ attach, irradianceMap }) => {
   const material = new THREE.ShaderMaterial({
     uniforms: {
-      lum: { value: null }
+      irradianceMap: { value: null }
     },
 
     vertexShader: `
@@ -167,17 +167,21 @@ export const IrradianceDebugMaterial: React.FC<{
       }
     `,
     fragmentShader: `
-      uniform sampler2D lum;
+      uniform sampler2D irradianceMap;
       varying vec2 vUV;
 
       void main() {
-        gl_FragColor = texture2D(lum, vUV);
+        gl_FragColor = texture2D(irradianceMap, vUV);
       }
     `
   });
 
   // disposable managed object
   return (
-    <primitive object={material} attach={attach} uniforms-lum-value={lumMap} />
+    <primitive
+      object={material}
+      attach={attach}
+      uniforms-irradianceMap-value={irradianceMap}
+    />
   );
 };
