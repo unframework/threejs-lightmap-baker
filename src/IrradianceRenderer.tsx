@@ -114,7 +114,11 @@ function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
         // let the object be auto-disposed of
         return (
           <primitive object={cloneMesh} key={itemIndex}>
-            <ProbeLightMaterial attach="material" amount={amount} map={map} />
+            <ProbeLightMaterial
+              attach="material"
+              intensity={amount}
+              map={map}
+            />
           </primitive>
         );
       })}

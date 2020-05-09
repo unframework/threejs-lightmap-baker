@@ -2,10 +2,7 @@ import React, { useMemo, useContext } from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import {
-  IrradianceMeshMaterial,
-  IrradianceLightMaterial
-} from './IrradianceMaterials';
+import { IrradianceMeshMaterial } from './IrradianceMaterials';
 
 export const atlasWidth = 256;
 export const atlasHeight = 256;
@@ -124,28 +121,30 @@ function computeFaceUV(
   return { left, top, sizeU, sizeV };
 }
 
-// @todo allow both albedo and luminosity at once
 export const IrradianceSurface: React.FC<{
   albedoMap?: THREE.Texture;
-  luminosityMap?: THREE.Texture;
-  luminosityAmount?: number;
+  emissiveMap?: THREE.Texture;
+  emissiveIntensity?: number;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
-}> = ({ albedoMap, luminosityMap, luminosityAmount, children }) => {
+}> = ({ albedoMap, emissiveMap, emissiveIntensity, children }) => {
   const { albedoItems, illuminationItems } = useIrradianceAtlasContext();
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
 
-    // if light mode, register as such and skip albedo items
-    if (luminosityAmount !== undefined) {
+    // if light mode, register as such
+    if (emissiveIntensity !== undefined) {
       illuminationItems.push({
         mesh,
         buffer: meshBuffer,
-        amount: luminosityAmount,
-        map: luminosityMap
+        amount: emissiveIntensity,
+        map: emissiveMap
       });
 
-      return;
+      // skip albedo if only lit
+      if (!albedoMap) {
+        return;
+      }
     }
 
     if (!(meshBuffer instanceof THREE.BufferGeometry)) {
@@ -199,15 +198,12 @@ export const IrradianceSurface: React.FC<{
     children,
     { ref: meshRef },
     children.props.children,
-    luminosityAmount === undefined ? (
-      <IrradianceMeshMaterial attach="material" map={albedoMap} />
-    ) : (
-      <IrradianceLightMaterial
-        attach="material"
-        amount={luminosityAmount}
-        map={luminosityMap}
-      />
-    )
+    <IrradianceMeshMaterial
+      attach="material"
+      map={albedoMap}
+      emissiveIntensity={emissiveIntensity}
+      emissiveMap={emissiveMap}
+    />
   );
 };
 

@@ -16,12 +16,13 @@ import {
 
 import sceneUrl from './tile-game-room1.glb';
 import sceneTextureUrl from './tile-game-room1.png';
+import sceneLumTextureUrl from './tile-game-room1-lum.png';
 
 const Scene: React.FC<{
   loadedMesh: THREE.Mesh;
-  loadedEmitter: THREE.Mesh;
   loadedTexture: THREE.Texture;
-}> = ({ loadedMesh, loadedEmitter, loadedTexture }) => {
+  loadedLumTexture: THREE.Texture;
+}> = ({ loadedMesh, loadedTexture, loadedLumTexture }) => {
   const {
     outputTexture,
     lightSceneElement,
@@ -73,18 +74,15 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <IrradianceSurface albedoMap={loadedTexture}>
+          <IrradianceSurface
+            albedoMap={loadedTexture}
+            emissiveMap={loadedLumTexture}
+            emissiveIntensity={15}
+          >
             <primitive object={loadedMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface
-            luminosityMap={loadedTexture}
-            luminosityAmount={10}
-          >
-            <primitive object={loadedEmitter} dispose={null} />
-          </IrradianceSurface>
-
-          <IrradianceSurface luminosityAmount={18}>
+          <IrradianceSurface emissiveIntensity={18}>
             <mesh position={[0, 2, 6]}>
               <boxBufferGeometry attach="geometry" args={[10, 2, 0.5]} />
             </mesh>
@@ -101,13 +99,21 @@ function App() {
   const [loadedTexture, setLoadedTexture] = useState<THREE.Texture | null>(
     null
   );
+  const [
+    loadedLumTexture,
+    setLoadedLumTexture
+  ] = useState<THREE.Texture | null>(null);
   const [loadedMesh, setLoadedMesh] = useState<THREE.Mesh | null>(null);
-  const [loadedEmitter, setLoadedEmitter] = useState<THREE.Mesh | null>(null);
 
   useEffect(() => {
     new THREE.TextureLoader().load(sceneTextureUrl, (data) => {
       data.flipY = false;
       setLoadedTexture(data);
+    });
+
+    new THREE.TextureLoader().load(sceneLumTextureUrl, (data) => {
+      data.flipY = false;
+      setLoadedLumTexture(data);
     });
 
     new GLTFLoader().load(sceneUrl, (data) => {
@@ -118,8 +124,6 @@ function App() {
 
         if (object.name === 'Base') {
           setLoadedMesh(object);
-        } else if (object.name === 'Emitter') {
-          setLoadedEmitter(object);
         }
       });
     });
@@ -135,12 +139,12 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      {loadedMesh && loadedEmitter && loadedTexture ? (
+      {loadedMesh && loadedTexture && loadedLumTexture ? (
         <IrradianceSurfaceManager>
           <Scene
             loadedMesh={loadedMesh}
-            loadedEmitter={loadedEmitter}
             loadedTexture={loadedTexture}
+            loadedLumTexture={loadedLumTexture}
           />
         </IrradianceSurfaceManager>
       ) : null}
