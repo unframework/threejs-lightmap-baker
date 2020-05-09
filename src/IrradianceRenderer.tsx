@@ -422,7 +422,7 @@ export function useIrradianceRenderer(): {
     }
 
     const lightScene = lightSceneRef.current; // local var for type safety
-    const { albedoItems } = atlas;
+    const { quads } = atlas;
 
     function computeTexel(
       atlasFaceInfo: AtlasItem,
@@ -514,7 +514,7 @@ export function useIrradianceRenderer(): {
       const [currentItemIndex, fillCount] = activeItemCounter;
 
       // get current atlas face we are filling up
-      const atlasFaceInfo = albedoItems[currentItemIndex];
+      const atlasFaceInfo = quads[currentItemIndex];
 
       const { left, top, sizeU, sizeV } = atlasFaceInfo;
 
@@ -544,7 +544,7 @@ export function useIrradianceRenderer(): {
       if (fillCount < faceTexelRows * faceTexelCols - 1) {
         // tick up face index when this one is done
         activeItemCounter[1] = fillCount + 1;
-      } else if (currentItemIndex < albedoItems.length - 1) {
+      } else if (currentItemIndex < quads.length - 1) {
         activeItemCounter[0] = currentItemIndex + 1;
         activeItemCounter[1] = 0;
       } else {
@@ -566,10 +566,10 @@ export function useIrradianceRenderer(): {
   const { gl } = useThree();
 
   function handleDebugClick(event: PointerEvent) {
-    const { albedoItems } = atlas;
+    const { quads } = atlas;
 
     const quadIndex = Math.floor(event.faceIndex / 2);
-    const itemIndex = albedoItems.findIndex(
+    const itemIndex = quads.findIndex(
       (item) => item.mesh === event.object && item.quadIndex === quadIndex
     );
 
@@ -577,7 +577,7 @@ export function useIrradianceRenderer(): {
       return;
     }
 
-    const item = albedoItems[itemIndex];
+    const item = quads[itemIndex];
     const { mesh, buffer, left, top } = item;
 
     if (!buffer.index) {

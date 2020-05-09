@@ -4,8 +4,8 @@ import * as THREE from 'three';
 
 import { IrradianceMeshMaterial } from './IrradianceMaterials';
 
-export const atlasWidth = 256;
-export const atlasHeight = 256;
+export const atlasWidth = 128;
+export const atlasHeight = 128;
 
 const bleedOffsetU = 1 / atlasWidth;
 const bleedOffsetV = 1 / atlasHeight;
@@ -27,7 +27,7 @@ const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
-export interface AtlasItem {
+export interface AtlasQuad {
   mesh: THREE.Mesh;
   buffer: THREE.BufferGeometry;
   quadIndex: number;
@@ -47,7 +47,7 @@ export interface AtlasSceneItem {
 }
 
 export interface Atlas {
-  albedoItems: AtlasItem[];
+  quads: AtlasQuad[];
   lightSceneItems: AtlasSceneItem[];
 }
 
@@ -128,7 +128,7 @@ export const IrradianceSurface: React.FC<{
   emissiveIntensity?: number;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
 }> = ({ albedoMap, emissiveMap, emissiveIntensity, children }) => {
-  const { albedoItems, lightSceneItems } = useIrradianceAtlasContext();
+  const { quads, lightSceneItems } = useIrradianceAtlasContext();
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
@@ -165,7 +165,7 @@ export const IrradianceSurface: React.FC<{
     const lumUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
 
     for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
-      const atlasFaceIndex = albedoItems.length;
+      const atlasFaceIndex = quads.length;
 
       fetchFaceIndexes(indexes, quadIndex);
 
@@ -180,7 +180,7 @@ export const IrradianceSurface: React.FC<{
       lumUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
       lumUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
 
-      albedoItems.push({
+      quads.push({
         mesh: mesh,
         buffer: meshBuffer,
         map: albedoMap,
@@ -212,7 +212,7 @@ export const IrradianceSurface: React.FC<{
 const IrradianceSurfaceManager: React.FC = ({ children }) => {
   const atlas: Atlas = useMemo(
     () => ({
-      albedoItems: [],
+      quads: [],
       lightSceneItems: []
     }),
     []

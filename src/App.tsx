@@ -77,7 +77,7 @@ const Scene: React.FC<{
           <IrradianceSurface
             albedoMap={loadedTexture}
             emissiveMap={loadedLumTexture}
-            emissiveIntensity={15}
+            emissiveIntensity={10}
           >
             <primitive object={loadedMesh} dispose={null} />
           </IrradianceSurface>
