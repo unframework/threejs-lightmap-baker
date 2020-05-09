@@ -38,16 +38,17 @@ export interface AtlasItem {
   map?: THREE.Texture;
 }
 
-export interface AtlasIlluminationItem {
+export interface AtlasSceneItem {
   mesh: THREE.Mesh;
   buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine
-  amount: number;
-  map?: THREE.Texture;
+  albedoMap?: THREE.Texture;
+  emissiveIntensity: number;
+  emissiveMap?: THREE.Texture;
 }
 
 export interface Atlas {
   albedoItems: AtlasItem[];
-  illuminationItems: AtlasIlluminationItem[];
+  lightSceneItems: AtlasSceneItem[];
 }
 
 const IrradianceAtlasContext = React.createContext<Atlas | null>(null);
@@ -127,21 +128,22 @@ export const IrradianceSurface: React.FC<{
   emissiveIntensity?: number;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
 }> = ({ albedoMap, emissiveMap, emissiveIntensity, children }) => {
-  const { albedoItems, illuminationItems } = useIrradianceAtlasContext();
+  const { albedoItems, lightSceneItems } = useIrradianceAtlasContext();
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
 
-    // if light mode, register as such
+    // register display item
     if (emissiveIntensity !== undefined) {
-      illuminationItems.push({
+      lightSceneItems.push({
         mesh,
         buffer: meshBuffer,
-        amount: emissiveIntensity,
-        map: emissiveMap
+        albedoMap,
+        emissiveIntensity,
+        emissiveMap
       });
 
-      // skip albedo if only lit
+      // skip generating irradiance quads if only lit
       if (!albedoMap) {
         return;
       }
@@ -200,7 +202,7 @@ export const IrradianceSurface: React.FC<{
     children.props.children,
     <IrradianceMeshMaterial
       attach="material"
-      map={albedoMap}
+      albedoMap={albedoMap}
       emissiveIntensity={emissiveIntensity}
       emissiveMap={emissiveMap}
     />
@@ -211,7 +213,7 @@ const IrradianceSurfaceManager: React.FC = ({ children }) => {
   const atlas: Atlas = useMemo(
     () => ({
       albedoItems: [],
-      illuminationItems: []
+      lightSceneItems: []
     }),
     []
   );

@@ -26,111 +26,16 @@ function useIrradianceTexture() {
 }
 
 // @todo move to baker logic
-export const ProbeLightMaterial: React.FC<{
-  attach?: string;
-  intensity: number;
-  map?: THREE.Texture;
-}> = ({ attach, intensity, map }) => {
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      emissiveIntensity: { value: 1 },
-      emissiveMap: { value: null }
-    },
-    vertexShader: `
-      varying vec2 vUV;
-
-      void main() {
-        vUV = uv;
-
-        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D emissiveMap;
-      uniform float emissiveIntensity;
-      varying vec2 vUV;
-
-      void main() {
-        vec4 emissiveSample = texture2D(emissiveMap, vUV);
-        vec3 base = emissiveSample.rgb * emissiveSample.a;
-        gl_FragColor = vec4(emissiveIntensity * base, 1.0);
-      }
-    `
-  });
-
-  // disposable managed object
-  return (
-    <primitive
-      object={material}
-      attach={attach}
-      uniforms-emissiveIntensity-value={intensity}
-      uniforms-emissiveMap-value={map || defaultTexture}
-    />
-  );
-};
-
 export const ProbeMeshMaterial: React.FC<{
   attach?: string;
-  map?: THREE.Texture;
-  lumMap: THREE.Texture;
-}> = ({ attach, map, lumMap }) => {
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      albedo: { value: null },
-      lum: { value: null }
-    },
-
-    vertexShader: `
-      attribute vec2 lumUV;
-      varying vec2 vUV;
-      varying vec2 vLumUV;
-
-      void main() {
-        vUV = uv;
-        vLumUV = lumUV;
-
-        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-      }
-    `,
-    fragmentShader: `
-      uniform sampler2D albedo;
-      uniform sampler2D lum;
-      varying vec2 vUV;
-      varying vec2 vLumUV;
-
-      void main() {
-        vec4 base = texture2D(albedo, vUV);
-        vec4 irradiance = texture2D(lum, vLumUV);
-        gl_FragColor = base * irradiance;
-      }
-    `
-  });
-
-  // disposable managed object
-  return (
-    <primitive
-      object={material}
-      attach={attach}
-      uniforms-albedo-value={map || defaultTexture}
-      uniforms-lum-value={lumMap}
-    />
-  );
-};
-
-// @todo move to surface manager
-export const IrradianceMeshMaterial: React.FC<{
-  attach?: string;
-  map?: THREE.Texture;
+  albedoMap?: THREE.Texture;
   emissiveIntensity?: number;
   emissiveMap?: THREE.Texture;
-}> = ({ attach, map, emissiveIntensity, emissiveMap }) => {
-  const lumMap = useIrradianceTexture();
-
+  lumMap: THREE.Texture;
+}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap, lumMap }) => {
   const material = new THREE.ShaderMaterial({
     uniforms: {
-      albedo: { value: null },
+      albedoMap: { value: null },
       emissiveMap: { value: null },
       emissiveIntensity: { value: null },
       lum: { value: null }
@@ -151,7 +56,67 @@ export const IrradianceMeshMaterial: React.FC<{
     `,
     fragmentShader: `
       uniform float emissiveIntensity;
-      uniform sampler2D albedo;
+      uniform sampler2D albedoMap;
+      uniform sampler2D emissiveMap;
+      uniform sampler2D lum;
+      varying vec2 vUV;
+      varying vec2 vLumUV;
+
+      void main() {
+        vec4 base = texture2D(albedoMap, vUV);
+        vec4 irradiance = texture2D(lum, vLumUV);
+        vec4 emit = vec4(texture2D(emissiveMap, vUV).rgb * emissiveIntensity, 1.0);
+        gl_FragColor = base * irradiance + emit;
+      }
+    `
+  });
+
+  // disposable managed object
+  return (
+    <primitive
+      object={material}
+      attach={attach}
+      uniforms-albedoMap-value={albedoMap || defaultTexture}
+      uniforms-emissiveMap-value={emissiveMap || defaultTexture}
+      uniforms-emissiveIntensity-value={emissiveIntensity || 0}
+      uniforms-lum-value={lumMap}
+    />
+  );
+};
+
+// @todo move to surface manager
+export const IrradianceMeshMaterial: React.FC<{
+  attach?: string;
+  albedoMap?: THREE.Texture;
+  emissiveIntensity?: number;
+  emissiveMap?: THREE.Texture;
+}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap }) => {
+  const lumMap = useIrradianceTexture();
+
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      albedoMap: { value: null },
+      emissiveMap: { value: null },
+      emissiveIntensity: { value: null },
+      lum: { value: null }
+    },
+
+    vertexShader: `
+      attribute vec2 lumUV;
+      varying vec2 vUV;
+      varying vec2 vLumUV;
+
+      void main() {
+        vUV = uv;
+        vLumUV = lumUV;
+
+        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `,
+    fragmentShader: `
+      uniform float emissiveIntensity;
+      uniform sampler2D albedoMap;
       uniform sampler2D emissiveMap;
       uniform sampler2D lum;
       varying vec2 vUV;
@@ -160,10 +125,9 @@ export const IrradianceMeshMaterial: React.FC<{
       void main() {
         // drastically reduce emissive intensity at display time to preserve colour
         float emissiveFaded = 1.0 - 1.0 / (emissiveIntensity + 1.0);
-        vec4 emissiveSample = texture2D(emissiveMap, vUV);
 
-        vec3 base = texture2D(albedo, vUV).rgb;
-        vec3 emit = emissiveSample.rgb * emissiveSample.a * emissiveFaded;
+        vec3 base = texture2D(albedoMap, vUV).rgb;
+        vec3 emit = texture2D(emissiveMap, vUV).rgb * emissiveFaded;
         vec3 irradiance = texture2D(lum, vLumUV).rgb;
         gl_FragColor = vec4(toneMapping(base * irradiance + emit), 1.0);
       }
@@ -175,7 +139,7 @@ export const IrradianceMeshMaterial: React.FC<{
     <primitive
       object={material}
       attach={attach}
-      uniforms-albedo-value={map || defaultTexture}
+      uniforms-albedoMap-value={albedoMap || defaultTexture}
       uniforms-emissiveMap-value={emissiveMap || defaultTexture}
       uniforms-emissiveIntensity-value={emissiveIntensity || 0}
       uniforms-lum-value={lumMap}

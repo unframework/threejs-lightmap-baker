@@ -10,7 +10,7 @@ import {
   AtlasItem
 } from './IrradianceSurfaceManager';
 
-import { ProbeLightMaterial, ProbeMeshMaterial } from './IrradianceMaterials';
+import { ProbeMeshMaterial } from './IrradianceMaterials';
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
@@ -66,23 +66,18 @@ function fetchFaceUVs(
 }
 
 function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
-  const { albedoItems, illuminationItems } = atlas;
+  const { lightSceneItems } = atlas;
 
-  const doneMeshes = new Set<THREE.Mesh>();
-
-  // @todo proper light setup
   return (
     <scene>
-      {albedoItems.map((item, itemIndex) => {
-        const { mesh, buffer, map } = item;
-
-        // deduplicate multiple items from one mesh
-        // @todo organize the item data by mesh
-        if (doneMeshes.has(mesh)) {
-          return null;
-        }
-
-        doneMeshes.add(mesh);
+      {lightSceneItems.map((item, itemIndex) => {
+        const {
+          mesh,
+          buffer,
+          albedoMap,
+          emissiveIntensity,
+          emissiveMap
+        } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
         const cloneMesh = new THREE.Mesh(buffer);
@@ -95,29 +90,10 @@ function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
           <primitive object={cloneMesh} key={itemIndex}>
             <ProbeMeshMaterial
               attach="material"
-              map={map}
+              albedoMap={albedoMap}
+              emissiveIntensity={emissiveIntensity}
+              emissiveMap={emissiveMap}
               lumMap={lastTexture}
-            />
-          </primitive>
-        );
-      })}
-
-      {illuminationItems.map((item, itemIndex) => {
-        const { mesh, buffer, amount, map } = item;
-
-        // new mesh instance reusing existing geometry object directly, while material is set later
-        const cloneMesh = new THREE.Mesh(buffer);
-
-        // apply world transform (we don't bother re-creating scene hierarchy)
-        cloneMesh.applyMatrix4(mesh.matrixWorld);
-
-        // let the object be auto-disposed of
-        return (
-          <primitive object={cloneMesh} key={itemIndex}>
-            <ProbeLightMaterial
-              attach="material"
-              intensity={amount}
-              map={map}
             />
           </primitive>
         );
