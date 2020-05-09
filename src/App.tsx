@@ -110,11 +110,13 @@ function App() {
 
   useEffect(() => {
     new THREE.TextureLoader().load(sceneTextureUrl, (data) => {
+      data.magFilter = THREE.NearestFilter;
       data.flipY = false;
       setLoadedTexture(data);
     });
 
     new THREE.TextureLoader().load(sceneLumTextureUrl, (data) => {
+      data.magFilter = THREE.NearestFilter;
       data.flipY = false;
       setLoadedLumTexture(data);
     });
