@@ -21,8 +21,8 @@ import sceneLumTextureUrl from './tile-game-room1-lum.png';
 const Scene: React.FC<{
   loadedMesh: THREE.Mesh;
   loadedTexture: THREE.Texture;
-  loadedLumTexture: THREE.Texture;
-}> = ({ loadedMesh, loadedTexture, loadedLumTexture }) => {
+  loadedEmissiveTexture: THREE.Texture;
+}> = ({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
   const {
     outputTexture,
     lightSceneElement,
@@ -79,7 +79,7 @@ const Scene: React.FC<{
 
           <IrradianceSurface
             albedoMap={loadedTexture}
-            emissiveMap={loadedLumTexture}
+            emissiveMap={loadedEmissiveTexture}
             emissiveIntensity={10}
           >
             <primitive object={loadedMesh} dispose={null} />
@@ -103,7 +103,7 @@ function App() {
     null
   );
   const [
-    loadedLumTexture,
+    loadedEmissiveTexture,
     setLoadedLumTexture
   ] = useState<THREE.Texture | null>(null);
   const [loadedMesh, setLoadedMesh] = useState<THREE.Mesh | null>(null);
@@ -144,12 +144,12 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      {loadedMesh && loadedTexture && loadedLumTexture ? (
+      {loadedMesh && loadedTexture && loadedEmissiveTexture ? (
         <IrradianceSurfaceManager>
           <Scene
             loadedMesh={loadedMesh}
             loadedTexture={loadedTexture}
-            loadedLumTexture={loadedLumTexture}
+            loadedEmissiveTexture={loadedEmissiveTexture}
           />
         </IrradianceSurfaceManager>
       ) : null}

@@ -134,19 +134,17 @@ export const IrradianceSurface: React.FC<{
     const meshBuffer = mesh.geometry;
 
     // register display item
-    if (emissiveIntensity !== undefined) {
-      lightSceneItems.push({
-        mesh,
-        buffer: meshBuffer,
-        albedoMap,
-        emissiveIntensity,
-        emissiveMap
-      });
+    lightSceneItems.push({
+      mesh,
+      buffer: meshBuffer,
+      albedoMap,
+      emissiveIntensity: emissiveIntensity || 0,
+      emissiveMap
+    });
 
-      // skip generating irradiance quads if only lit
-      if (!albedoMap) {
-        return;
-      }
+    // skip generating irradiance quads if only lit
+    if (!albedoMap) {
+      return;
     }
 
     if (!(meshBuffer instanceof THREE.BufferGeometry)) {
