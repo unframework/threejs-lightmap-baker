@@ -344,7 +344,8 @@ function useLightProbe(probeTargetSize: number) {
 export function useIrradianceRenderer(
   factorName: string | null
 ): {
-  isComplete: boolean;
+  outputFactorName: string | null;
+  outputIsComplete: boolean;
   outputTexture: THREE.Texture;
   lightSceneElement: React.ReactElement | null;
   handleDebugClick: (event: PointerEvent) => void;
@@ -713,7 +714,8 @@ export function useIrradianceRenderer(
 
   return {
     // report as complete only if we are still asked for the same factor name
-    isComplete: activeFactorName === factorName && passes >= MAX_PASSES,
+    outputFactorName: activeFactorName,
+    outputIsComplete: passes >= MAX_PASSES,
     outputTexture: activeOutput,
     lightSceneElement,
     handleDebugClick,

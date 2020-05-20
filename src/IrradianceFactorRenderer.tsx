@@ -1,4 +1,4 @@
-import React, { useMemo, useLayoutEffect, useState } from 'react';
+import { useMemo, useLayoutEffect, useState } from 'react';
 
 import { useIrradianceAtlasContext } from './IrradianceSurfaceManager';
 import { useIrradianceRenderer } from './IrradianceRenderer';
@@ -17,8 +17,10 @@ export function useIrradianceFactorRenderer() {
   );
 
   const {
+    outputFactorName,
+    outputIsComplete,
     outputTexture,
-    isComplete,
+
     lightSceneElement,
     probeDebugTextures
   } = useIrradianceRenderer(activeFactorName);
@@ -32,23 +34,23 @@ export function useIrradianceFactorRenderer() {
 
   useLayoutEffect(() => {
     // stash the output
-    if (activeFactorName === null) {
+    if (outputFactorName === null) {
       setBaseOutput(outputTexture);
     } else {
       setFactorOutputs((prev) => ({
         ...prev,
-        [activeFactorName]: outputTexture
+        [outputFactorName]: outputTexture
       }));
     }
 
-    if (isComplete) {
+    if (outputIsComplete) {
       // keep incrementing until last one
       setFactorIndex((prevFactorIndex) => {
         const factorList = Object.keys(atlas.lightFactors);
         return Math.min(factorList.length - 1, prevFactorIndex + 1);
       });
     }
-  }, [atlas, activeFactorName, isComplete, outputTexture]);
+  }, [atlas, outputFactorName, outputIsComplete, outputTexture]);
 
   return {
     lightSceneElement,

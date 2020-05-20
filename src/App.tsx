@@ -24,10 +24,14 @@ const Scene: React.FC<{
   loadedEmissiveTexture: THREE.Texture;
 }> = ({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
   const {
-    baseOutput: outputTexture,
+    baseOutput,
+    factorOutputs,
     lightSceneElement,
     probeDebugTextures
   } = useIrradianceFactorRenderer();
+
+  // debug output texture
+  const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
 
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
