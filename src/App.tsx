@@ -6,7 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import IrradianceSurfaceManager, {
   IrradianceSurface
 } from './IrradianceSurfaceManager';
-import { useIrradianceRenderer } from './IrradianceRenderer';
+import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import {
@@ -24,11 +24,10 @@ const Scene: React.FC<{
   loadedEmissiveTexture: THREE.Texture;
 }> = ({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
   const {
-    outputTexture,
+    baseOutput: outputTexture,
     lightSceneElement,
-    handleDebugClick,
     probeDebugTextures
-  } = useIrradianceRenderer('sign');
+  } = useIrradianceFactorRenderer();
 
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();

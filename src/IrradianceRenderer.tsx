@@ -1,4 +1,10 @@
-import React, { useLayoutEffect, useState, useMemo, useRef } from 'react';
+import React, {
+  useLayoutEffect,
+  useState,
+  useMemo,
+  useCallback,
+  useRef
+} from 'react';
 import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -11,6 +17,8 @@ import {
 } from './IrradianceSurfaceManager';
 
 import { ProbeMeshMaterial } from './IrradianceMaterials';
+
+const MAX_PASSES = 3;
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
@@ -336,6 +344,7 @@ function useLightProbe(probeTargetSize: number) {
 export function useIrradianceRenderer(
   factorName: string | null
 ): {
+  isComplete: boolean;
   outputTexture: THREE.Texture;
   lightSceneElement: React.ReactElement | null;
   handleDebugClick: (event: PointerEvent) => void;
@@ -343,12 +352,35 @@ export function useIrradianceRenderer(
 } {
   const atlas = useIrradianceAtlasContext();
 
-  // @todo fully manage the light scene lifecycle?
+  // light scene lifecycle is fully managed internally
   const lightSceneRef = useRef<THREE.Scene>();
+
+  const createDefaultState = useCallback((activeFactorName: string | null): {
+    activeFactorName: string | null;
+    activeOutput: THREE.DataTexture;
+    activeOutputData: Float32Array;
+    activeItemCounter: [number, number];
+    lightSceneElement: React.ReactElement | null; // non-null triggers processing
+    passes: number;
+  } => {
+    const [initialTexture, initialData] = createAtlasTexture(
+      atlasWidth,
+      atlasHeight
+    );
+
+    return {
+      activeFactorName,
+      activeOutput: initialTexture,
+      activeOutputData: initialData,
+      activeItemCounter: [0, 0], // directly changed in place to avoid re-renders
+      lightSceneElement: null,
+      passes: 0
+    };
+  }, []);
 
   const [
     {
-      stableFactorName,
+      activeFactorName,
       activeOutput,
       activeOutputData,
       activeItemCounter,
@@ -356,32 +388,23 @@ export function useIrradianceRenderer(
       passes
     },
     setProcessingState
-  ] = useState<{
-    stableFactorName: string | null;
-    activeOutput: THREE.DataTexture;
-    activeOutputData: Float32Array;
-    activeItemCounter: [number, number];
-    lightSceneElement: React.ReactElement | null; // non-null triggers processing
-    passes: number;
-  }>(() => {
-    const [initialTexture, initialData] = createAtlasTexture(
-      atlasWidth,
-      atlasHeight
-    );
+  ] = useState(() => createDefaultState(factorName));
 
-    return {
-      stableFactorName: factorName,
-      activeOutput: initialTexture,
-      activeOutputData: initialData,
-      activeItemCounter: [0, 0], // directly changed in place to avoid re-renders
-      lightSceneElement: null,
-      passes: 0
-    };
-  });
+  // reset the state when factor name changes
+  useLayoutEffect(() => {
+    setProcessingState((prev) => {
+      // extra check to avoid re-creating initial state on first render
+      if (prev.activeFactorName !== factorName) {
+        return createDefaultState(factorName);
+      }
+
+      return prev;
+    });
+  }, [factorName, createDefaultState]);
 
   // automatically kick off new processing when ready
   useLayoutEffect(() => {
-    if (!lightSceneElement && passes < 3) {
+    if (!lightSceneElement && passes < MAX_PASSES) {
       // wait for scene to populate @todo fix this
       setTimeout(() => {
         setProcessingState((prev) => {
@@ -400,7 +423,7 @@ export function useIrradianceRenderer(
               getLightProbeSceneElement(
                 atlas,
                 prev.activeOutput,
-                stableFactorName
+                prev.activeFactorName
               ),
               {
                 ref: lightSceneRef
@@ -410,7 +433,7 @@ export function useIrradianceRenderer(
         });
       }, 0);
     }
-  }, [atlas, lightSceneRef, lightSceneElement, passes]);
+  }, [atlas, lightSceneElement, passes]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
@@ -689,6 +712,8 @@ export function useIrradianceRenderer(
   }
 
   return {
+    // report as complete only if we are still asked for the same factor name
+    isComplete: activeFactorName === factorName && passes >= MAX_PASSES,
     outputTexture: activeOutput,
     lightSceneElement,
     handleDebugClick,
