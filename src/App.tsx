@@ -28,7 +28,7 @@ const Scene: React.FC<{
     lightSceneElement,
     handleDebugClick,
     probeDebugTextures
-  } = useIrradianceRenderer();
+  } = useIrradianceRenderer('sign');
 
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();

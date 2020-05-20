@@ -146,7 +146,7 @@ export const IrradianceSurface: React.FC<{
       mesh,
       buffer: meshBuffer,
       albedoMap,
-      emissiveIntensity: factor !== undefined ? 0 : emissiveIntensity || 0,
+      emissiveIntensity: factor !== undefined ? 0 : emissiveIntensity || 0, // if factor contributor, zero emissive by default
       emissiveMap
     });
 

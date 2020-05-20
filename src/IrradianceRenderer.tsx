@@ -65,8 +65,13 @@ function fetchFaceUVs(
   tmpVUV.fromArray(uvArray, offsetV);
 }
 
-function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
-  const { lightSceneItems } = atlas;
+function getLightProbeSceneElement(
+  atlas: Atlas,
+  lastTexture: THREE.Texture,
+  factorName: string | null
+) {
+  const { lightSceneItems, lightFactors } = atlas;
+  const currentFactor = factorName === null ? null : lightFactors[factorName];
 
   return (
     <scene>
@@ -85,13 +90,21 @@ function getLightProbeSceneElement(atlas: Atlas, lastTexture: THREE.Texture) {
         // apply world transform (we don't bother re-creating scene hierarchy)
         cloneMesh.applyMatrix4(mesh.matrixWorld);
 
+        // if factor is specified, set active emissive to either nothing or the factor
+        const activeEmissiveIntensity =
+          currentFactor === null
+            ? emissiveIntensity
+            : currentFactor.mesh === mesh
+            ? currentFactor.emissiveIntensity
+            : 0;
+
         // let the object be auto-disposed of
         return (
           <primitive object={cloneMesh} key={itemIndex}>
             <ProbeMeshMaterial
               attach="material"
               albedoMap={albedoMap}
-              emissiveIntensity={emissiveIntensity}
+              emissiveIntensity={activeEmissiveIntensity}
               emissiveMap={emissiveMap}
               irradianceMap={lastTexture}
             />
@@ -320,7 +333,9 @@ function useLightProbe(probeTargetSize: number) {
 }
 
 // @todo split into atlas setup and texel probe sweep render loop
-export function useIrradianceRenderer(): {
+export function useIrradianceRenderer(
+  factorName: string | null
+): {
   outputTexture: THREE.Texture;
   lightSceneElement: React.ReactElement | null;
   handleDebugClick: (event: PointerEvent) => void;
@@ -333,6 +348,7 @@ export function useIrradianceRenderer(): {
 
   const [
     {
+      stableFactorName,
       activeOutput,
       activeOutputData,
       activeItemCounter,
@@ -341,6 +357,7 @@ export function useIrradianceRenderer(): {
     },
     setProcessingState
   ] = useState<{
+    stableFactorName: string | null;
     activeOutput: THREE.DataTexture;
     activeOutputData: Float32Array;
     activeItemCounter: [number, number];
@@ -353,6 +370,7 @@ export function useIrradianceRenderer(): {
     );
 
     return {
+      stableFactorName: factorName,
       activeOutput: initialTexture,
       activeOutputData: initialData,
       activeItemCounter: [0, 0], // directly changed in place to avoid re-renders
@@ -379,7 +397,11 @@ export function useIrradianceRenderer(): {
             activeOutputData: nextData,
             activeItemCounter: [0, 0],
             lightSceneElement: React.cloneElement(
-              getLightProbeSceneElement(atlas, prev.activeOutput),
+              getLightProbeSceneElement(
+                atlas,
+                prev.activeOutput,
+                stableFactorName
+              ),
               {
                 ref: lightSceneRef
               }
