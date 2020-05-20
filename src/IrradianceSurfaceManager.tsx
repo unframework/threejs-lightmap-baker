@@ -1,4 +1,4 @@
-import React, { useMemo, useContext } from 'react';
+import React, { useMemo, useLayoutEffect, useContext } from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -46,9 +46,16 @@ export interface AtlasSceneItem {
   emissiveMap?: THREE.Texture;
 }
 
+export interface AtlasLightFactor {
+  mesh: THREE.Mesh;
+  emissiveIntensity: number;
+}
+
 export interface Atlas {
   quads: AtlasQuad[];
   lightSceneItems: AtlasSceneItem[];
+  lightFactors: { [name: string]: AtlasLightFactor };
+  activeFactors: { [name: string]: number };
 }
 
 const IrradianceAtlasContext = React.createContext<Atlas | null>(null);
@@ -126,9 +133,10 @@ export const IrradianceSurface: React.FC<{
   albedoMap?: THREE.Texture;
   emissiveMap?: THREE.Texture;
   emissiveIntensity?: number;
+  factor?: string;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
-}> = ({ albedoMap, emissiveMap, emissiveIntensity, children }) => {
-  const { quads, lightSceneItems } = useIrradianceAtlasContext();
+}> = ({ albedoMap, emissiveMap, emissiveIntensity, factor, children }) => {
+  const { quads, lightSceneItems, lightFactors } = useIrradianceAtlasContext();
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
@@ -138,9 +146,16 @@ export const IrradianceSurface: React.FC<{
       mesh,
       buffer: meshBuffer,
       albedoMap,
-      emissiveIntensity: emissiveIntensity || 0,
+      emissiveIntensity: factor !== undefined ? 0 : emissiveIntensity || 0,
       emissiveMap
     });
+
+    if (factor !== undefined) {
+      lightFactors[factor] = {
+        mesh,
+        emissiveIntensity: emissiveIntensity || 0
+      };
+    }
 
     // skip generating irradiance quads if only lit
     if (!albedoMap) {
@@ -210,14 +225,23 @@ export const IrradianceSurface: React.FC<{
   );
 };
 
-const IrradianceSurfaceManager: React.FC = ({ children }) => {
+const IrradianceSurfaceManager: React.FC<{
+  activeFactors: { [name: string]: number };
+}> = ({ activeFactors, children }) => {
   const atlas: Atlas = useMemo(
     () => ({
       quads: [],
-      lightSceneItems: []
+      lightSceneItems: [],
+      lightFactors: {},
+      activeFactors: {}
     }),
     []
   );
+
+  // in-place copy of active factor data to avoid child re-renders
+  useLayoutEffect(() => {
+    atlas.activeFactors = { ...activeFactors };
+  }, [activeFactors, atlas]);
 
   return (
     <IrradianceAtlasContext.Provider value={atlas}>

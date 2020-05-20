@@ -81,6 +81,7 @@ const Scene: React.FC<{
             albedoMap={loadedTexture}
             emissiveMap={loadedEmissiveTexture}
             emissiveIntensity={10}
+            factor="sign"
           >
             <primitive object={loadedMesh} dispose={null} />
           </IrradianceSurface>
@@ -145,7 +146,7 @@ function App() {
       }}
     >
       {loadedMesh && loadedTexture && loadedEmissiveTexture ? (
-        <IrradianceSurfaceManager>
+        <IrradianceSurfaceManager activeFactors={{}}>
           <Scene
             loadedMesh={loadedMesh}
             loadedTexture={loadedTexture}
