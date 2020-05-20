@@ -7,7 +7,7 @@ import {
   atlasHeight,
   useIrradianceAtlasContext,
   Atlas,
-  AtlasItem
+  AtlasQuad
 } from './IrradianceSurfaceManager';
 
 import { ProbeMeshMaterial } from './IrradianceMaterials';
@@ -209,7 +209,7 @@ function useLightProbe(probeTargetSize: number) {
 
   function renderLightProbe(
     gl: THREE.WebGLRenderer,
-    atlasFaceInfo: AtlasItem,
+    atlasFaceInfo: AtlasQuad,
     faceTexelX: number,
     faceTexelY: number,
     lightScene: THREE.Scene,
@@ -425,7 +425,7 @@ export function useIrradianceRenderer(): {
     const { quads } = atlas;
 
     function computeTexel(
-      atlasFaceInfo: AtlasItem,
+      atlasFaceInfo: AtlasQuad,
       faceTexelX: number,
       faceTexelY: number,
       faceTexelCols: number,
