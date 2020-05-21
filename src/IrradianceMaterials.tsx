@@ -127,7 +127,7 @@ export const IrradianceMeshMaterial: React.FC<{
 
       void main() {
         // drastically reduce emissive intensity at display time to preserve colour
-        float emissiveFaded = 2.0 - 2.0 / (emissiveIntensity + 1.0);
+        float emissiveFaded = emissiveIntensity * 0.25;
 
         vec3 base = texture2D(albedoMap, vUV).rgb;
         vec3 emit = texture2D(emissiveMap, vUV).rgb * emissiveFaded;

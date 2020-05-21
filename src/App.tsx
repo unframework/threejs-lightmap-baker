@@ -23,7 +23,7 @@ const Scene: React.FC<{
   loadedMesh: THREE.Mesh;
   loadedTexture: THREE.Texture;
   loadedEmissiveTexture: THREE.Texture;
-}> = ({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
+}> = React.memo(({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
   const {
     baseOutput,
     factorOutputs,
@@ -107,7 +107,7 @@ const Scene: React.FC<{
       {compositorSceneElement}
     </>
   );
-};
+});
 
 function App() {
   const [loadedTexture, setLoadedTexture] = useState<THREE.Texture | null>(
@@ -118,6 +118,20 @@ function App() {
     setLoadedLumTexture
   ] = useState<THREE.Texture | null>(null);
   const [loadedMesh, setLoadedMesh] = useState<THREE.Mesh | null>(null);
+
+  const [testValue, setTestValue] = useState<number>(0);
+  useEffect(() => {
+    let time = 0;
+
+    const intervalId = setInterval(() => {
+      time += 0.05;
+      setTestValue(Math.sin(time) * 0.5 + 0.5);
+    }, 50);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     new THREE.TextureLoader().load(sceneTextureUrl, (data) => {
@@ -156,7 +170,7 @@ function App() {
       }}
     >
       {loadedMesh && loadedTexture && loadedEmissiveTexture ? (
-        <IrradianceSurfaceManager factorValues={{}}>
+        <IrradianceSurfaceManager factorValues={{ sign: testValue }}>
           <Scene
             loadedMesh={loadedMesh}
             loadedTexture={loadedTexture}

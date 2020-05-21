@@ -235,6 +235,7 @@ export const IrradianceSurface: React.FC<{
       attach="material"
       albedoMap={albedoMap}
       emissiveMap={emissiveMap}
+      emissiveIntensity={factor ? 0 : emissiveIntensity}
       materialRef={materialRef}
     />
   );
