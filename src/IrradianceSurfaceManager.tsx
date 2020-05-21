@@ -55,7 +55,7 @@ export interface Atlas {
   quads: AtlasQuad[];
   lightSceneItems: AtlasSceneItem[];
   lightFactors: { [name: string]: AtlasLightFactor };
-  activeFactors: { [name: string]: number };
+  factorValues: { [name: string]: number };
 }
 
 const IrradianceAtlasContext = React.createContext<Atlas | null>(null);
@@ -226,22 +226,22 @@ export const IrradianceSurface: React.FC<{
 };
 
 const IrradianceSurfaceManager: React.FC<{
-  activeFactors: { [name: string]: number };
-}> = ({ activeFactors, children }) => {
+  factorValues: { [name: string]: number };
+}> = ({ factorValues, children }) => {
   const atlas: Atlas = useMemo(
     () => ({
       quads: [],
       lightSceneItems: [],
       lightFactors: {},
-      activeFactors: {}
+      factorValues: {}
     }),
     []
   );
 
   // in-place copy of active factor data to avoid child re-renders
   useLayoutEffect(() => {
-    atlas.activeFactors = { ...activeFactors };
-  }, [activeFactors, atlas]);
+    atlas.factorValues = { ...factorValues };
+  }, [factorValues, atlas]);
 
   return (
     <IrradianceAtlasContext.Provider value={atlas}>

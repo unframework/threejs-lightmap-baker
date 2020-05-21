@@ -156,7 +156,7 @@ function App() {
       }}
     >
       {loadedMesh && loadedTexture && loadedEmissiveTexture ? (
-        <IrradianceSurfaceManager activeFactors={{}}>
+        <IrradianceSurfaceManager factorValues={{}}>
           <Scene
             loadedMesh={loadedMesh}
             loadedTexture={loadedTexture}

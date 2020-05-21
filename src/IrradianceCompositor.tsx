@@ -105,14 +105,9 @@ export function useIrradianceCompositor(
 
     for (const factorName in factorOutputs) {
       const factorMaterialRef = factorMaterialRefMap[factorName];
-      const activeIntensity = atlas.activeFactors[factorName];
+      const multiplier = atlas.factorValues[factorName];
 
-      if (factorMaterialRef.current && activeIntensity) {
-        // compute ratio between intended lighting and actual
-        // @todo instead consider just accepting the multiplier (let user worry about ratios)
-        const multiplier =
-          activeIntensity / atlas.lightFactors[factorName].emissiveIntensity;
-
+      if (factorMaterialRef.current && multiplier) {
         factorMaterialRef.current.uniforms.multiplier.value = multiplier;
       }
     }
@@ -121,7 +116,7 @@ export function useIrradianceCompositor(
     gl.setRenderTarget(orthoTarget);
     gl.render(orthoScene, orthoCamera);
     gl.setRenderTarget(null);
-  }, 15);
+  }, 10);
 
   return {
     outputTexture: orthoTarget.texture,
