@@ -7,6 +7,7 @@ import IrradianceSurfaceManager, {
   IrradianceSurface
 } from './IrradianceSurfaceManager';
 import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
+import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import {
@@ -30,8 +31,13 @@ const Scene: React.FC<{
     probeDebugTextures
   } = useIrradianceFactorRenderer();
 
+  const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
+    baseOutput,
+    factorOutputs
+  );
+
   // debug output texture
-  const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
+  // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
 
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
@@ -98,6 +104,7 @@ const Scene: React.FC<{
       </IrradianceTextureContext.Provider>
 
       {lightSceneElement}
+      {compositorSceneElement}
     </>
   );
 };
