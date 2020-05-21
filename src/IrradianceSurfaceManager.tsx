@@ -1,5 +1,5 @@
-import React, { useMemo, useLayoutEffect, useContext } from 'react';
-import { useUpdate } from 'react-three-fiber';
+import React, { useMemo, useLayoutEffect, useContext, useRef } from 'react';
+import { useUpdate, useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { IrradianceMeshMaterial } from './IrradianceMaterials';
@@ -136,7 +136,10 @@ export const IrradianceSurface: React.FC<{
   factor?: string;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
 }> = ({ albedoMap, emissiveMap, emissiveIntensity, factor, children }) => {
-  const { quads, lightSceneItems, lightFactors } = useIrradianceAtlasContext();
+  const atlas = useIrradianceAtlasContext();
+  const { quads, lightSceneItems, lightFactors } = atlas;
+
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
@@ -212,6 +215,18 @@ export const IrradianceSurface: React.FC<{
     );
   }, []);
 
+  // @todo consider how to skip if not a light factor
+  useFrame(() => {
+    if (materialRef.current && emissiveIntensity && factor) {
+      // read latest value live
+      const multiplier = atlas.factorValues[factor];
+      materialRef.current.uniforms.emissiveIntensity.value =
+        emissiveIntensity * (multiplier || 0);
+
+      materialRef.current.uniformsNeedUpdate = true;
+    }
+  }, 10);
+
   return React.cloneElement(
     children,
     { ref: meshRef },
@@ -219,8 +234,8 @@ export const IrradianceSurface: React.FC<{
     <IrradianceMeshMaterial
       attach="material"
       albedoMap={albedoMap}
-      emissiveIntensity={emissiveIntensity}
       emissiveMap={emissiveMap}
+      materialRef={materialRef}
     />
   );
 };

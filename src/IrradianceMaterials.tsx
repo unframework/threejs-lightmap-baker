@@ -38,7 +38,7 @@ export const ProbeMeshMaterial: React.FC<{
     uniforms: {
       albedoMap: { value: null },
       emissiveMap: { value: null },
-      emissiveIntensity: { value: null },
+      emissiveIntensity: { value: 0 },
       irradianceMap: { value: null }
     },
 
@@ -91,7 +91,8 @@ export const IrradianceMeshMaterial: React.FC<{
   albedoMap?: THREE.Texture;
   emissiveIntensity?: number;
   emissiveMap?: THREE.Texture;
-}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap }) => {
+  materialRef?: React.MutableRefObject<THREE.ShaderMaterial | null>;
+}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap, materialRef }) => {
   const irradianceMap = useIrradianceTexture();
 
   // @todo this should be inside memo??
@@ -145,6 +146,7 @@ export const IrradianceMeshMaterial: React.FC<{
       uniforms-emissiveMap-value={emissiveMap || defaultTexture}
       uniforms-emissiveIntensity-value={emissiveIntensity || 0}
       uniforms-irradianceMap-value={irradianceMap}
+      ref={materialRef}
     />
   );
 };
