@@ -1,4 +1,4 @@
-import React, { useMemo, useLayoutEffect, useContext, useRef } from 'react';
+import React, { useMemo, useCallback, useContext, useRef } from 'react';
 import { useUpdate, useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -241,9 +241,20 @@ export const IrradianceSurface: React.FC<{
   );
 };
 
-const IrradianceSurfaceManager: React.FC<{
-  factorValues: { [name: string]: number };
-}> = ({ factorValues, children }) => {
+export function useIrradianceFactors() {
+  const atlas = useIrradianceAtlasContext();
+
+  const setFactorValues = useCallback(
+    (factorValues: { [name: string]: number }) => {
+      atlas.factorValues = { ...factorValues };
+    },
+    [atlas]
+  );
+
+  return setFactorValues;
+}
+
+const IrradianceSurfaceManager: React.FC = ({ children }) => {
   const atlas: Atlas = useMemo(
     () => ({
       quads: [],
@@ -253,11 +264,6 @@ const IrradianceSurfaceManager: React.FC<{
     }),
     []
   );
-
-  // in-place copy of active factor data to avoid child re-renders
-  useLayoutEffect(() => {
-    atlas.factorValues = { ...factorValues };
-  }, [factorValues, atlas]);
 
   return (
     <IrradianceAtlasContext.Provider value={atlas}>

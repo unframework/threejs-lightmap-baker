@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
+  useIrradianceFactors,
   IrradianceSurface
 } from './IrradianceSurfaceManager';
 import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
@@ -24,6 +25,12 @@ const Scene: React.FC<{
   loadedTexture: THREE.Texture;
   loadedEmissiveTexture: THREE.Texture;
 }> = React.memo(({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
+  const setFactorValues = useIrradianceFactors();
+
+  useFrame(({ clock }) => {
+    setFactorValues({ sign: Math.sin(clock.elapsedTime) * 0.5 + 0.5 });
+  });
+
   const {
     baseOutput,
     factorOutputs,
@@ -119,20 +126,6 @@ function App() {
   ] = useState<THREE.Texture | null>(null);
   const [loadedMesh, setLoadedMesh] = useState<THREE.Mesh | null>(null);
 
-  const [testValue, setTestValue] = useState<number>(0);
-  useEffect(() => {
-    let time = 0;
-
-    const intervalId = setInterval(() => {
-      time += 0.05;
-      setTestValue(Math.sin(time) * 0.5 + 0.5);
-    }, 50);
-
-    return () => {
-      clearInterval(intervalId);
-    };
-  }, []);
-
   useEffect(() => {
     new THREE.TextureLoader().load(sceneTextureUrl, (data) => {
       data.magFilter = THREE.NearestFilter;
@@ -170,7 +163,7 @@ function App() {
       }}
     >
       {loadedMesh && loadedTexture && loadedEmissiveTexture ? (
-        <IrradianceSurfaceManager factorValues={{ sign: testValue }}>
+        <IrradianceSurfaceManager>
           <Scene
             loadedMesh={loadedMesh}
             loadedTexture={loadedTexture}
