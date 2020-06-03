@@ -5,9 +5,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
   useIrradianceFactors,
-  IrradianceTextureContext,
-  IrradianceSurface
+  IrradianceTextureContext
 } from './IrradianceSurfaceManager';
+import IrradianceSurface from './IrradianceSurface';
 import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
