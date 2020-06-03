@@ -97,13 +97,13 @@ const ProbeMeshMaterial: React.FC<{
     },
 
     vertexShader: `
-      attribute vec2 atlasUV;
+      attribute vec2 uv2;
       varying vec2 vUV;
       varying vec2 vAtlasUV;
 
       void main() {
         vUV = uv;
-        vAtlasUV = atlasUV;
+        vAtlasUV = uv2;
 
         vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
         gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
@@ -710,7 +710,7 @@ export function useIrradianceRenderer(
     tmpU.applyMatrix4(mesh.matrixWorld);
     tmpV.applyMatrix4(mesh.matrixWorld);
 
-    fetchFaceUVs(buffer.attributes.atlasUV.array, tmpFaceIndexes);
+    fetchFaceUVs(buffer.attributes.uv2.array, tmpFaceIndexes);
 
     const clickAtlasUV = new THREE.Vector2();
     THREE.Triangle.getUV(
