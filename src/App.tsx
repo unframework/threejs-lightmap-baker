@@ -5,16 +5,14 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
   useIrradianceFactors,
+  IrradianceTextureContext,
   IrradianceSurface
 } from './IrradianceSurfaceManager';
 import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
-import {
-  IrradianceDebugMaterial,
-  IrradianceTextureContext
-} from './IrradianceMaterials';
+import { IrradianceDebugMaterial } from './IrradianceMaterials';
 
 import sceneUrl from './tile-game-room1.glb';
 import sceneTextureUrl from './tile-game-room1.png';

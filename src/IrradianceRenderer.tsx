@@ -16,8 +16,6 @@ import {
   AtlasQuad
 } from './IrradianceSurfaceManager';
 
-import { ProbeMeshMaterial } from './IrradianceMaterials';
-
 const MAX_PASSES = 3;
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
@@ -72,6 +70,74 @@ function fetchFaceUVs(
   tmpUUV.fromArray(uvArray, offsetU);
   tmpVUV.fromArray(uvArray, offsetV);
 }
+
+// default white texture fill
+const defaultTextureData = new Uint8Array([255, 255, 255, 255]);
+const defaultTexture = new THREE.DataTexture(
+  defaultTextureData,
+  1,
+  1,
+  THREE.RGBAFormat
+);
+
+const ProbeMeshMaterial: React.FC<{
+  attach?: string;
+  albedoMap?: THREE.Texture;
+  emissiveIntensity?: number;
+  emissiveMap?: THREE.Texture;
+  irradianceMap: THREE.Texture;
+}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap, irradianceMap }) => {
+  // @todo this should be inside memo??
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      albedoMap: { value: null },
+      emissiveMap: { value: null },
+      emissiveIntensity: { value: 0 },
+      irradianceMap: { value: null }
+    },
+
+    vertexShader: `
+      attribute vec2 atlasUV;
+      varying vec2 vUV;
+      varying vec2 vAtlasUV;
+
+      void main() {
+        vUV = uv;
+        vAtlasUV = atlasUV;
+
+        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    `,
+    fragmentShader: `
+      uniform float emissiveIntensity;
+      uniform sampler2D albedoMap;
+      uniform sampler2D emissiveMap;
+      uniform sampler2D irradianceMap;
+      varying vec2 vUV;
+      varying vec2 vAtlasUV;
+
+      void main() {
+        vec4 base = texture2D(albedoMap, vUV);
+        vec4 irradiance = texture2D(irradianceMap, vAtlasUV);
+        vec4 emit = vec4(texture2D(emissiveMap, vUV).rgb * emissiveIntensity, 1.0);
+        gl_FragColor = base * irradiance + emit;
+      }
+    `
+  });
+
+  // disposable managed object
+  return (
+    <primitive
+      object={material}
+      attach={attach}
+      uniforms-albedoMap-value={albedoMap || defaultTexture}
+      uniforms-emissiveMap-value={emissiveMap || defaultTexture}
+      uniforms-emissiveIntensity-value={emissiveIntensity || 0}
+      uniforms-irradianceMap-value={irradianceMap}
+    />
+  );
+};
 
 function getLightProbeSceneElement(
   atlas: Atlas,
