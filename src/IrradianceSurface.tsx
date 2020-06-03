@@ -8,6 +8,8 @@ import {
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 
+const COLOR_WHITE = new THREE.Color(0xffffff);
+
 // default white texture fill
 const defaultTextureData = new Uint8Array([255, 255, 255, 255]);
 const defaultTexture = new THREE.DataTexture(
@@ -35,8 +37,10 @@ const IrradianceMeshMaterial: React.FC<{
     <meshLambertMaterial
       attach={attach}
       map={albedoMap || defaultTexture}
+      lightMapIntensity={0.5} // hand-tweaked to reduce over-exposure
+      emissive={COLOR_WHITE}
       emissiveMap={emissiveMap || defaultTexture}
-      emissiveIntensity={emissiveIntensity || 0}
+      emissiveIntensity={(emissiveIntensity || 0) * 0.2} // hand-tweaked to preserve colours (@todo use older formula)
       lightMap={irradianceMap}
       ref={materialRef}
     />

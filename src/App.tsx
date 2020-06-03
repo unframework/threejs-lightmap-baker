@@ -84,7 +84,7 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <directionalLight position={[0, 7, 20]} castShadow>
+          <directionalLight position={[-10, 10, 10]} castShadow>
             <directionalLightShadow
               attach="shadow"
               camera-left={-10}

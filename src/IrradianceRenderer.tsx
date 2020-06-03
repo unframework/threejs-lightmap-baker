@@ -16,7 +16,7 @@ import {
   AtlasQuad
 } from './IrradianceSurfaceManager';
 
-const MAX_PASSES = 3;
+const MAX_PASSES = 2;
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
@@ -80,64 +80,7 @@ const defaultTexture = new THREE.DataTexture(
   THREE.RGBAFormat
 );
 
-const ProbeMeshMaterial: React.FC<{
-  attach?: string;
-  albedoMap?: THREE.Texture;
-  emissiveIntensity?: number;
-  emissiveMap?: THREE.Texture;
-  irradianceMap: THREE.Texture;
-}> = ({ attach, albedoMap, emissiveIntensity, emissiveMap, irradianceMap }) => {
-  // @todo this should be inside memo??
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      albedoMap: { value: null },
-      emissiveMap: { value: null },
-      emissiveIntensity: { value: 0 },
-      irradianceMap: { value: null }
-    },
-
-    vertexShader: `
-      attribute vec2 uv2;
-      varying vec2 vUV;
-      varying vec2 vAtlasUV;
-
-      void main() {
-        vUV = uv;
-        vAtlasUV = uv2;
-
-        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-      }
-    `,
-    fragmentShader: `
-      uniform float emissiveIntensity;
-      uniform sampler2D albedoMap;
-      uniform sampler2D emissiveMap;
-      uniform sampler2D irradianceMap;
-      varying vec2 vUV;
-      varying vec2 vAtlasUV;
-
-      void main() {
-        vec4 base = texture2D(albedoMap, vUV);
-        vec4 irradiance = texture2D(irradianceMap, vAtlasUV);
-        vec4 emit = vec4(texture2D(emissiveMap, vUV).rgb * emissiveIntensity, 1.0);
-        gl_FragColor = base * irradiance + emit;
-      }
-    `
-  });
-
-  // disposable managed object
-  return (
-    <primitive
-      object={material}
-      attach={attach}
-      uniforms-albedoMap-value={albedoMap || defaultTexture}
-      uniforms-emissiveMap-value={emissiveMap || defaultTexture}
-      uniforms-emissiveIntensity-value={emissiveIntensity || 0}
-      uniforms-irradianceMap-value={irradianceMap}
-    />
-  );
-};
+const COLOR_WHITE = new THREE.Color(0xffffff);
 
 function getLightProbeSceneElement(
   atlas: Atlas,
@@ -149,6 +92,16 @@ function getLightProbeSceneElement(
 
   return (
     <scene>
+      <directionalLight position={[-10, 10, 10]} castShadow>
+        <directionalLightShadow
+          attach="shadow"
+          camera-left={-10}
+          camera-right={10}
+          camera-top={10}
+          camera-bottom={-10}
+        />
+      </directionalLight>
+
       {lightSceneItems.map((item, itemIndex) => {
         const {
           mesh,
@@ -175,12 +128,23 @@ function getLightProbeSceneElement(
         // let the object be auto-disposed of
         return (
           <primitive object={cloneMesh} key={itemIndex}>
+            {/*
             <ProbeMeshMaterial
               attach="material"
               albedoMap={albedoMap}
               emissiveIntensity={activeEmissiveIntensity}
               emissiveMap={emissiveMap}
               irradianceMap={lastTexture}
+            />
+            */}
+            <meshLambertMaterial
+              attach="material"
+              map={albedoMap || defaultTexture}
+              emissive={COLOR_WHITE}
+              emissiveMap={emissiveMap || defaultTexture}
+              emissiveIntensity={activeEmissiveIntensity || 0}
+              lightMap={lastTexture}
+              toneMapped={false} // must output in raw linear space
             />
           </primitive>
         );
