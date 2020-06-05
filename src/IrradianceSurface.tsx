@@ -68,6 +68,7 @@ const IrradianceMeshMaterial: React.FC<{
         vec3 emit = texture2D(emissiveMap, vUV).rgb * emissiveFaded;
         vec3 irradiance = texture2D(irradianceMap, vAtlasUV).rgb;
         gl_FragColor = vec4(toneMapping(base * irradiance + emit), 1.0);
+        gl_FragColor = linearToOutputTexel( gl_FragColor );
       }
     `
   });
