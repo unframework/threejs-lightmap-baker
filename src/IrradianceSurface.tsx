@@ -37,10 +37,9 @@ const IrradianceMeshMaterial: React.FC<{
     <meshLambertMaterial
       attach={attach}
       map={albedoMap || defaultTexture}
-      lightMapIntensity={0.5} // hand-tweaked to reduce over-exposure
       emissive={COLOR_WHITE}
       emissiveMap={emissiveMap || defaultTexture}
-      emissiveIntensity={(emissiveIntensity || 0) * 0.2} // hand-tweaked to preserve colours (@todo use older formula)
+      emissiveIntensity={(emissiveIntensity || 0) * 0.25} // hand-tweaked to preserve colours
       lightMap={irradianceMap}
       ref={materialRef}
     />
