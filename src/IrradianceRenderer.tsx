@@ -92,7 +92,7 @@ function getLightProbeSceneElement(
 
   return (
     <scene>
-      <directionalLight position={[-10, 10, 10]} castShadow>
+      <directionalLight position={[0, 10, 10]} castShadow>
         <directionalLightShadow
           attach="shadow"
           camera-left={-10}

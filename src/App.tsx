@@ -26,6 +26,7 @@ const Scene: React.FC<{
     baseOutput,
     factorOutputs,
     lightSceneElement,
+    handleDebugClick,
     probeDebugTextures
   } = useIrradianceFactorRenderer();
 
@@ -84,7 +85,7 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <directionalLight position={[-10, 10, 10]} castShadow>
+          <directionalLight position={[0, 3, 6]} castShadow>
             <directionalLightShadow
               attach="shadow"
               camera-left={-10}
@@ -99,7 +100,11 @@ const Scene: React.FC<{
             emissiveMap={loadedEmissiveTexture}
             emissiveIntensity={10}
           >
-            <primitive object={loadedMesh} dispose={null} />
+            <primitive
+              object={loadedMesh}
+              dispose={null}
+              onClick={handleDebugClick}
+            />
           </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
