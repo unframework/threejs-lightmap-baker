@@ -85,7 +85,7 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <directionalLight position={[0, 3, 6]} castShadow>
+          <directionalLight position={[-3, 3, 6]} castShadow intensity={5}>
             <directionalLightShadow
               attach="shadow"
               camera-left={-10}
@@ -102,6 +102,8 @@ const Scene: React.FC<{
           >
             <primitive
               object={loadedMesh}
+              castShadow
+              receiveShadow
               dispose={null}
               onClick={handleDebugClick}
             />
@@ -145,8 +147,6 @@ function App() {
         }
 
         if (object.name === 'Base') {
-          object.castShadow = true;
-          object.receiveShadow = true;
           setLoadedMesh(object);
         }
       });

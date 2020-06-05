@@ -90,9 +90,10 @@ function getLightProbeSceneElement(
   const { lightSceneItems, lightFactors } = atlas;
   const currentFactor = factorName === null ? null : lightFactors[factorName];
 
+  // @todo properly clone the lights
   return (
     <scene>
-      <directionalLight position={[0, 10, 10]} castShadow>
+      <directionalLight position={[-3, 3, 6]} castShadow intensity={5}>
         <directionalLightShadow
           attach="shadow"
           camera-left={-10}
@@ -126,8 +127,14 @@ function getLightProbeSceneElement(
             : 0;
 
         // let the object be auto-disposed of
+        // @todo properly clone shadow props
         return (
-          <primitive object={cloneMesh} key={itemIndex}>
+          <primitive
+            object={cloneMesh}
+            key={itemIndex}
+            castShadow
+            receiveShadow
+          >
             {/*
             <ProbeMeshMaterial
               attach="material"
