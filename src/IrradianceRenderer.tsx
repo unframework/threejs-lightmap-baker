@@ -77,22 +77,46 @@ function getLightProbeSceneElement(
   lastTexture: THREE.Texture,
   factorName: string | null
 ) {
-  const { lightSceneItems, lightFactors } = atlas;
+  const { lightSceneItems, lightSceneLights, lightFactors } = atlas;
   const currentFactor = factorName === null ? null : lightFactors[factorName];
 
   // @todo properly clone the lights
   return (
     <scene>
-      <directionalLight position={[-5, 5, 10]} castShadow intensity={18}>
-        <directionalLightShadow
-          attach="shadow"
-          bias={-0.0005}
-          camera-left={-20}
-          camera-right={20}
-          camera-top={20}
-          camera-bottom={-20}
-        />
-      </directionalLight>
+      {lightSceneLights.map(({ dirLight }) => {
+        const cloneLight = new THREE.DirectionalLight();
+        const cloneTarget = new THREE.Object3D();
+
+        // apply world transform (we don't bother re-creating scene hierarchy)
+        cloneLight.position.copy(dirLight.position);
+        cloneLight.applyMatrix4(dirLight.matrixWorld);
+
+        cloneTarget.position.copy(dirLight.target.position);
+        cloneTarget.applyMatrix4(dirLight.target.matrixWorld);
+
+        // @todo assert that original light casts shadows, etc
+        return (
+          <React.Fragment key={dirLight.uuid}>
+            <primitive object={cloneTarget} />
+
+            <primitive
+              object={cloneLight}
+              color={dirLight.color}
+              intensity={dirLight.intensity}
+              target={cloneTarget}
+              castShadow
+            >
+              <directionalLightShadow
+                attach="shadow"
+                camera-left={dirLight.shadow.camera.left}
+                camera-right={dirLight.shadow.camera.right}
+                camera-top={dirLight.shadow.camera.top}
+                camera-bottom={dirLight.shadow.camera.bottom}
+              />
+            </primitive>
+          </React.Fragment>
+        );
+      })}
 
       {lightSceneItems.map((item, itemIndex) => {
         const {
@@ -109,6 +133,7 @@ function getLightProbeSceneElement(
         const cloneMesh = new THREE.Mesh(buffer);
 
         // apply world transform (we don't bother re-creating scene hierarchy)
+        // @todo still need to copy position
         cloneMesh.applyMatrix4(mesh.matrixWorld);
 
         // if factor is specified, set active emissive to either nothing or the factor

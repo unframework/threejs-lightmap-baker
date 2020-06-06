@@ -45,6 +45,10 @@ export interface AtlasSceneItem {
   emissiveMap?: THREE.Texture;
 }
 
+export interface AtlasSceneLight {
+  dirLight: THREE.DirectionalLight;
+}
+
 export interface AtlasLightFactor {
   mesh: THREE.Mesh;
   emissiveIntensity: number;
@@ -53,6 +57,7 @@ export interface AtlasLightFactor {
 export interface Atlas {
   quads: AtlasQuad[];
   lightSceneItems: AtlasSceneItem[];
+  lightSceneLights: AtlasSceneLight[];
   lightFactors: { [name: string]: AtlasLightFactor };
   factorValues: { [name: string]: number };
 }
@@ -225,6 +230,23 @@ export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
   return meshRef;
 }
 
+export function useLightRef() {
+  const { lightSceneLights } = useIrradianceAtlasContext();
+
+  const lightRef = useUpdate<THREE.Light>((light) => {
+    if (!(light instanceof THREE.DirectionalLight)) {
+      throw new Error('only directional lights are supported');
+    }
+
+    // register display item
+    lightSceneLights.push({
+      dirLight: light
+    });
+  }, []);
+
+  return lightRef;
+}
+
 export function useIrradianceFactors() {
   const atlas = useIrradianceAtlasContext();
 
@@ -243,6 +265,7 @@ const IrradianceSurfaceManager: React.FC = ({ children }) => {
     () => ({
       quads: [],
       lightSceneItems: [],
+      lightSceneLights: [],
       lightFactors: {},
       factorValues: {}
     }),
