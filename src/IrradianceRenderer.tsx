@@ -75,14 +75,15 @@ function fetchFaceUVs(
 function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
-  factorName: string | null
+  factorName: string | null,
+  sceneRef: React.MutableRefObject<THREE.Scene | undefined>
 ) {
   const { lightSceneItems, lightSceneLights, lightFactors } = atlas;
   const currentFactor = factorName === null ? null : lightFactors[factorName];
 
   return (
     // ensure the scene is completely re-rendered if it changes
-    <scene key={`light-scene-${Math.random()}`}>
+    <scene key={`light-scene-${Math.random()}`} ref={sceneRef}>
       {lightSceneLights.map(({ dirLight }) => {
         const cloneLight = new THREE.DirectionalLight();
         const cloneTarget = new THREE.Object3D();
@@ -485,15 +486,11 @@ export function useIrradianceRenderer(
             activeOutput: nextTexture,
             activeOutputData: nextData,
             activeItemCounter: [0, 0],
-            lightSceneElement: React.cloneElement(
-              getLightProbeSceneElement(
-                atlas,
-                prev.activeOutput,
-                prev.activeFactorName
-              ),
-              {
-                ref: lightSceneRef
-              }
+            lightSceneElement: getLightProbeSceneElement(
+              atlas,
+              prev.activeOutput,
+              prev.activeFactorName,
+              lightSceneRef
             )
           };
         });
