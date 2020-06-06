@@ -71,17 +71,6 @@ function fetchFaceUVs(
   tmpVUV.fromArray(uvArray, offsetV);
 }
 
-// default white texture fill
-const defaultTextureData = new Uint8Array([255, 255, 255, 255]);
-const defaultTexture = new THREE.DataTexture(
-  defaultTextureData,
-  1,
-  1,
-  THREE.RGBAFormat
-);
-
-const COLOR_WHITE = new THREE.Color(0xffffff);
-
 function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
@@ -108,6 +97,7 @@ function getLightProbeSceneElement(
           mesh,
           buffer,
           albedoMap,
+          emissive,
           emissiveIntensity,
           emissiveMap
         } = item;
@@ -146,9 +136,9 @@ function getLightProbeSceneElement(
             */}
             <meshLambertMaterial
               attach="material"
-              map={albedoMap || defaultTexture}
-              emissive={COLOR_WHITE}
-              emissiveMap={emissiveMap || defaultTexture}
+              map={albedoMap}
+              emissive={emissive}
+              emissiveMap={emissiveMap}
               emissiveIntensity={activeEmissiveIntensity || 0}
               lightMap={lastTexture}
               toneMapped={false} // must output in raw linear space

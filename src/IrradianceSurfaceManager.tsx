@@ -39,6 +39,7 @@ export interface AtlasSceneItem {
   mesh: THREE.Mesh;
   buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine
   albedoMap?: THREE.Texture;
+  emissive: THREE.Color;
   emissiveIntensity: number;
   emissiveMap?: THREE.Texture;
 }
@@ -149,11 +150,11 @@ export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
     }
 
     // register display item
-    // @todo support emissive colour
     lightSceneItems.push({
       mesh,
       buffer: meshBuffer,
       albedoMap: material.map || undefined,
+      emissive: material.emissive,
       emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default
       emissiveMap: material.emissiveMap || undefined
     });
