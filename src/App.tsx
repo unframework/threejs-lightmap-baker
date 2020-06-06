@@ -18,7 +18,8 @@ import sceneUrl from './tile-game-room1.glb';
 
 const Scene: React.FC<{
   loadedMeshList: THREE.Mesh[];
-}> = React.memo(({ loadedMeshList }) => {
+  loadedLightList: THREE.DirectionalLight[];
+}> = React.memo(({ loadedMeshList, loadedLightList }) => {
   const {
     baseOutput,
     factorOutputs,
@@ -82,17 +83,15 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <IrradianceLight>
-            <directionalLight position={[-5, 5, 10]} castShadow intensity={18}>
-              <directionalLightShadow
-                attach="shadow"
-                camera-left={-20}
-                camera-right={20}
-                camera-top={20}
-                camera-bottom={-20}
-              />
-            </directionalLight>
-          </IrradianceLight>
+          {loadedLightList.map((light) => (
+            <React.Fragment key={light.uuid}>
+              <IrradianceLight>
+                <primitive object={light} dispose={null} />
+              </IrradianceLight>
+
+              <primitive object={light.target} dispose={null} />
+            </React.Fragment>
+          ))}
 
           {loadedMeshList.map((mesh) => (
             <IrradianceSurface key={mesh.uuid}>
@@ -114,10 +113,37 @@ const Scene: React.FC<{
 
 function App() {
   const [loadedMeshList, setLoadedMeshList] = useState<THREE.Mesh[]>([]);
+  const [loadedLightList, setLoadedLightList] = useState<
+    THREE.DirectionalLight[]
+  >([]);
 
   useEffect(() => {
     new GLTFLoader().load(sceneUrl, (data) => {
       data.scene.traverse((object) => {
+        // glTF import is still not great with lights, so we improvise
+        if (object.name.includes('Light')) {
+          const light = new THREE.DirectionalLight();
+          light.intensity = object.scale.z;
+
+          light.castShadow = true;
+          light.shadow.camera.left = -object.scale.x;
+          light.shadow.camera.right = object.scale.x;
+          light.shadow.camera.top = object.scale.y;
+          light.shadow.camera.bottom = -object.scale.y;
+
+          light.position.copy(object.position);
+
+          const target = new THREE.Object3D();
+          target.position.set(0, 0, -1);
+          target.position.applyEuler(object.rotation);
+          target.position.add(light.position);
+
+          light.target = target;
+
+          setLoadedLightList((list) => [...list, light]);
+          return;
+        }
+
         if (!(object instanceof THREE.Mesh)) {
           return;
         }
@@ -174,7 +200,10 @@ function App() {
     >
       {loadedMeshList ? (
         <IrradianceSurfaceManager>
-          <Scene loadedMeshList={loadedMeshList} />
+          <Scene
+            loadedMeshList={loadedMeshList}
+            loadedLightList={loadedLightList}
+          />
         </IrradianceSurfaceManager>
       ) : null}
 
