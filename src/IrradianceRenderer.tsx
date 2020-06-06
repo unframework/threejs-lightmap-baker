@@ -195,6 +195,10 @@ function createAtlasTexture(
     THREE.FloatType
   );
 
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+
   return [texture, data];
 }
 
