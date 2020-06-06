@@ -33,13 +33,13 @@ export interface AtlasQuad {
   top: number;
   sizeU: number;
   sizeV: number;
-  map?: THREE.Texture;
 }
 
 export interface AtlasSceneItem {
   mesh: THREE.Mesh;
   buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine
   albedoMap?: THREE.Texture;
+  emissive: THREE.Color;
   emissiveIntensity: number;
   emissiveMap?: THREE.Texture;
 }
@@ -133,38 +133,33 @@ export const IrradianceTextureContext = React.createContext<THREE.Texture | null
 );
 
 // attach a mesh to be mapped in texture atlas
-export function useAtlasMeshRef(
-  albedoMap?: THREE.Texture,
-  emissiveMap?: THREE.Texture,
-  emissiveIntensity?: number,
-  factor?: string
-) {
+export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
   const atlas = useIrradianceAtlasContext();
-  const { quads, lightSceneItems, lightFactors } = atlas;
+  const { quads, lightSceneItems } = atlas;
 
   const meshRef = useUpdate<THREE.Mesh>((mesh) => {
     const meshBuffer = mesh.geometry;
+    const material = mesh.material;
+
+    if (Array.isArray(material)) {
+      throw new Error('material array not supported');
+    }
+
+    if (!(material instanceof THREE.MeshLambertMaterial)) {
+      throw new Error('only Lambert materials are supported');
+    }
 
     // register display item
     lightSceneItems.push({
       mesh,
       buffer: meshBuffer,
-      albedoMap,
-      emissiveIntensity: factor !== undefined ? 0 : emissiveIntensity || 0, // if factor contributor, zero emissive by default
-      emissiveMap
+      albedoMap: material.map || undefined,
+      emissive: material.emissive,
+      emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default
+      emissiveMap: material.emissiveMap || undefined
     });
 
-    if (factor !== undefined) {
-      lightFactors[factor] = {
-        mesh,
-        emissiveIntensity: emissiveIntensity || 0
-      };
-    }
-
-    // skip generating irradiance quads if only lit
-    if (!albedoMap) {
-      return;
-    }
+    // @todo support dynamic light factors
 
     if (!(meshBuffer instanceof THREE.BufferGeometry)) {
       throw new Error('expected buffer geometry');
@@ -200,7 +195,6 @@ export function useAtlasMeshRef(
       quads.push({
         mesh: mesh,
         buffer: meshBuffer,
-        map: albedoMap,
         quadIndex,
         left,
         top,
@@ -211,6 +205,11 @@ export function useAtlasMeshRef(
 
     // store illumination UV as dedicated attribute
     meshBuffer.setAttribute('uv2', atlasUVAttr.setUsage(THREE.StaticDrawUsage));
+
+    // allow upstream code to run
+    if (withMesh) {
+      withMesh(mesh);
+    }
   }, []);
 
   return meshRef;
