@@ -121,8 +121,17 @@ function App() {
           return;
         }
 
+        // process the material
         if (object.material) {
           const stdMat = object.material as THREE.MeshStandardMaterial;
+
+          if (stdMat.map) {
+            stdMat.map.magFilter = THREE.NearestFilter;
+          }
+
+          if (stdMat.emissiveMap) {
+            stdMat.emissiveMap.magFilter = THREE.NearestFilter;
+          }
 
           object.material = new THREE.MeshLambertMaterial({
             map: stdMat.map,
