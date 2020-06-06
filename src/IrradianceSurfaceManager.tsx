@@ -60,8 +60,6 @@ export interface Atlas {
   quads: AtlasQuad[];
   lightSceneItems: AtlasSceneItem[];
   lightSceneLights: AtlasSceneLight[];
-  lightFactors: { [name: string]: AtlasLightFactor };
-  factorValues: { [name: string]: number };
 }
 
 const IrradianceAtlasContext = React.createContext<Atlas | null>(null);
@@ -254,27 +252,12 @@ export function useLightRef(factorName: string | null) {
   return lightRef;
 }
 
-export function useIrradianceFactors() {
-  const atlas = useIrradianceAtlasContext();
-
-  const setFactorValues = useCallback(
-    (factorValues: { [name: string]: number }) => {
-      atlas.factorValues = { ...factorValues };
-    },
-    [atlas]
-  );
-
-  return setFactorValues;
-}
-
 const IrradianceSurfaceManager: React.FC = ({ children }) => {
   const atlas: Atlas = useMemo(
     () => ({
       quads: [],
       lightSceneItems: [],
-      lightSceneLights: [],
-      lightFactors: {},
-      factorValues: {}
+      lightSceneLights: []
     }),
     []
   );
