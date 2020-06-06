@@ -43,10 +43,12 @@ export interface AtlasSceneItem {
   emissive: THREE.Color;
   emissiveIntensity: number;
   emissiveMap?: THREE.Texture;
+  factorName: string | null;
 }
 
 export interface AtlasSceneLight {
   dirLight: THREE.DirectionalLight;
+  factorName: string | null;
 }
 
 export interface AtlasLightFactor {
@@ -139,7 +141,10 @@ export const IrradianceTextureContext = React.createContext<THREE.Texture | null
 );
 
 // attach a mesh to be mapped in texture atlas
-export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
+export function useAtlasMeshRef(
+  factorName: string | null,
+  withMesh?: (mesh: THREE.Mesh) => void
+) {
   const atlas = useIrradianceAtlasContext();
   const { quads, lightSceneItems } = atlas;
 
@@ -163,7 +168,8 @@ export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
       albedoMap: material.map || undefined,
       emissive: material.emissive,
       emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default
-      emissiveMap: material.emissiveMap || undefined
+      emissiveMap: material.emissiveMap || undefined,
+      factorName
     });
 
     // @todo support dynamic light factors
@@ -230,7 +236,7 @@ export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
   return meshRef;
 }
 
-export function useLightRef() {
+export function useLightRef(factorName: string | null) {
   const { lightSceneLights } = useIrradianceAtlasContext();
 
   const lightRef = useUpdate<THREE.Light>((light) => {
@@ -240,7 +246,8 @@ export function useLightRef() {
 
     // register display item
     lightSceneLights.push({
-      dirLight: light
+      dirLight: light,
+      factorName
     });
   }, []);
 

@@ -18,7 +18,7 @@ export const IrradianceSurface: React.FC<{
   }
 
   const materialRef = useRef<THREE.MeshLambertMaterial | undefined>(undefined);
-  const meshRef = useAtlasMeshRef((mesh) => {
+  const meshRef = useAtlasMeshRef(factor || null, (mesh) => {
     if (Array.isArray(mesh.material)) {
       throw new Error('material array not supported');
     }

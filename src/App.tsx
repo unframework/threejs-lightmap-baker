@@ -25,7 +25,7 @@ const Scene: React.FC<{
     lightSceneElement: baseLightSceneElement,
     handleDebugClick,
     probeDebugTextures
-  } = useIrradianceRenderer(null);
+  } = useIrradianceRenderer('sign');
 
   const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
     baseLightTexture,
@@ -93,7 +93,10 @@ const Scene: React.FC<{
           ))}
 
           {loadedMeshList.map((mesh) => (
-            <IrradianceSurface key={mesh.uuid}>
+            <IrradianceSurface
+              key={mesh.uuid}
+              factor={mesh.name === 'Base' ? 'sign' : undefined}
+            >
               <primitive
                 object={mesh}
                 dispose={null}
