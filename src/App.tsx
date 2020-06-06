@@ -86,7 +86,6 @@ const Scene: React.FC<{
           <directionalLight position={[-5, 5, 10]} castShadow intensity={18}>
             <directionalLightShadow
               attach="shadow"
-              bias={-0.0005}
               camera-left={-20}
               camera-right={20}
               camera-top={20}
@@ -135,7 +134,6 @@ function App() {
           }
 
           object.material = new THREE.MeshLambertMaterial({
-            shadowSide: THREE.FrontSide,
             color: stdMat.color,
             map: stdMat.map,
             emissive: stdMat.emissive,
@@ -148,6 +146,12 @@ function App() {
 
           if (stdMat.map) {
             object.receiveShadow = true;
+          }
+
+          // special case for outer sunlight cover
+          if (object.name === 'Cover') {
+            object.material.depthWrite = false;
+            object.material.colorWrite = false;
           }
         }
 
