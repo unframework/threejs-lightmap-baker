@@ -98,8 +98,6 @@ const Scene: React.FC<{
             <IrradianceSurface key={mesh.uuid}>
               <primitive
                 object={mesh}
-                castShadow
-                receiveShadow
                 dispose={null}
                 onClick={handleDebugClick}
               />
@@ -138,11 +136,19 @@ function App() {
 
           object.material = new THREE.MeshLambertMaterial({
             shadowSide: THREE.FrontSide,
+            color: stdMat.color,
             map: stdMat.map,
             emissive: stdMat.emissive,
             emissiveMap: stdMat.emissiveMap,
             emissiveIntensity: stdMat.emissiveIntensity
           });
+
+          // always cast shadow, but only albedo materials receive it
+          object.castShadow = true;
+
+          if (stdMat.map) {
+            object.receiveShadow = true;
+          }
         }
 
         setLoadedMeshList((list) => [...list, object]);

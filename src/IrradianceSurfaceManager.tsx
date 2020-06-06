@@ -38,6 +38,7 @@ export interface AtlasQuad {
 export interface AtlasSceneItem {
   mesh: THREE.Mesh;
   buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine
+  albedo: THREE.Color;
   albedoMap?: THREE.Texture;
   emissive: THREE.Color;
   emissiveIntensity: number;
@@ -153,6 +154,7 @@ export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
     lightSceneItems.push({
       mesh,
       buffer: meshBuffer,
+      albedo: material.color,
       albedoMap: material.map || undefined,
       emissive: material.emissive,
       emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default

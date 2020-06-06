@@ -98,6 +98,7 @@ function getLightProbeSceneElement(
         const {
           mesh,
           buffer,
+          albedo,
           albedoMap,
           emissive,
           emissiveIntensity,
@@ -139,6 +140,7 @@ function getLightProbeSceneElement(
             <meshLambertMaterial
               attach="material"
               shadowSide={THREE.FrontSide}
+              color={albedo}
               map={albedoMap}
               emissive={emissive}
               emissiveMap={emissiveMap}
