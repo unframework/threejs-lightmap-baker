@@ -440,7 +440,6 @@ export function useIrradianceRenderer(
 
   const [
     {
-      activeFactorName,
       activeOutput,
       activeOutputData,
       activeItemCounter,
@@ -459,7 +458,7 @@ export function useIrradianceRenderer(
           const [nextTexture, nextData] = createAtlasTexture(
             atlasWidth,
             atlasHeight,
-            true
+            prev.activeFactorName === null // test pattern only on base
           );
 
           return {
