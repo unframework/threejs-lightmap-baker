@@ -62,7 +62,7 @@ export function useIrradianceCompositor(
   factorOutputs: { [name: string]: THREE.Texture }
 ) {
   const orthoSceneRef = useRef<THREE.Scene>();
-  const atlas = useIrradianceAtlasContext();
+  const factorValues = useRef<{ [name: string]: number }>({}).current;
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
@@ -105,7 +105,7 @@ export function useIrradianceCompositor(
 
     for (const factorName in factorOutputs) {
       const factorMaterialRef = factorMaterialRefMap[factorName];
-      const multiplier = atlas.factorValues[factorName];
+      const multiplier = factorValues[factorName];
 
       if (factorMaterialRef.current && multiplier) {
         factorMaterialRef.current.uniforms.multiplier.value = multiplier;
@@ -119,6 +119,7 @@ export function useIrradianceCompositor(
   }, 10);
 
   return {
+    factorValues,
     outputTexture: orthoTarget.texture,
     compositorSceneElement: (
       <scene ref={orthoSceneRef}>

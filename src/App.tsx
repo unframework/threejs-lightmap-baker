@@ -25,12 +25,22 @@ const Scene: React.FC<{
     lightSceneElement: baseLightSceneElement,
     handleDebugClick,
     probeDebugTextures
+  } = useIrradianceRenderer(null);
+
+  const {
+    outputTexture: signLightTexture,
+    lightSceneElement: signLightSceneElement
   } = useIrradianceRenderer('sign');
 
-  const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
-    baseLightTexture,
-    {}
-  );
+  const {
+    factorValues,
+    outputTexture,
+    compositorSceneElement
+  } = useIrradianceCompositor(baseLightTexture, { sign: signLightTexture });
+
+  useFrame(({ clock }) => {
+    factorValues.sign = Math.sin(clock.elapsedTime) * 0.5 + 0.5;
+  });
 
   // debug output texture
   // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
@@ -107,7 +117,7 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {baseLightSceneElement}
+      {baseLightSceneElement || signLightSceneElement}
       {compositorSceneElement}
     </>
   );
