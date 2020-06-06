@@ -8,7 +8,7 @@ import IrradianceSurfaceManager, {
 } from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
-import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
+import { useIrradianceRenderer } from './IrradianceRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
@@ -21,16 +21,15 @@ const Scene: React.FC<{
   loadedLightList: THREE.DirectionalLight[];
 }> = React.memo(({ loadedMeshList, loadedLightList }) => {
   const {
-    baseOutput,
-    factorOutputs,
-    lightSceneElement,
+    outputTexture: baseLightTexture,
+    lightSceneElement: baseLightSceneElement,
     handleDebugClick,
     probeDebugTextures
-  } = useIrradianceFactorRenderer();
+  } = useIrradianceRenderer(null);
 
   const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
-    baseOutput,
-    factorOutputs
+    baseLightTexture,
+    {}
   );
 
   // debug output texture
@@ -105,7 +104,7 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {lightSceneElement}
+      {baseLightSceneElement}
       {compositorSceneElement}
     </>
   );
