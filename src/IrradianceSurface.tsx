@@ -10,7 +10,8 @@ import {
 export const IrradianceSurface: React.FC<{
   factor?: string;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
-}> = ({ factor, children }) => {
+  innerRef?: React.MutableRefObject<THREE.Mesh | undefined>; // convenience ref
+}> = ({ factor, children, innerRef }) => {
   const irradianceMap = useContext(IrradianceTextureContext);
 
   if (!irradianceMap) {
@@ -28,6 +29,10 @@ export const IrradianceSurface: React.FC<{
     }
 
     materialRef.current = mesh.material;
+
+    if (innerRef) {
+      innerRef.current = mesh;
+    }
   });
 
   // override lightmap with our own

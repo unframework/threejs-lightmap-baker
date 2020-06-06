@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
@@ -38,8 +38,23 @@ const Scene: React.FC<{
     compositorSceneElement
   } = useIrradianceCompositor(baseLightTexture, { sign: signLightTexture });
 
+  // animate sign intensity
+  const signMeshRef = useRef<THREE.Mesh>();
+
   useFrame(({ clock }) => {
-    factorValues.sign = Math.sin(clock.elapsedTime) * 0.5 + 0.5;
+    const signMesh = signMeshRef.current;
+    const signMaterial =
+      signMesh && (signMesh.material as THREE.MeshLambertMaterial | undefined);
+
+    if (!signMaterial) {
+      return;
+    }
+
+    const signIntensity = Math.sin(clock.elapsedTime) * 0.5 + 0.5;
+
+    // update the material as well as its lightmap factor
+    signMaterial.emissiveIntensity = signIntensity;
+    factorValues.sign = signIntensity;
   });
 
   // debug output texture
@@ -106,6 +121,7 @@ const Scene: React.FC<{
             <IrradianceSurface
               key={mesh.uuid}
               factor={mesh.name === 'Base' ? 'sign' : undefined}
+              innerRef={mesh.name === 'Base' ? signMeshRef : undefined}
             >
               <primitive
                 object={mesh}
