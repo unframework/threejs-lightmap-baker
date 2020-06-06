@@ -154,15 +154,6 @@ function getLightProbeSceneElement(
             castShadow
             receiveShadow
           >
-            {/*
-            <ProbeMeshMaterial
-              attach="material"
-              albedoMap={albedoMap}
-              emissiveIntensity={activeEmissiveIntensity}
-              emissiveMap={emissiveMap}
-              irradianceMap={lastTexture}
-            />
-            */}
             <meshLambertMaterial
               attach="material"
               color={albedo}
@@ -406,7 +397,6 @@ function useLightProbe(probeTargetSize: number) {
   return renderLightProbe;
 }
 
-// @todo split into atlas setup and texel probe sweep render loop
 export function useIrradianceRenderer(
   factorName: string | null
 ): {
@@ -456,18 +446,6 @@ export function useIrradianceRenderer(
     },
     setProcessingState
   ] = useState(() => createDefaultState(factorName));
-
-  // reset the state when factor name changes
-  useLayoutEffect(() => {
-    setProcessingState((prev) => {
-      // extra check to avoid re-creating initial state on first render
-      if (prev.activeFactorName !== factorName) {
-        return createDefaultState(factorName);
-      }
-
-      return prev;
-    });
-  }, [factorName, createDefaultState]);
 
   // automatically kick off new processing when ready
   useLayoutEffect(() => {
