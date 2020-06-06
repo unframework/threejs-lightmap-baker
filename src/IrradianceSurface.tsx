@@ -11,7 +11,10 @@ export const IrradianceSurface: React.FC<{
   factor?: string;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
   innerRef?: React.MutableRefObject<THREE.Mesh | undefined>; // convenience ref
-}> = ({ factor, children, innerRef }) => {
+  innerMaterialRef?: React.MutableRefObject<
+    THREE.MeshLambertMaterial | undefined
+  >; // convenience ref
+}> = ({ factor, children, innerRef, innerMaterialRef }) => {
   const irradianceMap = useContext(IrradianceTextureContext);
 
   if (!irradianceMap) {
@@ -30,8 +33,13 @@ export const IrradianceSurface: React.FC<{
 
     materialRef.current = mesh.material;
 
+    // fill convenience refs for upstream
     if (innerRef) {
       innerRef.current = mesh;
+    }
+
+    if (innerMaterialRef) {
+      innerMaterialRef.current = mesh.material;
     }
   });
 

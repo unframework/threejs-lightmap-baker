@@ -39,12 +39,10 @@ const Scene: React.FC<{
   } = useIrradianceCompositor(baseLightTexture, { sign: signLightTexture });
 
   // animate sign intensity
-  const signMeshRef = useRef<THREE.Mesh>();
+  const signMaterialRef = useRef<THREE.MeshLambertMaterial>();
 
   useFrame(({ clock }) => {
-    const signMesh = signMeshRef.current;
-    const signMaterial =
-      signMesh && (signMesh.material as THREE.MeshLambertMaterial | undefined);
+    const signMaterial = signMaterialRef.current;
 
     if (!signMaterial) {
       return;
@@ -121,7 +119,9 @@ const Scene: React.FC<{
             <IrradianceSurface
               key={mesh.uuid}
               factor={mesh.name === 'Base' ? 'sign' : undefined}
-              innerRef={mesh.name === 'Base' ? signMeshRef : undefined}
+              innerMaterialRef={
+                mesh.name === 'Base' ? signMaterialRef : undefined
+              }
             >
               <primitive
                 object={mesh}
