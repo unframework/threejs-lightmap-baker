@@ -80,9 +80,9 @@ function getLightProbeSceneElement(
   const { lightSceneItems, lightSceneLights, lightFactors } = atlas;
   const currentFactor = factorName === null ? null : lightFactors[factorName];
 
-  // @todo properly clone the lights
   return (
-    <scene>
+    // ensure the scene is completely re-rendered if it changes
+    <scene key={`light-scene-${Math.random()}`}>
       {lightSceneLights.map(({ dirLight }) => {
         const cloneLight = new THREE.DirectionalLight();
         const cloneTarget = new THREE.Object3D();
