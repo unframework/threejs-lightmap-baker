@@ -95,11 +95,7 @@ const Scene: React.FC<{
             />
           </directionalLight>
 
-          <IrradianceSurface
-            albedoMap={loadedTexture}
-            emissiveMap={loadedEmissiveTexture}
-            emissiveIntensity={10}
-          >
+          <IrradianceSurface>
             <primitive
               object={loadedMesh}
               castShadow
@@ -144,6 +140,17 @@ function App() {
       data.scene.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) {
           return;
+        }
+
+        if (object.material) {
+          const stdMat = object.material as THREE.MeshStandardMaterial;
+
+          object.material = new THREE.MeshLambertMaterial({
+            map: stdMat.map,
+            emissive: stdMat.emissive,
+            emissiveMap: stdMat.emissiveMap,
+            emissiveIntensity: stdMat.emissiveIntensity
+          });
         }
 
         if (object.name === 'Base') {
