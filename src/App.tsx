@@ -19,9 +19,7 @@ import sceneLumTextureUrl from './tile-game-room1-lum.png';
 
 const Scene: React.FC<{
   loadedMesh: THREE.Mesh;
-  loadedTexture: THREE.Texture;
-  loadedEmissiveTexture: THREE.Texture;
-}> = React.memo(({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
+}> = React.memo(({ loadedMesh }) => {
   const {
     baseOutput,
     factorOutputs,
@@ -114,28 +112,9 @@ const Scene: React.FC<{
 });
 
 function App() {
-  const [loadedTexture, setLoadedTexture] = useState<THREE.Texture | null>(
-    null
-  );
-  const [
-    loadedEmissiveTexture,
-    setLoadedLumTexture
-  ] = useState<THREE.Texture | null>(null);
   const [loadedMesh, setLoadedMesh] = useState<THREE.Mesh | null>(null);
 
   useEffect(() => {
-    new THREE.TextureLoader().load(sceneTextureUrl, (data) => {
-      data.magFilter = THREE.NearestFilter;
-      data.flipY = false;
-      setLoadedTexture(data);
-    });
-
-    new THREE.TextureLoader().load(sceneLumTextureUrl, (data) => {
-      data.magFilter = THREE.NearestFilter;
-      data.flipY = false;
-      setLoadedLumTexture(data);
-    });
-
     new GLTFLoader().load(sceneUrl, (data) => {
       data.scene.traverse((object) => {
         if (!(object instanceof THREE.Mesh)) {
@@ -171,13 +150,9 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      {loadedMesh && loadedTexture && loadedEmissiveTexture ? (
+      {loadedMesh ? (
         <IrradianceSurfaceManager>
-          <Scene
-            loadedMesh={loadedMesh}
-            loadedTexture={loadedTexture}
-            loadedEmissiveTexture={loadedEmissiveTexture}
-          />
+          <Scene loadedMesh={loadedMesh} />
         </IrradianceSurfaceManager>
       ) : null}
 
