@@ -83,7 +83,7 @@ function getLightProbeSceneElement(
   // @todo properly clone the lights
   return (
     <scene>
-      <directionalLight position={[-3, 3, 6]} castShadow intensity={5}>
+      <directionalLight position={[-3, 3, 6]} castShadow intensity={18}>
         <directionalLightShadow
           attach="shadow"
           camera-left={-10}
