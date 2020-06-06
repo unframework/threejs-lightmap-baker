@@ -7,6 +7,7 @@ import IrradianceSurfaceManager, {
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
+import IrradianceLight from './IrradianceLight';
 import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
@@ -81,15 +82,17 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <directionalLight position={[-5, 5, 10]} castShadow intensity={18}>
-            <directionalLightShadow
-              attach="shadow"
-              camera-left={-20}
-              camera-right={20}
-              camera-top={20}
-              camera-bottom={-20}
-            />
-          </directionalLight>
+          <IrradianceLight>
+            <directionalLight position={[-5, 5, 10]} castShadow intensity={18}>
+              <directionalLightShadow
+                attach="shadow"
+                camera-left={-20}
+                camera-right={20}
+                camera-top={20}
+                camera-bottom={-20}
+              />
+            </directionalLight>
+          </IrradianceLight>
 
           {loadedMeshList.map((mesh) => (
             <IrradianceSurface key={mesh.uuid}>
