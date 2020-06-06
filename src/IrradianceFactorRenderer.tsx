@@ -22,6 +22,7 @@ export function useIrradianceFactorRenderer() {
     outputTexture,
 
     lightSceneElement,
+    handleDebugClick,
     probeDebugTextures
   } = useIrradianceRenderer(activeFactorName);
 
@@ -54,6 +55,7 @@ export function useIrradianceFactorRenderer() {
 
   return {
     lightSceneElement,
+    handleDebugClick,
     probeDebugTextures,
     baseOutput,
     factorOutputs

@@ -8,6 +8,8 @@ import {
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 
+const COLOR_WHITE = new THREE.Color(0xffffff);
+
 // default white texture fill
 const defaultTextureData = new Uint8Array([255, 255, 255, 255]);
 const defaultTexture = new THREE.DataTexture(
@@ -30,58 +32,15 @@ const IrradianceMeshMaterial: React.FC<{
     throw new Error('no texture provided');
   }
 
-  // @todo this should be inside memo??
-  const material = new THREE.ShaderMaterial({
-    uniforms: {
-      albedoMap: { value: null },
-      emissiveMap: { value: null },
-      emissiveIntensity: { value: null },
-      irradianceMap: { value: null }
-    },
-
-    vertexShader: `
-      attribute vec2 atlasUV;
-      varying vec2 vUV;
-      varying vec2 vAtlasUV;
-
-      void main() {
-        vUV = uv;
-        vAtlasUV = atlasUV;
-
-        vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-      }
-    `,
-    fragmentShader: `
-      uniform float emissiveIntensity;
-      uniform sampler2D albedoMap;
-      uniform sampler2D emissiveMap;
-      uniform sampler2D irradianceMap;
-      varying vec2 vUV;
-      varying vec2 vAtlasUV;
-
-      void main() {
-        // drastically reduce emissive intensity at display time to preserve colour
-        float emissiveFaded = emissiveIntensity * 0.25;
-
-        vec3 base = texture2D(albedoMap, vUV).rgb;
-        vec3 emit = texture2D(emissiveMap, vUV).rgb * emissiveFaded;
-        vec3 irradiance = texture2D(irradianceMap, vAtlasUV).rgb;
-        gl_FragColor = vec4(toneMapping(base * irradiance + emit), 1.0);
-        gl_FragColor = linearToOutputTexel( gl_FragColor );
-      }
-    `
-  });
-
   // disposable managed object
   return (
-    <primitive
-      object={material}
+    <meshLambertMaterial
       attach={attach}
-      uniforms-albedoMap-value={albedoMap || defaultTexture}
-      uniforms-emissiveMap-value={emissiveMap || defaultTexture}
-      uniforms-emissiveIntensity-value={emissiveIntensity || 0}
-      uniforms-irradianceMap-value={irradianceMap}
+      map={albedoMap || defaultTexture}
+      emissive={COLOR_WHITE}
+      emissiveMap={emissiveMap || defaultTexture}
+      emissiveIntensity={(emissiveIntensity || 0) * 0.25} // hand-tweaked to preserve colours
+      lightMap={irradianceMap}
       ref={materialRef}
     />
   );

@@ -4,7 +4,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
-  useIrradianceFactors,
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
@@ -23,16 +22,11 @@ const Scene: React.FC<{
   loadedTexture: THREE.Texture;
   loadedEmissiveTexture: THREE.Texture;
 }> = React.memo(({ loadedMesh, loadedTexture, loadedEmissiveTexture }) => {
-  const setFactorValues = useIrradianceFactors();
-
-  useFrame(({ clock }) => {
-    setFactorValues({ sign: Math.sin(clock.elapsedTime) * 0.5 + 0.5 });
-  });
-
   const {
     baseOutput,
     factorOutputs,
     lightSceneElement,
+    handleDebugClick,
     probeDebugTextures
   } = useIrradianceFactorRenderer();
 
@@ -91,19 +85,28 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
+          <directionalLight position={[-3, 3, 6]} castShadow intensity={5}>
+            <directionalLightShadow
+              attach="shadow"
+              camera-left={-10}
+              camera-right={10}
+              camera-top={10}
+              camera-bottom={-10}
+            />
+          </directionalLight>
+
           <IrradianceSurface
             albedoMap={loadedTexture}
             emissiveMap={loadedEmissiveTexture}
             emissiveIntensity={10}
-            factor="sign"
           >
-            <primitive object={loadedMesh} dispose={null} />
-          </IrradianceSurface>
-
-          <IrradianceSurface emissiveIntensity={18}>
-            <mesh position={[0, 2, 6]}>
-              <boxBufferGeometry attach="geometry" args={[10, 2, 0.5]} />
-            </mesh>
+            <primitive
+              object={loadedMesh}
+              castShadow
+              receiveShadow
+              dispose={null}
+              onClick={handleDebugClick}
+            />
           </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
@@ -153,6 +156,7 @@ function App() {
   return (
     <Canvas
       camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
+      shadowMap
       onCreated={({ gl }) => {
         gl.toneMapping = THREE.ACESFilmicToneMapping;
         gl.toneMappingExposure = 0.9;
