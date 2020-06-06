@@ -84,21 +84,37 @@ function getLightProbeSceneElement(
   return (
     <scene>
       {lightSceneLights.map(({ dirLight }) => {
+        const cloneLight = new THREE.DirectionalLight();
+        const cloneTarget = new THREE.Object3D();
+
+        // apply world transform (we don't bother re-creating scene hierarchy)
+        cloneLight.position.copy(dirLight.position);
+        cloneLight.applyMatrix4(dirLight.matrixWorld);
+
+        cloneTarget.position.copy(dirLight.target.position);
+        cloneTarget.applyMatrix4(dirLight.target.matrixWorld);
+
+        // @todo assert that original light casts shadows, etc
         return (
-          <directionalLight
-            color={dirLight.color}
-            intensity={dirLight.intensity}
-            position={dirLight.position.clone()}
-            castShadow
-          >
-            <directionalLightShadow
-              attach="shadow"
-              camera-left={dirLight.shadow.camera.left}
-              camera-right={dirLight.shadow.camera.right}
-              camera-top={dirLight.shadow.camera.top}
-              camera-bottom={dirLight.shadow.camera.bottom}
-            />
-          </directionalLight>
+          <React.Fragment key={dirLight.uuid}>
+            <primitive object={cloneTarget} />
+
+            <primitive
+              object={cloneLight}
+              color={dirLight.color}
+              intensity={dirLight.intensity}
+              target={cloneTarget}
+              castShadow
+            >
+              <directionalLightShadow
+                attach="shadow"
+                camera-left={dirLight.shadow.camera.left}
+                camera-right={dirLight.shadow.camera.right}
+                camera-top={dirLight.shadow.camera.top}
+                camera-bottom={dirLight.shadow.camera.bottom}
+              />
+            </primitive>
+          </React.Fragment>
         );
       })}
 
@@ -117,6 +133,7 @@ function getLightProbeSceneElement(
         const cloneMesh = new THREE.Mesh(buffer);
 
         // apply world transform (we don't bother re-creating scene hierarchy)
+        // @todo still need to copy position
         cloneMesh.applyMatrix4(mesh.matrixWorld);
 
         // if factor is specified, set active emissive to either nothing or the factor
