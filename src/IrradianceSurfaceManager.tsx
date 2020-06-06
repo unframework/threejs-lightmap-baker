@@ -169,42 +169,50 @@ export function useAtlasMeshRef(withMesh?: (mesh: THREE.Mesh) => void) {
       throw new Error('expecting indexed mesh buffer');
     }
 
-    const indexes = meshBuffer.index.array;
-    const posAttr = meshBuffer.attributes.position;
+    if (material.map) {
+      const indexes = meshBuffer.index.array;
+      const posAttr = meshBuffer.attributes.position;
 
-    const quadCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
+      const quadCount = Math.floor(indexes.length / 6); // assuming quads, 2x tris each
 
-    const atlasUVAttr = new THREE.Float32BufferAttribute(quadCount * 4 * 2, 2);
-
-    for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
-      const atlasFaceIndex = quads.length;
-
-      fetchFaceIndexes(indexes, quadIndex);
-
-      const { left, top, sizeU, sizeV } = computeFaceUV(
-        atlasFaceIndex,
-        posAttr.array,
-        tmpFaceIndexes
+      const atlasUVAttr = new THREE.Float32BufferAttribute(
+        quadCount * 4 * 2,
+        2
       );
 
-      atlasUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
-      atlasUVAttr.setXY(tmpFaceIndexes[1], left, top);
-      atlasUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
-      atlasUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
+      for (let quadIndex = 0; quadIndex < quadCount; quadIndex += 1) {
+        const atlasFaceIndex = quads.length;
 
-      quads.push({
-        mesh: mesh,
-        buffer: meshBuffer,
-        quadIndex,
-        left,
-        top,
-        sizeU,
-        sizeV
-      });
+        fetchFaceIndexes(indexes, quadIndex);
+
+        const { left, top, sizeU, sizeV } = computeFaceUV(
+          atlasFaceIndex,
+          posAttr.array,
+          tmpFaceIndexes
+        );
+
+        atlasUVAttr.setXY(tmpFaceIndexes[0], left, top + sizeV);
+        atlasUVAttr.setXY(tmpFaceIndexes[1], left, top);
+        atlasUVAttr.setXY(tmpFaceIndexes[2], left + sizeU, top);
+        atlasUVAttr.setXY(tmpFaceIndexes[3], left + sizeU, top + sizeV);
+
+        quads.push({
+          mesh: mesh,
+          buffer: meshBuffer,
+          quadIndex,
+          left,
+          top,
+          sizeU,
+          sizeV
+        });
+      }
+
+      // store illumination UV as dedicated attribute
+      meshBuffer.setAttribute(
+        'uv2',
+        atlasUVAttr.setUsage(THREE.StaticDrawUsage)
+      );
     }
-
-    // store illumination UV as dedicated attribute
-    meshBuffer.setAttribute('uv2', atlasUVAttr.setUsage(THREE.StaticDrawUsage));
 
     // allow upstream code to run
     if (withMesh) {

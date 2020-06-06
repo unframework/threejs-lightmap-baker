@@ -83,13 +83,14 @@ function getLightProbeSceneElement(
   // @todo properly clone the lights
   return (
     <scene>
-      <directionalLight position={[-3, 3, 6]} castShadow intensity={18}>
+      <directionalLight position={[-5, 5, 10]} castShadow intensity={18}>
         <directionalLightShadow
           attach="shadow"
-          camera-left={-10}
-          camera-right={10}
-          camera-top={10}
-          camera-bottom={-10}
+          bias={-0.0005}
+          camera-left={-20}
+          camera-right={20}
+          camera-top={20}
+          camera-bottom={-20}
         />
       </directionalLight>
 
@@ -137,6 +138,7 @@ function getLightProbeSceneElement(
             */}
             <meshLambertMaterial
               attach="material"
+              shadowSide={THREE.FrontSide}
               map={albedoMap}
               emissive={emissive}
               emissiveMap={emissiveMap}

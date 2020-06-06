@@ -18,8 +18,8 @@ import sceneTextureUrl from './tile-game-room1.png';
 import sceneLumTextureUrl from './tile-game-room1-lum.png';
 
 const Scene: React.FC<{
-  loadedMesh: THREE.Mesh;
-}> = React.memo(({ loadedMesh }) => {
+  loadedMeshList: THREE.Mesh[];
+}> = React.memo(({ loadedMeshList }) => {
   const {
     baseOutput,
     factorOutputs,
@@ -83,25 +83,28 @@ const Scene: React.FC<{
             <meshBasicMaterial attach="material" color="#171717" />
           </mesh>
 
-          <directionalLight position={[-3, 3, 6]} castShadow intensity={18}>
+          <directionalLight position={[-5, 5, 10]} castShadow intensity={18}>
             <directionalLightShadow
               attach="shadow"
-              camera-left={-10}
-              camera-right={10}
-              camera-top={10}
-              camera-bottom={-10}
+              bias={-0.0005}
+              camera-left={-20}
+              camera-right={20}
+              camera-top={20}
+              camera-bottom={-20}
             />
           </directionalLight>
 
-          <IrradianceSurface>
-            <primitive
-              object={loadedMesh}
-              castShadow
-              receiveShadow
-              dispose={null}
-              onClick={handleDebugClick}
-            />
-          </IrradianceSurface>
+          {loadedMeshList.map((mesh) => (
+            <IrradianceSurface key={mesh.uuid}>
+              <primitive
+                object={mesh}
+                castShadow
+                receiveShadow
+                dispose={null}
+                onClick={handleDebugClick}
+              />
+            </IrradianceSurface>
+          ))}
         </scene>
       </IrradianceTextureContext.Provider>
 
@@ -112,7 +115,7 @@ const Scene: React.FC<{
 });
 
 function App() {
-  const [loadedMesh, setLoadedMesh] = useState<THREE.Mesh | null>(null);
+  const [loadedMeshList, setLoadedMeshList] = useState<THREE.Mesh[]>([]);
 
   useEffect(() => {
     new GLTFLoader().load(sceneUrl, (data) => {
@@ -134,6 +137,7 @@ function App() {
           }
 
           object.material = new THREE.MeshLambertMaterial({
+            shadowSide: THREE.FrontSide,
             map: stdMat.map,
             emissive: stdMat.emissive,
             emissiveMap: stdMat.emissiveMap,
@@ -141,9 +145,7 @@ function App() {
           });
         }
 
-        if (object.name === 'Base') {
-          setLoadedMesh(object);
-        }
+        setLoadedMeshList((list) => [...list, object]);
       });
     });
   }, []);
@@ -159,9 +161,9 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      {loadedMesh ? (
+      {loadedMeshList ? (
         <IrradianceSurfaceManager>
-          <Scene loadedMesh={loadedMesh} />
+          <Scene loadedMeshList={loadedMeshList} />
         </IrradianceSurfaceManager>
       ) : null}
 
