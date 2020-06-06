@@ -17,6 +17,7 @@ import {
 } from './IrradianceSurfaceManager';
 
 const MAX_PASSES = 2;
+const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
 
 const iterationsPerFrame = 10; // how many texels to fill per frame
 
@@ -139,7 +140,12 @@ function getLightProbeSceneElement(
               map={albedoMap}
               emissive={emissive}
               emissiveMap={emissiveMap}
-              emissiveIntensity={activeEmissiveIntensity || 0}
+              emissiveIntensity={
+                // apply physics multiplier to any display emissive quantity
+                // (emission needs to be strong for bounces to work, but that would wash out colours
+                // if output directly from visible scene's shader)
+                EMISSIVE_MULTIPLIER * (activeEmissiveIntensity || 0)
+              }
               lightMap={lastTexture}
               toneMapped={false} // must output in raw linear space
             />
