@@ -14,7 +14,7 @@ import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { IrradianceDebugMaterial } from './IrradianceMaterials';
 
-import sceneUrl from './tile-game-room1.glb';
+import sceneUrl from './tile-game-room3.glb';
 
 const Scene: React.FC<{
   loadedMeshList: THREE.Mesh[];
