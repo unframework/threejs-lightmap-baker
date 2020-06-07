@@ -96,10 +96,7 @@ function getLightProbeSceneElement(
         const cloneTarget = new THREE.Object3D();
 
         // apply world transform (we don't bother re-creating scene hierarchy)
-        cloneLight.position.copy(dirLight.position);
         cloneLight.applyMatrix4(dirLight.matrixWorld);
-
-        cloneTarget.position.copy(dirLight.target.position);
         cloneTarget.applyMatrix4(dirLight.target.matrixWorld);
 
         // @todo assert that original light casts shadows, etc
@@ -142,7 +139,6 @@ function getLightProbeSceneElement(
         const cloneMesh = new THREE.Mesh(buffer);
 
         // apply world transform (we don't bother re-creating scene hierarchy)
-        // @todo still need to copy position
         cloneMesh.applyMatrix4(mesh.matrixWorld);
 
         // remove emissive effect if active factor does not match
