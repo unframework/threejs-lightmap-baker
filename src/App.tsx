@@ -19,7 +19,8 @@ import sceneUrl from './tile-game-room3.glb';
 const Scene: React.FC<{
   loadedMeshList: THREE.Mesh[];
   loadedLightList: THREE.DirectionalLight[];
-}> = React.memo(({ loadedMeshList, loadedLightList }) => {
+  loadedClipList: THREE.AnimationClip[];
+}> = React.memo(({ loadedMeshList, loadedLightList, loadedClipList }) => {
   const {
     outputTexture: baseLightTexture,
     lightSceneElement: baseLightSceneElement,
@@ -58,6 +59,34 @@ const Scene: React.FC<{
     signMaterial.emissiveIntensity = signIntensity;
     factorValues.sign = signIntensity;
   });
+
+  const sceneMixer = useMemo(() => {
+    const lidA = loadedMeshList.find((item) => item.name === 'LidA');
+    const lidB = loadedMeshList.find((item) => item.name === 'LidB');
+    if (!lidA || !lidB) {
+      throw new Error('no animated objects');
+    }
+
+    const lidAClip = loadedClipList.find((item) => item.name === 'LidAAction');
+    const lidBClip = loadedClipList.find((item) => item.name === 'LidBAction');
+    if (!lidAClip || !lidBClip) {
+      throw new Error('no animation clips');
+    }
+
+    const animGroup = new THREE.AnimationObjectGroup(lidA, lidB);
+    const mixer = new THREE.AnimationMixer(animGroup);
+
+    const actionA = mixer.clipAction(lidAClip, lidA);
+    actionA.play();
+    const actionB = mixer.clipAction(lidBClip, lidB);
+    actionB.play();
+
+    return mixer;
+  }, [loadedMeshList, loadedClipList]);
+
+  useFrame((state, delta) => {
+    sceneMixer.update(delta);
+  }, 0);
 
   // debug output texture
   // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
@@ -144,6 +173,9 @@ const Scene: React.FC<{
 });
 
 function App() {
+  const [loadedClipList, setLoadedClipList] = useState<THREE.AnimationClip[]>(
+    []
+  );
   const [loadedMeshList, setLoadedMeshList] = useState<THREE.Mesh[]>([]);
   const [loadedLightList, setLoadedLightList] = useState<
     THREE.DirectionalLight[]
@@ -151,6 +183,13 @@ function App() {
 
   useEffect(() => {
     new GLTFLoader().load(sceneUrl, (data) => {
+      const clips = [
+        data.animations.find((anim) => anim.name === 'LidAAction'),
+        data.animations.find((anim) => anim.name === 'LidBAction')
+      ].filter((item) => !!item) as THREE.AnimationClip[];
+
+      setLoadedClipList(clips);
+
       data.scene.traverse((object) => {
         // glTF import is still not great with lights, so we improvise
         if (object.name.includes('Light')) {
@@ -235,6 +274,7 @@ function App() {
           <Scene
             loadedMeshList={loadedMeshList}
             loadedLightList={loadedLightList}
+            loadedClipList={loadedClipList}
           />
         </IrradianceSurfaceManager>
       ) : null}
