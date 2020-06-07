@@ -48,7 +48,11 @@ const Scene: React.FC<{
       return;
     }
 
-    const signIntensity = Math.sin(clock.elapsedTime) * 0.5 + 0.5;
+    const signIntensity =
+      1 -
+      (0.5 + Math.sin(clock.elapsedTime * 50) * 0.5) *
+        (1 -
+          Math.max(0, Math.min(1, Math.sin(clock.elapsedTime * 2) * 20 + 18)));
 
     // update the material as well as its lightmap factor
     signMaterial.emissiveIntensity = signIntensity;
