@@ -9,6 +9,7 @@ import IrradianceSurfaceManager, {
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import { useIrradianceRenderer } from './IrradianceRenderer';
+import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
@@ -29,9 +30,9 @@ const Scene: React.FC<{
   } = useIrradianceRenderer(null);
 
   const {
-    outputTexture: sunLightTexture,
+    outputTextures: sunLightTextures,
     lightSceneElement: sunLightSceneElement
-  } = useIrradianceRenderer('sun', 1);
+  } = useIrradianceKeyframeRenderer('sun', [0.1, 1]);
 
   const {
     outputTexture: signLightTexture,
@@ -43,7 +44,8 @@ const Scene: React.FC<{
     outputTexture,
     compositorSceneElement
   } = useIrradianceCompositor(baseLightTexture, {
-    sun: sunLightTexture,
+    sun0: sunLightTextures[0],
+    sun1: sunLightTextures[1],
     sign: signLightTexture
   });
 
@@ -67,7 +69,8 @@ const Scene: React.FC<{
     signMaterial.emissiveIntensity = signIntensity;
     factorValues.sign = signIntensity;
 
-    factorValues.sun = 1;
+    factorValues.sun0 = 0.5;
+    factorValues.sun1 = 0.5;
   });
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
