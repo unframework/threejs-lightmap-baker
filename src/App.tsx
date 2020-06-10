@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
   IrradianceTextureContext
@@ -19,10 +19,90 @@ import { DebugMaterial } from './DebugMaterial';
 import sceneUrl from './tile-game-room3.glb';
 
 const Scene: React.FC<{
-  loadedMeshList: THREE.Mesh[];
-  loadedLightList: THREE.DirectionalLight[];
-  loadedClipList: THREE.AnimationClip[];
-}> = React.memo(({ loadedMeshList, loadedLightList, loadedClipList }) => {
+  loadedData: GLTF;
+}> = React.memo(({ loadedData }) => {
+  const { loadedMeshList, loadedLightList, loadedClipList } = useMemo(() => {
+    const clips = [
+      loadedData.animations.find((anim) => anim.name === 'LidAAction'),
+      loadedData.animations.find((anim) => anim.name === 'LidBAction')
+    ].filter((item) => !!item) as THREE.AnimationClip[];
+
+    const meshes: THREE.Mesh[] = [];
+    const lights: THREE.DirectionalLight[] = [];
+
+    loadedData.scene.traverse((object) => {
+      // glTF import is still not great with lights, so we improvise
+      if (object.name.includes('Light')) {
+        const light = new THREE.DirectionalLight();
+        light.intensity = object.scale.z;
+
+        light.castShadow = true;
+        light.shadow.camera.left = -object.scale.x;
+        light.shadow.camera.right = object.scale.x;
+        light.shadow.camera.top = object.scale.y;
+        light.shadow.camera.bottom = -object.scale.y;
+
+        light.position.copy(object.position);
+
+        const target = new THREE.Object3D();
+        target.position.set(0, 0, -1);
+        target.position.applyEuler(object.rotation);
+        target.position.add(light.position);
+
+        light.target = target;
+
+        lights.push(light);
+        return;
+      }
+
+      if (!(object instanceof THREE.Mesh)) {
+        return;
+      }
+
+      // process the material
+      if (object.material) {
+        const stdMat = object.material as THREE.MeshStandardMaterial;
+
+        if (stdMat.map) {
+          stdMat.map.magFilter = THREE.NearestFilter;
+        }
+
+        if (stdMat.emissiveMap) {
+          stdMat.emissiveMap.magFilter = THREE.NearestFilter;
+        }
+
+        object.material = new THREE.MeshLambertMaterial({
+          color: stdMat.color,
+          map: stdMat.map,
+          emissive: stdMat.emissive,
+          emissiveMap: stdMat.emissiveMap,
+          emissiveIntensity: stdMat.emissiveIntensity
+        });
+
+        // always cast shadow, but only albedo materials receive it
+        object.castShadow = true;
+
+        if (stdMat.map) {
+          object.receiveShadow = true;
+        }
+
+        // special case for outer sunlight cover
+        if (object.name === 'Cover') {
+          object.material.depthWrite = false;
+          object.material.colorWrite = false;
+        }
+      }
+
+      meshes.push(object);
+    });
+
+    return {
+      loadedMeshList: meshes,
+      loadedLightList: lights,
+      loadedClipList: clips
+    };
+  }, [loadedData]);
+
   const { outputTexture: baseLightTexture } = useIrradianceRenderer(null);
 
   const {
@@ -200,91 +280,11 @@ const Scene: React.FC<{
 });
 
 function App() {
-  const [loaded, setLoaded] = useState(false);
-  const [loadedClipList, setLoadedClipList] = useState<THREE.AnimationClip[]>(
-    []
-  );
-  const [loadedMeshList, setLoadedMeshList] = useState<THREE.Mesh[]>([]);
-  const [loadedLightList, setLoadedLightList] = useState<
-    THREE.DirectionalLight[]
-  >([]);
+  const [loadedData, setLoadedData] = useState<GLTF | null>(null);
 
   useEffect(() => {
     new GLTFLoader().load(sceneUrl, (data) => {
-      const clips = [
-        data.animations.find((anim) => anim.name === 'LidAAction'),
-        data.animations.find((anim) => anim.name === 'LidBAction')
-      ].filter((item) => !!item) as THREE.AnimationClip[];
-
-      setLoadedClipList(clips);
-
-      data.scene.traverse((object) => {
-        // glTF import is still not great with lights, so we improvise
-        if (object.name.includes('Light')) {
-          const light = new THREE.DirectionalLight();
-          light.intensity = object.scale.z;
-
-          light.castShadow = true;
-          light.shadow.camera.left = -object.scale.x;
-          light.shadow.camera.right = object.scale.x;
-          light.shadow.camera.top = object.scale.y;
-          light.shadow.camera.bottom = -object.scale.y;
-
-          light.position.copy(object.position);
-
-          const target = new THREE.Object3D();
-          target.position.set(0, 0, -1);
-          target.position.applyEuler(object.rotation);
-          target.position.add(light.position);
-
-          light.target = target;
-
-          setLoadedLightList((list) => [...list, light]);
-          return;
-        }
-
-        if (!(object instanceof THREE.Mesh)) {
-          return;
-        }
-
-        // process the material
-        if (object.material) {
-          const stdMat = object.material as THREE.MeshStandardMaterial;
-
-          if (stdMat.map) {
-            stdMat.map.magFilter = THREE.NearestFilter;
-          }
-
-          if (stdMat.emissiveMap) {
-            stdMat.emissiveMap.magFilter = THREE.NearestFilter;
-          }
-
-          object.material = new THREE.MeshLambertMaterial({
-            color: stdMat.color,
-            map: stdMat.map,
-            emissive: stdMat.emissive,
-            emissiveMap: stdMat.emissiveMap,
-            emissiveIntensity: stdMat.emissiveIntensity
-          });
-
-          // always cast shadow, but only albedo materials receive it
-          object.castShadow = true;
-
-          if (stdMat.map) {
-            object.receiveShadow = true;
-          }
-
-          // special case for outer sunlight cover
-          if (object.name === 'Cover') {
-            object.material.depthWrite = false;
-            object.material.colorWrite = false;
-          }
-        }
-
-        setLoadedMeshList((list) => [...list, object]);
-      });
-
-      setLoaded(true);
+      setLoadedData(data);
     });
   }, []);
 
@@ -299,14 +299,10 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      {loaded ? (
+      {loadedData ? (
         <WorkManager>
           <IrradianceSurfaceManager>
-            <Scene
-              loadedMeshList={loadedMeshList}
-              loadedLightList={loadedLightList}
-              loadedClipList={loadedClipList}
-            />
+            <Scene loadedData={loadedData} />
           </IrradianceSurfaceManager>
         </WorkManager>
       ) : null}
