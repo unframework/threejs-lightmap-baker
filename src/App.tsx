@@ -32,7 +32,7 @@ const Scene: React.FC<{
   const {
     outputTextures: sunLightTextures,
     lightSceneElement: sunLightSceneElement
-  } = useIrradianceKeyframeRenderer('sun', [0.1, 1]);
+  } = useIrradianceKeyframeRenderer('sun', [0, 0.5, 1]);
 
   const {
     outputTexture: signLightTexture,
@@ -46,6 +46,7 @@ const Scene: React.FC<{
   } = useIrradianceCompositor(baseLightTexture, {
     sun0: sunLightTextures[0],
     sun1: sunLightTextures[1],
+    sun2: sunLightTextures[2],
     sign: signLightTexture
   });
 
@@ -68,9 +69,6 @@ const Scene: React.FC<{
     // update the material as well as its lightmap factor
     signMaterial.emissiveIntensity = signIntensity;
     factorValues.sign = signIntensity;
-
-    factorValues.sun0 = 0.5;
-    factorValues.sun1 = 0.5;
   });
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
@@ -100,8 +98,34 @@ const Scene: React.FC<{
     return mixer;
   }, [lidAMesh, lidAClip, lidBMesh, lidBClip]);
 
+  function lerpFactor(
+    animTime: number,
+    prevTime: number,
+    time: number,
+    nextTime: number
+  ) {
+    // avoid division by zero in edge cases
+    if (animTime === time) {
+      return 1;
+    }
+
+    return Math.max(
+      0,
+      animTime < time
+        ? (animTime - prevTime) / (time - prevTime)
+        : (nextTime - animTime) / (nextTime - time)
+    );
+  }
+
   useFrame((state, delta) => {
     sceneMixer.update(delta);
+
+    const animLoopTime = sceneMixer.time % 2;
+    const animTime = 1 - Math.abs(animLoopTime - 1); // zigzag pattern
+
+    factorValues.sun0 = lerpFactor(animTime, 0, 0, 0.5);
+    factorValues.sun1 = lerpFactor(animTime, 0, 0.5, 1);
+    factorValues.sun2 = lerpFactor(animTime, 0.5, 1, 1);
   }, 0);
 
   // debug output texture
