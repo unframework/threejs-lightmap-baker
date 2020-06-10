@@ -33,8 +33,15 @@ const tmpOriginUV = new THREE.Vector2();
 const tmpUUV = new THREE.Vector2();
 const tmpVUV = new THREE.Vector2();
 
-export interface IrradianceFactorStaging {
+export interface IrradianceStagingTimelineMesh {
+  uuid: string;
+  clip: THREE.AnimationClip;
+}
+
+export interface IrradianceStagingTimeline {
   factorName: string | null;
+  time: number;
+  meshes: IrradianceStagingTimelineMesh[];
 }
 
 // @todo cache this info inside atlas item
@@ -96,8 +103,10 @@ function getLightProbeSceneElement(
         const cloneTarget = new THREE.Object3D();
 
         // apply world transform (we don't bother re-creating scene hierarchy)
-        cloneLight.applyMatrix4(dirLight.matrixWorld);
-        cloneTarget.applyMatrix4(dirLight.target.matrixWorld);
+        cloneLight.matrix.copy(dirLight.matrixWorld);
+        cloneLight.matrixAutoUpdate = false;
+        cloneTarget.matrix.copy(dirLight.target.matrixWorld);
+        cloneTarget.matrixAutoUpdate = false;
 
         // @todo assert that original light casts shadows, etc
         return (
@@ -139,7 +148,8 @@ function getLightProbeSceneElement(
         const cloneMesh = new THREE.Mesh(buffer);
 
         // apply world transform (we don't bother re-creating scene hierarchy)
-        cloneMesh.applyMatrix4(mesh.matrixWorld);
+        cloneMesh.matrix.copy(mesh.matrixWorld);
+        cloneMesh.matrixAutoUpdate = false;
 
         // remove emissive effect if active factor does not match
         const activeEmissiveIntensity =
