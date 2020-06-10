@@ -87,6 +87,7 @@ function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
   activeFactorName: string | null,
+  animationTime: number,
   sceneRef: React.MutableRefObject<THREE.Scene | undefined>
 ) {
   const { lightSceneItems, lightSceneLights } = atlas;
@@ -154,7 +155,7 @@ function getLightProbeSceneElement(
           const mixer = new THREE.AnimationMixer(cloneMesh);
           const action = mixer.clipAction(animationClip);
           action.play();
-          mixer.setTime(0);
+          mixer.setTime(animationTime);
         } else {
           // apply world transform (we don't bother re-creating scene hierarchy)
           cloneMesh.matrix.copy(mesh.matrixWorld);
@@ -418,7 +419,8 @@ function useLightProbe(probeTargetSize: number) {
 }
 
 export function useIrradianceRenderer(
-  factorName: string | null
+  factorName: string | null,
+  time?: number
 ): {
   outputIsComplete: boolean;
   outputTexture: THREE.Texture;
@@ -426,6 +428,7 @@ export function useIrradianceRenderer(
   handleDebugClick: (event: PointerEvent) => void;
   probeDebugTextures: THREE.Texture[];
 } {
+  const animationTimeRef = useRef(time || 0); // remember the initial animation time
   const atlas = useIrradianceAtlasContext();
 
   // light scene lifecycle is fully managed internally
@@ -486,6 +489,7 @@ export function useIrradianceRenderer(
               atlas,
               prev.activeOutput,
               prev.activeFactorName,
+              animationTimeRef.current,
               lightSceneRef
             )
           };

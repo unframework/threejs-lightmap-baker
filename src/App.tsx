@@ -31,7 +31,7 @@ const Scene: React.FC<{
   const {
     outputTexture: sunLightTexture,
     lightSceneElement: sunLightSceneElement
-  } = useIrradianceRenderer('sun');
+  } = useIrradianceRenderer('sun', 1);
 
   const {
     outputTexture: signLightTexture,
