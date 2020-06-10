@@ -29,6 +29,11 @@ const Scene: React.FC<{
   } = useIrradianceRenderer(null);
 
   const {
+    outputTexture: sunLightTexture,
+    lightSceneElement: sunLightSceneElement
+  } = useIrradianceRenderer('sun');
+
+  const {
     outputTexture: signLightTexture,
     lightSceneElement: signLightSceneElement
   } = useIrradianceRenderer('sign');
@@ -37,7 +42,10 @@ const Scene: React.FC<{
     factorValues,
     outputTexture,
     compositorSceneElement
-  } = useIrradianceCompositor(baseLightTexture, { sign: signLightTexture });
+  } = useIrradianceCompositor(baseLightTexture, {
+    sun: sunLightTexture,
+    sign: signLightTexture
+  });
 
   // animate sign intensity
   const signMaterialRef = useRef<THREE.MeshLambertMaterial>();
@@ -58,6 +66,8 @@ const Scene: React.FC<{
     // update the material as well as its lightmap factor
     signMaterial.emissiveIntensity = signIntensity;
     factorValues.sign = signIntensity;
+
+    factorValues.sun = 1;
   });
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
@@ -143,7 +153,7 @@ const Scene: React.FC<{
 
           {loadedLightList.map((light) => (
             <React.Fragment key={light.uuid}>
-              <IrradianceLight>
+              <IrradianceLight factor="sun">
                 <primitive object={light} dispose={null} />
               </IrradianceLight>
 
@@ -163,17 +173,17 @@ const Scene: React.FC<{
             <primitive object={coverMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface>
+          <IrradianceSurface factor="sun">
             <primitive object={lidAMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface>
+          <IrradianceSurface factor="sun">
             <primitive object={lidBMesh} dispose={null} />
           </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {baseLightSceneElement || signLightSceneElement}
+      {sunLightSceneElement || signLightSceneElement}
       {compositorSceneElement}
     </>
   );
