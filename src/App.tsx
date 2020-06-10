@@ -60,29 +60,32 @@ const Scene: React.FC<{
     factorValues.sign = signIntensity;
   });
 
+  const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
+  const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
+  const lidAMesh = loadedMeshList.find((item) => item.name === 'LidA');
+  const lidBMesh = loadedMeshList.find((item) => item.name === 'LidB');
+
+  if (!baseMesh || !coverMesh || !lidAMesh || !lidBMesh) {
+    throw new Error('objects not found');
+  }
+
+  const lidAClip = loadedClipList.find((item) => item.name === 'LidAAction');
+  const lidBClip = loadedClipList.find((item) => item.name === 'LidBAction');
+  if (!lidAClip || !lidBClip) {
+    throw new Error('no animation clips');
+  }
+
   const sceneMixer = useMemo(() => {
-    const lidA = loadedMeshList.find((item) => item.name === 'LidA');
-    const lidB = loadedMeshList.find((item) => item.name === 'LidB');
-    if (!lidA || !lidB) {
-      throw new Error('no animated objects');
-    }
-
-    const lidAClip = loadedClipList.find((item) => item.name === 'LidAAction');
-    const lidBClip = loadedClipList.find((item) => item.name === 'LidBAction');
-    if (!lidAClip || !lidBClip) {
-      throw new Error('no animation clips');
-    }
-
-    const animGroup = new THREE.AnimationObjectGroup(lidA, lidB);
+    const animGroup = new THREE.AnimationObjectGroup(lidAMesh, lidBMesh);
     const mixer = new THREE.AnimationMixer(animGroup);
 
-    const actionA = mixer.clipAction(lidAClip, lidA);
+    const actionA = mixer.clipAction(lidAClip, lidAMesh);
     actionA.play();
-    const actionB = mixer.clipAction(lidBClip, lidB);
+    const actionB = mixer.clipAction(lidBClip, lidBMesh);
     actionB.play();
 
     return mixer;
-  }, [loadedMeshList, loadedClipList]);
+  }, [lidAMesh, lidAClip, lidBMesh, lidBClip]);
 
   useFrame((state, delta) => {
     sceneMixer.update(delta);
@@ -148,21 +151,25 @@ const Scene: React.FC<{
             </React.Fragment>
           ))}
 
-          {loadedMeshList.map((mesh) => (
-            <IrradianceSurface
-              key={mesh.uuid}
-              factor={mesh.name === 'Base' ? 'sign' : undefined}
-              innerMaterialRef={
-                mesh.name === 'Base' ? signMaterialRef : undefined
-              }
-            >
-              <primitive
-                object={mesh}
-                dispose={null}
-                onClick={handleDebugClick}
-              />
-            </IrradianceSurface>
-          ))}
+          <IrradianceSurface factor="sign" innerMaterialRef={signMaterialRef}>
+            <primitive
+              object={baseMesh}
+              dispose={null}
+              onClick={handleDebugClick}
+            />
+          </IrradianceSurface>
+
+          <IrradianceSurface>
+            <primitive object={coverMesh} dispose={null} />
+          </IrradianceSurface>
+
+          <IrradianceSurface>
+            <primitive object={lidAMesh} dispose={null} />
+          </IrradianceSurface>
+
+          <IrradianceSurface>
+            <primitive object={lidBMesh} dispose={null} />
+          </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
 
