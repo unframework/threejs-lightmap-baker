@@ -14,12 +14,13 @@ import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { IrradianceDebugMaterial } from './IrradianceMaterials';
 
-import sceneUrl from './tile-game-room1.glb';
+import sceneUrl from './tile-game-room3.glb';
 
 const Scene: React.FC<{
   loadedMeshList: THREE.Mesh[];
   loadedLightList: THREE.DirectionalLight[];
-}> = React.memo(({ loadedMeshList, loadedLightList }) => {
+  loadedClipList: THREE.AnimationClip[];
+}> = React.memo(({ loadedMeshList, loadedLightList, loadedClipList }) => {
   const {
     outputTexture: baseLightTexture,
     lightSceneElement: baseLightSceneElement,
@@ -48,12 +49,47 @@ const Scene: React.FC<{
       return;
     }
 
-    const signIntensity = Math.sin(clock.elapsedTime) * 0.5 + 0.5;
+    const signIntensity =
+      1 -
+      (0.5 + Math.sin(clock.elapsedTime * 50) * 0.5) *
+        (1 -
+          Math.max(0, Math.min(1, Math.sin(clock.elapsedTime * 2) * 20 + 18)));
 
     // update the material as well as its lightmap factor
     signMaterial.emissiveIntensity = signIntensity;
     factorValues.sign = signIntensity;
   });
+
+  const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
+  const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
+  const lidAMesh = loadedMeshList.find((item) => item.name === 'LidA');
+  const lidBMesh = loadedMeshList.find((item) => item.name === 'LidB');
+
+  if (!baseMesh || !coverMesh || !lidAMesh || !lidBMesh) {
+    throw new Error('objects not found');
+  }
+
+  const lidAClip = loadedClipList.find((item) => item.name === 'LidAAction');
+  const lidBClip = loadedClipList.find((item) => item.name === 'LidBAction');
+  if (!lidAClip || !lidBClip) {
+    throw new Error('no animation clips');
+  }
+
+  const sceneMixer = useMemo(() => {
+    const animGroup = new THREE.AnimationObjectGroup(lidAMesh, lidBMesh);
+    const mixer = new THREE.AnimationMixer(animGroup);
+
+    const actionA = mixer.clipAction(lidAClip, lidAMesh);
+    actionA.play();
+    const actionB = mixer.clipAction(lidBClip, lidBMesh);
+    actionB.play();
+
+    return mixer;
+  }, [lidAMesh, lidAClip, lidBMesh, lidBClip]);
+
+  useFrame((state, delta) => {
+    sceneMixer.update(delta);
+  }, 0);
 
   // debug output texture
   // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
@@ -115,21 +151,25 @@ const Scene: React.FC<{
             </React.Fragment>
           ))}
 
-          {loadedMeshList.map((mesh) => (
-            <IrradianceSurface
-              key={mesh.uuid}
-              factor={mesh.name === 'Base' ? 'sign' : undefined}
-              innerMaterialRef={
-                mesh.name === 'Base' ? signMaterialRef : undefined
-              }
-            >
-              <primitive
-                object={mesh}
-                dispose={null}
-                onClick={handleDebugClick}
-              />
-            </IrradianceSurface>
-          ))}
+          <IrradianceSurface factor="sign" innerMaterialRef={signMaterialRef}>
+            <primitive
+              object={baseMesh}
+              dispose={null}
+              onClick={handleDebugClick}
+            />
+          </IrradianceSurface>
+
+          <IrradianceSurface>
+            <primitive object={coverMesh} dispose={null} />
+          </IrradianceSurface>
+
+          <IrradianceSurface>
+            <primitive object={lidAMesh} dispose={null} />
+          </IrradianceSurface>
+
+          <IrradianceSurface>
+            <primitive object={lidBMesh} dispose={null} />
+          </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
 
@@ -140,6 +180,9 @@ const Scene: React.FC<{
 });
 
 function App() {
+  const [loadedClipList, setLoadedClipList] = useState<THREE.AnimationClip[]>(
+    []
+  );
   const [loadedMeshList, setLoadedMeshList] = useState<THREE.Mesh[]>([]);
   const [loadedLightList, setLoadedLightList] = useState<
     THREE.DirectionalLight[]
@@ -147,6 +190,13 @@ function App() {
 
   useEffect(() => {
     new GLTFLoader().load(sceneUrl, (data) => {
+      const clips = [
+        data.animations.find((anim) => anim.name === 'LidAAction'),
+        data.animations.find((anim) => anim.name === 'LidBAction')
+      ].filter((item) => !!item) as THREE.AnimationClip[];
+
+      setLoadedClipList(clips);
+
       data.scene.traverse((object) => {
         // glTF import is still not great with lights, so we improvise
         if (object.name.includes('Light')) {
@@ -231,6 +281,7 @@ function App() {
           <Scene
             loadedMeshList={loadedMeshList}
             loadedLightList={loadedLightList}
+            loadedClipList={loadedClipList}
           />
         </IrradianceSurfaceManager>
       ) : null}
