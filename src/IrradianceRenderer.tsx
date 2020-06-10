@@ -141,15 +141,25 @@ function getLightProbeSceneElement(
           emissive,
           emissiveIntensity,
           emissiveMap,
-          factorName
+          factorName,
+          animationClip
         } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
         const cloneMesh = new THREE.Mesh(buffer);
 
-        // apply world transform (we don't bother re-creating scene hierarchy)
-        cloneMesh.matrix.copy(mesh.matrixWorld);
-        cloneMesh.matrixAutoUpdate = false;
+        if (animationClip) {
+          // source parameters from animation, if given
+          // @todo copy parent transform
+          const mixer = new THREE.AnimationMixer(cloneMesh);
+          const action = mixer.clipAction(animationClip);
+          action.play();
+          mixer.setTime(0);
+        } else {
+          // apply world transform (we don't bother re-creating scene hierarchy)
+          cloneMesh.matrix.copy(mesh.matrixWorld);
+          cloneMesh.matrixAutoUpdate = false;
+        }
 
         // remove emissive effect if active factor does not match
         const activeEmissiveIntensity =

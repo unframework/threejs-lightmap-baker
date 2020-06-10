@@ -173,11 +173,11 @@ const Scene: React.FC<{
             <primitive object={coverMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface factor="sun">
+          <IrradianceSurface factor="sun" animationClip={lidAClip}>
             <primitive object={lidAMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface factor="sun">
+          <IrradianceSurface factor="sun" animationClip={lidBClip}>
             <primitive object={lidBMesh} dispose={null} />
           </IrradianceSurface>
         </scene>
