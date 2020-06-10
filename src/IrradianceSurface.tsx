@@ -10,7 +10,11 @@ import {
 export const IrradianceSurface: React.FC<{
   factor?: string;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
-}> = ({ factor, children }) => {
+  innerRef?: React.MutableRefObject<THREE.Mesh | undefined>; // convenience ref
+  innerMaterialRef?: React.MutableRefObject<
+    THREE.MeshLambertMaterial | undefined
+  >; // convenience ref
+}> = ({ factor, children, innerRef, innerMaterialRef }) => {
   const irradianceMap = useContext(IrradianceTextureContext);
 
   if (!irradianceMap) {
@@ -18,7 +22,7 @@ export const IrradianceSurface: React.FC<{
   }
 
   const materialRef = useRef<THREE.MeshLambertMaterial | undefined>(undefined);
-  const meshRef = useAtlasMeshRef((mesh) => {
+  const meshRef = useAtlasMeshRef(factor || null, (mesh) => {
     if (Array.isArray(mesh.material)) {
       throw new Error('material array not supported');
     }
@@ -28,6 +32,15 @@ export const IrradianceSurface: React.FC<{
     }
 
     materialRef.current = mesh.material;
+
+    // fill convenience refs for upstream
+    if (innerRef) {
+      innerRef.current = mesh;
+    }
+
+    if (innerMaterialRef) {
+      innerMaterialRef.current = mesh.material;
+    }
   });
 
   // override lightmap with our own

@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState } from 'react';
+import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
@@ -8,7 +8,7 @@ import IrradianceSurfaceManager, {
 } from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
-import { useIrradianceFactorRenderer } from './IrradianceFactorRenderer';
+import { useIrradianceRenderer } from './IrradianceRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
@@ -21,17 +21,39 @@ const Scene: React.FC<{
   loadedLightList: THREE.DirectionalLight[];
 }> = React.memo(({ loadedMeshList, loadedLightList }) => {
   const {
-    baseOutput,
-    factorOutputs,
-    lightSceneElement,
+    outputTexture: baseLightTexture,
+    lightSceneElement: baseLightSceneElement,
     handleDebugClick,
     probeDebugTextures
-  } = useIrradianceFactorRenderer();
+  } = useIrradianceRenderer(null);
 
-  const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
-    baseOutput,
-    factorOutputs
-  );
+  const {
+    outputTexture: signLightTexture,
+    lightSceneElement: signLightSceneElement
+  } = useIrradianceRenderer('sign');
+
+  const {
+    factorValues,
+    outputTexture,
+    compositorSceneElement
+  } = useIrradianceCompositor(baseLightTexture, { sign: signLightTexture });
+
+  // animate sign intensity
+  const signMaterialRef = useRef<THREE.MeshLambertMaterial>();
+
+  useFrame(({ clock }) => {
+    const signMaterial = signMaterialRef.current;
+
+    if (!signMaterial) {
+      return;
+    }
+
+    const signIntensity = Math.sin(clock.elapsedTime) * 0.5 + 0.5;
+
+    // update the material as well as its lightmap factor
+    signMaterial.emissiveIntensity = signIntensity;
+    factorValues.sign = signIntensity;
+  });
 
   // debug output texture
   // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
@@ -94,7 +116,13 @@ const Scene: React.FC<{
           ))}
 
           {loadedMeshList.map((mesh) => (
-            <IrradianceSurface key={mesh.uuid}>
+            <IrradianceSurface
+              key={mesh.uuid}
+              factor={mesh.name === 'Base' ? 'sign' : undefined}
+              innerMaterialRef={
+                mesh.name === 'Base' ? signMaterialRef : undefined
+              }
+            >
               <primitive
                 object={mesh}
                 dispose={null}
@@ -105,7 +133,7 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {lightSceneElement}
+      {baseLightSceneElement || signLightSceneElement}
       {compositorSceneElement}
     </>
   );

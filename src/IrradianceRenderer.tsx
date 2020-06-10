@@ -33,6 +33,10 @@ const tmpOriginUV = new THREE.Vector2();
 const tmpUUV = new THREE.Vector2();
 const tmpVUV = new THREE.Vector2();
 
+export interface IrradianceFactorStaging {
+  factorName: string | null;
+}
+
 // @todo cache this info inside atlas item
 function fetchFaceIndexes(indexArray: ArrayLike<number>, quadIndex: number) {
   const vBase = quadIndex * 6;
@@ -75,15 +79,19 @@ function fetchFaceUVs(
 function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
-  factorName: string | null
+  activeFactorName: string | null,
+  sceneRef: React.MutableRefObject<THREE.Scene | undefined>
 ) {
-  const { lightSceneItems, lightSceneLights, lightFactors } = atlas;
-  const currentFactor = factorName === null ? null : lightFactors[factorName];
+  const { lightSceneItems, lightSceneLights } = atlas;
 
-  // @todo properly clone the lights
   return (
-    <scene>
-      {lightSceneLights.map(({ dirLight }) => {
+    // ensure the scene is completely re-rendered if it changes
+    <scene key={`light-scene-${Math.random()}`} ref={sceneRef}>
+      {lightSceneLights.map(({ dirLight, factorName }) => {
+        if (factorName !== activeFactorName) {
+          return null;
+        }
+
         const cloneLight = new THREE.DirectionalLight();
         const cloneTarget = new THREE.Object3D();
 
@@ -126,7 +134,8 @@ function getLightProbeSceneElement(
           albedoMap,
           emissive,
           emissiveIntensity,
-          emissiveMap
+          emissiveMap,
+          factorName
         } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
@@ -136,13 +145,9 @@ function getLightProbeSceneElement(
         // @todo still need to copy position
         cloneMesh.applyMatrix4(mesh.matrixWorld);
 
-        // if factor is specified, set active emissive to either nothing or the factor
+        // remove emissive effect if active factor does not match
         const activeEmissiveIntensity =
-          currentFactor === null
-            ? emissiveIntensity
-            : currentFactor.mesh === mesh
-            ? currentFactor.emissiveIntensity
-            : 0;
+          factorName === activeFactorName ? emissiveIntensity : 0;
 
         // let the object be auto-disposed of
         // @todo properly clone shadow props
@@ -153,15 +158,6 @@ function getLightProbeSceneElement(
             castShadow
             receiveShadow
           >
-            {/*
-            <ProbeMeshMaterial
-              attach="material"
-              albedoMap={albedoMap}
-              emissiveIntensity={activeEmissiveIntensity}
-              emissiveMap={emissiveMap}
-              irradianceMap={lastTexture}
-            />
-            */}
             <meshLambertMaterial
               attach="material"
               color={albedo}
@@ -172,7 +168,7 @@ function getLightProbeSceneElement(
                 // apply physics multiplier to any display emissive quantity
                 // (emission needs to be strong for bounces to work, but that would wash out colours
                 // if output directly from visible scene's shader)
-                EMISSIVE_MULTIPLIER * (activeEmissiveIntensity || 0)
+                EMISSIVE_MULTIPLIER * activeEmissiveIntensity
               }
               lightMap={lastTexture}
               toneMapped={false} // must output in raw linear space
@@ -405,11 +401,9 @@ function useLightProbe(probeTargetSize: number) {
   return renderLightProbe;
 }
 
-// @todo split into atlas setup and texel probe sweep render loop
 export function useIrradianceRenderer(
   factorName: string | null
 ): {
-  outputFactorName: string | null;
   outputIsComplete: boolean;
   outputTexture: THREE.Texture;
   lightSceneElement: React.ReactElement | null;
@@ -446,7 +440,6 @@ export function useIrradianceRenderer(
 
   const [
     {
-      activeFactorName,
       activeOutput,
       activeOutputData,
       activeItemCounter,
@@ -455,18 +448,6 @@ export function useIrradianceRenderer(
     },
     setProcessingState
   ] = useState(() => createDefaultState(factorName));
-
-  // reset the state when factor name changes
-  useLayoutEffect(() => {
-    setProcessingState((prev) => {
-      // extra check to avoid re-creating initial state on first render
-      if (prev.activeFactorName !== factorName) {
-        return createDefaultState(factorName);
-      }
-
-      return prev;
-    });
-  }, [factorName, createDefaultState]);
 
   // automatically kick off new processing when ready
   useLayoutEffect(() => {
@@ -477,7 +458,7 @@ export function useIrradianceRenderer(
           const [nextTexture, nextData] = createAtlasTexture(
             atlasWidth,
             atlasHeight,
-            true
+            prev.activeFactorName === null // test pattern only on base
           );
 
           return {
@@ -485,15 +466,11 @@ export function useIrradianceRenderer(
             activeOutput: nextTexture,
             activeOutputData: nextData,
             activeItemCounter: [0, 0],
-            lightSceneElement: React.cloneElement(
-              getLightProbeSceneElement(
-                atlas,
-                prev.activeOutput,
-                prev.activeFactorName
-              ),
-              {
-                ref: lightSceneRef
-              }
+            lightSceneElement: getLightProbeSceneElement(
+              atlas,
+              prev.activeOutput,
+              prev.activeFactorName,
+              lightSceneRef
             )
           };
         });
@@ -778,8 +755,6 @@ export function useIrradianceRenderer(
   }
 
   return {
-    // report as complete only if we are still asked for the same factor name
-    outputFactorName: activeFactorName,
     outputIsComplete: passes >= MAX_PASSES,
     outputTexture: activeOutput,
     lightSceneElement,
