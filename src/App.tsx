@@ -32,7 +32,7 @@ const Scene: React.FC<{
   const {
     outputTextures: sunLightTextures,
     lightSceneElement: sunLightSceneElement
-  } = useIrradianceKeyframeRenderer('sun', [0, 0.5, 1]);
+  } = useIrradianceKeyframeRenderer('sun', [0, 0.1, 0.3, 0.5, 0.8]); // stopping short of the fully open position
 
   const {
     outputTexture: signLightTexture,
@@ -47,6 +47,8 @@ const Scene: React.FC<{
     sun0: sunLightTextures[0],
     sun1: sunLightTextures[1],
     sun2: sunLightTextures[2],
+    sun3: sunLightTextures[3],
+    sun4: sunLightTextures[4],
     sign: signLightTexture
   });
 
@@ -95,6 +97,8 @@ const Scene: React.FC<{
     const actionB = mixer.clipAction(lidBClip, lidBMesh);
     actionB.play();
 
+    mixer.timeScale = 0.25;
+
     return mixer;
   }, [lidAMesh, lidAClip, lidBMesh, lidBClip]);
 
@@ -123,9 +127,11 @@ const Scene: React.FC<{
     const animLoopTime = sceneMixer.time % 2;
     const animTime = 1 - Math.abs(animLoopTime - 1); // zigzag pattern
 
-    factorValues.sun0 = lerpFactor(animTime, 0, 0, 0.5);
-    factorValues.sun1 = lerpFactor(animTime, 0, 0.5, 1);
-    factorValues.sun2 = lerpFactor(animTime, 0.5, 1, 1);
+    factorValues.sun0 = lerpFactor(animTime, 0, 0, 0.1);
+    factorValues.sun1 = lerpFactor(animTime, 0, 0.1, 0.3);
+    factorValues.sun2 = lerpFactor(animTime, 0.1, 0.3, 0.5);
+    factorValues.sun3 = lerpFactor(animTime, 0.3, 0.5, 0.8);
+    factorValues.sun4 = lerpFactor(animTime, 0.5, 0.8, 100000); // @todo try +Inf
   }, 0);
 
   // debug output texture
