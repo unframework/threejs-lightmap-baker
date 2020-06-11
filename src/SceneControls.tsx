@@ -1,38 +1,38 @@
 import React, { useRef } from 'react';
 import { useFrame, useThree, extend, ReactThreeFiber } from 'react-three-fiber';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { FlyControls } from 'three/examples/jsm/controls/FlyControls';
 
 declare global {
   namespace JSX {
     interface IntrinsicElements {
-      orbitControls: ReactThreeFiber.Object3DNode<
-        OrbitControls,
-        typeof OrbitControls
+      flyControls: ReactThreeFiber.Object3DNode<
+        FlyControls,
+        typeof FlyControls
       >;
     }
   }
 }
 
-extend({ OrbitControls });
+extend({ FlyControls });
 
 const SceneControls: React.FC = () => {
   const { camera, gl } = useThree();
-  const orbitControlsRef = useRef<OrbitControls>();
+  const flyControlsRef = useRef<FlyControls>();
 
-  useFrame(() => {
-    if (!orbitControlsRef.current) {
+  useFrame((params, delta) => {
+    if (!flyControlsRef.current) {
       return;
     }
-    orbitControlsRef.current.update();
+    flyControlsRef.current.update(delta);
   });
 
   return (
-    <orbitControls
-      ref={orbitControlsRef}
+    <flyControls
+      ref={flyControlsRef}
       args={[camera, gl.domElement]}
-      enableDamping
-      dampingFactor={0.1}
-      rotateSpeed={0.5}
+      rollSpeed={0.75}
+      movementSpeed={2}
+      dragToLook
     />
   );
 };
