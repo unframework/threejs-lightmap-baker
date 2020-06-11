@@ -99,45 +99,10 @@ const Scene: React.FC<{
 
   const { outputTexture: baseLightTexture } = useIrradianceRenderer(null);
 
-  const {
-    outputTextures: sunLightTextures
-  } = useIrradianceKeyframeRenderer('sun', [0, 0.1, 0.3, 0.5, 0.8]); // stopping short of the fully open position
-
-  const { outputTexture: signLightTexture } = useIrradianceRenderer('sign');
-
-  const {
-    factorValues,
-    outputTexture,
-    compositorSceneElement
-  } = useIrradianceCompositor(baseLightTexture, {
-    sun0: sunLightTextures[0],
-    sun1: sunLightTextures[1],
-    sun2: sunLightTextures[2],
-    sun3: sunLightTextures[3],
-    sun4: sunLightTextures[4],
-    sign: signLightTexture
-  });
-
-  // animate sign intensity
-  const signMaterialRef = useRef<THREE.MeshLambertMaterial>();
-
-  useFrame(({ clock }) => {
-    const signMaterial = signMaterialRef.current;
-
-    if (!signMaterial) {
-      return;
-    }
-
-    const signIntensity =
-      1 -
-      (0.5 + Math.sin(clock.elapsedTime * 50) * 0.5) *
-        (1 -
-          Math.max(0, Math.min(1, Math.sin(clock.elapsedTime * 2) * 20 + 18)));
-
-    // update the material as well as its lightmap factor
-    signMaterial.emissiveIntensity = signIntensity;
-    factorValues.sign = signIntensity;
-  });
+  const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
+    baseLightTexture,
+    {}
+  );
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
   const postsMesh = loadedMeshList.find((item) => item.name === 'Posts');
@@ -189,7 +154,7 @@ const Scene: React.FC<{
 
           {loadedLightList.map((light) => (
             <React.Fragment key={light.uuid}>
-              <IrradianceLight factor="sun">
+              <IrradianceLight>
                 <primitive object={light} dispose={null} />
               </IrradianceLight>
 
@@ -197,7 +162,7 @@ const Scene: React.FC<{
             </React.Fragment>
           ))}
 
-          <IrradianceSurface factor="sign" innerMaterialRef={signMaterialRef}>
+          <IrradianceSurface>
             <primitive object={baseMesh} dispose={null} />
           </IrradianceSurface>
 
