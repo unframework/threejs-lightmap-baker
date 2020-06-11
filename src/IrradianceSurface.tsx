@@ -56,7 +56,11 @@ export const IrradianceSurface: React.FC<{
       return;
     }
 
-    material.lightMap = irradianceMap;
+    // only use lightmap if this has an atlas entry
+    // @todo better signaling
+    if (material.map) {
+      material.lightMap = irradianceMap;
+    }
   }, [irradianceMap]);
 
   return React.cloneElement(children, { ref: meshRef });
