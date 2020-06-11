@@ -16,17 +16,12 @@ import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
 
-import sceneUrl from './tile-game-room3.glb';
+import sceneUrl from './tile-game-room4.glb';
 
 const Scene: React.FC<{
   loadedData: GLTF;
 }> = React.memo(({ loadedData }) => {
-  const { loadedMeshList, loadedLightList, loadedClipList } = useMemo(() => {
-    const clips = [
-      loadedData.animations.find((anim) => anim.name === 'LidAAction'),
-      loadedData.animations.find((anim) => anim.name === 'LidBAction')
-    ].filter((item) => !!item) as THREE.AnimationClip[];
-
+  const { loadedMeshList, loadedLightList } = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
     const lights: THREE.DirectionalLight[] = [];
 
@@ -98,8 +93,7 @@ const Scene: React.FC<{
 
     return {
       loadedMeshList: meshes,
-      loadedLightList: lights,
-      loadedClipList: clips
+      loadedLightList: lights
     };
   }, [loadedData]);
 
@@ -146,65 +140,12 @@ const Scene: React.FC<{
   });
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
+  const postsMesh = loadedMeshList.find((item) => item.name === 'Posts');
   const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
-  const lidAMesh = loadedMeshList.find((item) => item.name === 'LidA');
-  const lidBMesh = loadedMeshList.find((item) => item.name === 'LidB');
 
-  if (!baseMesh || !coverMesh || !lidAMesh || !lidBMesh) {
+  if (!baseMesh || !postsMesh || !coverMesh) {
     throw new Error('objects not found');
   }
-
-  const lidAClip = loadedClipList.find((item) => item.name === 'LidAAction');
-  const lidBClip = loadedClipList.find((item) => item.name === 'LidBAction');
-  if (!lidAClip || !lidBClip) {
-    throw new Error('no animation clips');
-  }
-
-  const sceneMixer = useMemo(() => {
-    const animGroup = new THREE.AnimationObjectGroup(lidAMesh, lidBMesh);
-    const mixer = new THREE.AnimationMixer(animGroup);
-
-    const actionA = mixer.clipAction(lidAClip, lidAMesh);
-    actionA.play();
-    const actionB = mixer.clipAction(lidBClip, lidBMesh);
-    actionB.play();
-
-    mixer.timeScale = 0.25;
-
-    return mixer;
-  }, [lidAMesh, lidAClip, lidBMesh, lidBClip]);
-
-  function lerpFactor(
-    animTime: number,
-    prevTime: number,
-    time: number,
-    nextTime: number
-  ) {
-    // avoid division by zero in edge cases
-    if (animTime === time) {
-      return 1;
-    }
-
-    return Math.max(
-      0,
-      animTime < time
-        ? (animTime - prevTime) / (time - prevTime)
-        : (nextTime - animTime) / (nextTime - time)
-    );
-  }
-
-  useFrame((state, delta) => {
-    sceneMixer.update(delta);
-
-    const animLoopTime = sceneMixer.time % 2;
-    const animTime = 1 - Math.abs(animLoopTime - 1); // zigzag pattern
-
-    factorValues.sun0 = lerpFactor(animTime, 0, 0, 0.1);
-    factorValues.sun1 = lerpFactor(animTime, 0, 0.1, 0.3);
-    factorValues.sun2 = lerpFactor(animTime, 0.1, 0.3, 0.5);
-    factorValues.sun3 = lerpFactor(animTime, 0.3, 0.5, 0.8);
-    factorValues.sun4 = lerpFactor(animTime, 0.5, 0.8, 100000); // @todo try +Inf
-  }, 0);
 
   // debug output texture
   // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
@@ -261,15 +202,11 @@ const Scene: React.FC<{
           </IrradianceSurface>
 
           <IrradianceSurface>
+            <primitive object={postsMesh} dispose={null} />
+          </IrradianceSurface>
+
+          <IrradianceSurface>
             <primitive object={coverMesh} dispose={null} />
-          </IrradianceSurface>
-
-          <IrradianceSurface factor="sun" animationClip={lidAClip}>
-            <primitive object={lidAMesh} dispose={null} />
-          </IrradianceSurface>
-
-          <IrradianceSurface factor="sun" animationClip={lidBClip}>
-            <primitive object={lidBMesh} dispose={null} />
           </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
