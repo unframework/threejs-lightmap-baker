@@ -44,6 +44,7 @@ export interface AtlasSceneItem {
   emissiveIntensity: number;
   emissiveMap?: THREE.Texture;
   factorName: string | null;
+  animationClip: THREE.AnimationClip | null;
 }
 
 export interface AtlasSceneLight {
@@ -141,6 +142,7 @@ export const IrradianceTextureContext = React.createContext<THREE.Texture | null
 // attach a mesh to be mapped in texture atlas
 export function useAtlasMeshRef(
   factorName: string | null,
+  animationClip: THREE.AnimationClip | null,
   withMesh?: (mesh: THREE.Mesh) => void
 ) {
   const atlas = useIrradianceAtlasContext();
@@ -167,7 +169,8 @@ export function useAtlasMeshRef(
       emissive: material.emissive,
       emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default
       emissiveMap: material.emissiveMap || undefined,
-      factorName
+      factorName,
+      animationClip
     });
 
     // @todo support dynamic light factors

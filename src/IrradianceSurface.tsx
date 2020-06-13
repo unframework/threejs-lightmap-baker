@@ -9,12 +9,13 @@ import {
 
 export const IrradianceSurface: React.FC<{
   factor?: string;
+  animationClip?: THREE.AnimationClip;
   children: React.ReactElement<{}, 'mesh' | 'primitive'>;
   innerRef?: React.MutableRefObject<THREE.Mesh | undefined>; // convenience ref
   innerMaterialRef?: React.MutableRefObject<
     THREE.MeshLambertMaterial | undefined
   >; // convenience ref
-}> = ({ factor, children, innerRef, innerMaterialRef }) => {
+}> = ({ factor, animationClip, children, innerRef, innerMaterialRef }) => {
   const irradianceMap = useContext(IrradianceTextureContext);
 
   if (!irradianceMap) {
@@ -22,26 +23,30 @@ export const IrradianceSurface: React.FC<{
   }
 
   const materialRef = useRef<THREE.MeshLambertMaterial | undefined>(undefined);
-  const meshRef = useAtlasMeshRef(factor || null, (mesh) => {
-    if (Array.isArray(mesh.material)) {
-      throw new Error('material array not supported');
-    }
+  const meshRef = useAtlasMeshRef(
+    factor || null,
+    animationClip || null,
+    (mesh) => {
+      if (Array.isArray(mesh.material)) {
+        throw new Error('material array not supported');
+      }
 
-    if (!(mesh.material instanceof THREE.MeshLambertMaterial)) {
-      throw new Error('only Lambert materials are supported');
-    }
+      if (!(mesh.material instanceof THREE.MeshLambertMaterial)) {
+        throw new Error('only Lambert materials are supported');
+      }
 
-    materialRef.current = mesh.material;
+      materialRef.current = mesh.material;
 
-    // fill convenience refs for upstream
-    if (innerRef) {
-      innerRef.current = mesh;
-    }
+      // fill convenience refs for upstream
+      if (innerRef) {
+        innerRef.current = mesh;
+      }
 
-    if (innerMaterialRef) {
-      innerMaterialRef.current = mesh.material;
+      if (innerMaterialRef) {
+        innerMaterialRef.current = mesh.material;
+      }
     }
-  });
+  );
 
   // override lightmap with our own
   useEffect(() => {
@@ -53,8 +58,6 @@ export const IrradianceSurface: React.FC<{
 
     material.lightMap = irradianceMap;
   }, [irradianceMap]);
-
-  // @todo dynamic light factor update
 
   return React.cloneElement(children, { ref: meshRef });
 };

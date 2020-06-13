@@ -9,6 +9,7 @@ import IrradianceSurfaceManager, {
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import { useIrradianceRenderer } from './IrradianceRenderer';
+import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
@@ -29,6 +30,11 @@ const Scene: React.FC<{
   } = useIrradianceRenderer(null);
 
   const {
+    outputTextures: sunLightTextures,
+    lightSceneElement: sunLightSceneElement
+  } = useIrradianceKeyframeRenderer('sun', [0, 0.1, 0.3, 0.5, 0.8]); // stopping short of the fully open position
+
+  const {
     outputTexture: signLightTexture,
     lightSceneElement: signLightSceneElement
   } = useIrradianceRenderer('sign');
@@ -37,7 +43,14 @@ const Scene: React.FC<{
     factorValues,
     outputTexture,
     compositorSceneElement
-  } = useIrradianceCompositor(baseLightTexture, { sign: signLightTexture });
+  } = useIrradianceCompositor(baseLightTexture, {
+    sun0: sunLightTextures[0],
+    sun1: sunLightTextures[1],
+    sun2: sunLightTextures[2],
+    sun3: sunLightTextures[3],
+    sun4: sunLightTextures[4],
+    sign: signLightTexture
+  });
 
   // animate sign intensity
   const signMaterialRef = useRef<THREE.MeshLambertMaterial>();
@@ -84,11 +97,41 @@ const Scene: React.FC<{
     const actionB = mixer.clipAction(lidBClip, lidBMesh);
     actionB.play();
 
+    mixer.timeScale = 0.25;
+
     return mixer;
   }, [lidAMesh, lidAClip, lidBMesh, lidBClip]);
 
+  function lerpFactor(
+    animTime: number,
+    prevTime: number,
+    time: number,
+    nextTime: number
+  ) {
+    // avoid division by zero in edge cases
+    if (animTime === time) {
+      return 1;
+    }
+
+    return Math.max(
+      0,
+      animTime < time
+        ? (animTime - prevTime) / (time - prevTime)
+        : (nextTime - animTime) / (nextTime - time)
+    );
+  }
+
   useFrame((state, delta) => {
     sceneMixer.update(delta);
+
+    const animLoopTime = sceneMixer.time % 2;
+    const animTime = 1 - Math.abs(animLoopTime - 1); // zigzag pattern
+
+    factorValues.sun0 = lerpFactor(animTime, 0, 0, 0.1);
+    factorValues.sun1 = lerpFactor(animTime, 0, 0.1, 0.3);
+    factorValues.sun2 = lerpFactor(animTime, 0.1, 0.3, 0.5);
+    factorValues.sun3 = lerpFactor(animTime, 0.3, 0.5, 0.8);
+    factorValues.sun4 = lerpFactor(animTime, 0.5, 0.8, 100000); // @todo try +Inf
   }, 0);
 
   // debug output texture
@@ -143,7 +186,7 @@ const Scene: React.FC<{
 
           {loadedLightList.map((light) => (
             <React.Fragment key={light.uuid}>
-              <IrradianceLight>
+              <IrradianceLight factor="sun">
                 <primitive object={light} dispose={null} />
               </IrradianceLight>
 
@@ -163,17 +206,17 @@ const Scene: React.FC<{
             <primitive object={coverMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface>
+          <IrradianceSurface factor="sun" animationClip={lidAClip}>
             <primitive object={lidAMesh} dispose={null} />
           </IrradianceSurface>
 
-          <IrradianceSurface>
+          <IrradianceSurface factor="sun" animationClip={lidBClip}>
             <primitive object={lidBMesh} dispose={null} />
           </IrradianceSurface>
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {baseLightSceneElement || signLightSceneElement}
+      {sunLightSceneElement || signLightSceneElement}
       {compositorSceneElement}
     </>
   );
