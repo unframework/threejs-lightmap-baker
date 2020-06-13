@@ -80,6 +80,12 @@ const Scene: React.FC<{
         if (stdMat.map) {
           object.receiveShadow = true;
         }
+
+        // special case for outer sunlight cover
+        if (object.name === 'Cover') {
+          object.material.depthWrite = false;
+          object.material.colorWrite = false;
+        }
       }
 
       meshes.push(object);
