@@ -16,7 +16,7 @@ import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
 
-import sceneUrl from './tile-game-room4.glb';
+import sceneUrl from './tile-game-room5.glb';
 
 const Scene: React.FC<{
   loadedData: GLTF;

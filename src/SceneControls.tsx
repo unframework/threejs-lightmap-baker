@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { useFrame, useThree, extend, ReactThreeFiber } from 'react-three-fiber';
+import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 declare global {
@@ -33,6 +34,7 @@ const SceneControls: React.FC = () => {
       enableDamping
       dampingFactor={0.1}
       rotateSpeed={0.5}
+      target={new THREE.Vector3(0, 0, 1)}
     />
   );
 };
