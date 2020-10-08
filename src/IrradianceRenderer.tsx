@@ -92,7 +92,9 @@ function getLightProbeSceneElement(
   const { lightSceneItems, lightSceneLights } = atlas;
 
   return (
-    <scene>
+    <scene
+      key={`light-scene-${Math.random()}`} // ensure scene is fully re-created
+    >
       {lightSceneLights.map(({ dirLight, factorName }) => {
         if (factorName !== activeFactorName) {
           return null;

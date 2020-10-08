@@ -87,7 +87,6 @@ const WorkManager: React.FC = ({ children }) => {
     activeJob &&
     activeJob.lightSceneElement &&
     React.cloneElement(activeJob.lightSceneElement, {
-      key: `light-scene-${activeJob.id}`, // ensure scene is fully re-created on job change
       ref: lightSceneRef
     });
 
@@ -109,7 +108,9 @@ const WorkManager: React.FC = ({ children }) => {
         {children}
       </WorkManagerContext.Provider>
 
-      {lightSceneElement}
+      <React.Fragment key={`work-manager-${activeJob && activeJob.id}`}>
+        {lightSceneElement}
+      </React.Fragment>
     </>
   );
 };
