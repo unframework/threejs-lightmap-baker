@@ -504,6 +504,11 @@ export function useIrradianceRenderer(
 
     const [currentItemIndex, fillCount] = activeItemCounter;
 
+    // check if there is nothing to do anymore for this scene iteration
+    if (currentItemIndex >= quads.length) {
+      return;
+    }
+
     // get current atlas face we are filling up
     const atlasFaceInfo = quads[currentItemIndex];
 
@@ -598,19 +603,22 @@ export function useIrradianceRenderer(
 
     activeOutput.needsUpdate = true;
 
-    if (fillCount < faceTexelRows * faceTexelCols - 1) {
-      // tick up face index when this one is done
-      activeItemCounter[1] = fillCount + 1;
-    } else if (currentItemIndex < quads.length - 1) {
+    // update texel count
+    activeItemCounter[1] = fillCount + 1;
+
+    // tick up face index when this one is done
+    if (activeItemCounter[1] >= faceTexelRows * faceTexelCols) {
       activeItemCounter[0] = currentItemIndex + 1;
       activeItemCounter[1] = 0;
-    } else {
-      // mark state as completed once all faces are done
+    }
+
+    // mark state as completed once all faces are done
+    if (activeItemCounter[0] >= quads.length) {
       setProcessingState((prev) => {
         return {
           ...prev,
           lightSceneElement: null,
-          passes: prev.passes + 1
+          passes: passes + 1 // not using prev.passes in case this gets queued many times
         };
       });
     }
