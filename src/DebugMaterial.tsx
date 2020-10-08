@@ -1,15 +1,15 @@
 import React from 'react';
 import * as THREE from 'three';
 
-// @todo move to surface manager
-export const IrradianceDebugMaterial: React.FC<{
+// simple debug material that skips tone mapping
+export const DebugMaterial: React.FC<{
   attach?: string;
-  irradianceMap: THREE.Texture;
-}> = ({ attach, irradianceMap }) => {
+  map: THREE.Texture;
+}> = ({ attach, map }) => {
   // @todo this should be inside memo??
   const material = new THREE.ShaderMaterial({
     uniforms: {
-      irradianceMap: { value: null }
+      map: { value: null }
     },
 
     vertexShader: `
@@ -23,21 +23,17 @@ export const IrradianceDebugMaterial: React.FC<{
       }
     `,
     fragmentShader: `
-      uniform sampler2D irradianceMap;
+      uniform sampler2D map;
       varying vec2 vUV;
 
       void main() {
-        gl_FragColor = texture2D(irradianceMap, vUV);
+        gl_FragColor = texture2D(map, vUV);
       }
     `
   });
 
   // disposable managed object
   return (
-    <primitive
-      object={material}
-      attach={attach}
-      uniforms-irradianceMap-value={irradianceMap}
-    />
+    <primitive object={material} attach={attach} uniforms-map-value={map} />
   );
 };

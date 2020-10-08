@@ -13,7 +13,7 @@ import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
-import { IrradianceDebugMaterial } from './IrradianceMaterials';
+import { DebugMaterial } from './DebugMaterial';
 
 import sceneUrl from './tile-game-room3.glb';
 
@@ -165,15 +165,12 @@ const Scene: React.FC<{
         {probeDebugTextures.map((tex, texIndex) => (
           <mesh position={[5, 95 - texIndex * 9, 0]} key={texIndex}>
             <planeBufferGeometry attach="geometry" args={[8, 8]} />
-            <IrradianceDebugMaterial attach="material" irradianceMap={tex} />
+            <DebugMaterial attach="material" map={tex} />
           </mesh>
         ))}
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <IrradianceDebugMaterial
-            attach="material"
-            irradianceMap={outputTexture}
-          />
+          <DebugMaterial attach="material" map={outputTexture} />
         </mesh>
       </scene>
 
