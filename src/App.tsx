@@ -220,6 +220,7 @@ const Scene: React.FC<{
 });
 
 function App() {
+  const [loaded, setLoaded] = useState(false);
   const [loadedClipList, setLoadedClipList] = useState<THREE.AnimationClip[]>(
     []
   );
@@ -302,6 +303,8 @@ function App() {
 
         setLoadedMeshList((list) => [...list, object]);
       });
+
+      setLoaded(true);
     });
   }, []);
 
@@ -316,7 +319,7 @@ function App() {
         gl.outputEncoding = THREE.sRGBEncoding;
       }}
     >
-      {loadedMeshList ? (
+      {loaded ? (
         <IrradianceSurfaceManager>
           <Scene
             loadedMeshList={loadedMeshList}
