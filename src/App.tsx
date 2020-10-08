@@ -8,6 +8,7 @@ import IrradianceSurfaceManager, {
 } from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
+import WorkManager from './WorkManager';
 import { useIrradianceRenderer } from './IrradianceRenderer';
 import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
@@ -307,13 +308,15 @@ function App() {
       }}
     >
       {loaded ? (
-        <IrradianceSurfaceManager>
-          <Scene
-            loadedMeshList={loadedMeshList}
-            loadedLightList={loadedLightList}
-            loadedClipList={loadedClipList}
-          />
-        </IrradianceSurfaceManager>
+        <WorkManager>
+          <IrradianceSurfaceManager>
+            <Scene
+              loadedMeshList={loadedMeshList}
+              loadedLightList={loadedLightList}
+              loadedClipList={loadedClipList}
+            />
+          </IrradianceSurfaceManager>
+        </WorkManager>
       ) : null}
 
       <SceneControls />

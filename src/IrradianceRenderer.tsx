@@ -3,6 +3,7 @@ import React, {
   useState,
   useMemo,
   useCallback,
+  useContext,
   useRef
 } from 'react';
 import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
@@ -15,6 +16,7 @@ import {
   Atlas,
   AtlasQuad
 } from './IrradianceSurfaceManager';
+import { WorkManagerContext } from './WorkManager';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
@@ -424,6 +426,12 @@ export function useIrradianceRenderer(
   outputTexture: THREE.Texture;
   lightSceneElement: React.ReactElement | null;
 } {
+  // get the work manager hook
+  const useWorkManager = useContext(WorkManagerContext);
+  if (useWorkManager === null) {
+    throw new Error('expected work manager');
+  }
+
   const animationTimeRef = useRef(time || 0); // remember the initial animation time
   const atlas = useIrradianceAtlasContext();
 
@@ -496,6 +504,8 @@ export function useIrradianceRenderer(
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
+
+  useWorkManager();
 
   useFrame(({ gl }) => {
     // ensure light scene has been instantiated
