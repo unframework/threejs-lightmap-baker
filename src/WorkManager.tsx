@@ -7,6 +7,8 @@ import React, {
 } from 'react';
 import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
 
+const WORK_PER_FRAME = 5;
+
 type WorkCallback = (gl: THREE.WebGLRenderer, lightScene: THREE.Scene) => void;
 type WorkManagerHook = (
   scene: React.ReactElement | null,
@@ -99,7 +101,10 @@ const WorkManager: React.FC = ({ children }) => {
 
     // invoke work callback
     const lightScene = lightSceneRef.current; // local var for type safety
-    activeJob.callbackRef.current(gl, lightScene);
+
+    for (let i = 0; i < WORK_PER_FRAME; i += 1) {
+      activeJob.callbackRef.current(gl, lightScene);
+    }
   }, 10);
 
   return (
