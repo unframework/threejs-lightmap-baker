@@ -57,12 +57,13 @@ const CompositorLayerMaterial: React.FC<{
   );
 };
 
-export function useIrradianceCompositor(
-  baseOutput: THREE.Texture,
-  factorOutputs: { [name: string]: THREE.Texture }
-) {
+export function useIrradianceCompositor<
+  FactorMap extends { [name: string]: THREE.Texture }
+>(baseOutput: THREE.Texture, factorOutputs: FactorMap) {
   const orthoSceneRef = useRef<THREE.Scene>();
-  const factorValues = useRef<{ [name: string]: number }>({}).current;
+  const factorValues = useRef<
+    { [name in keyof FactorMap]: number | undefined }
+  >({}).current;
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
