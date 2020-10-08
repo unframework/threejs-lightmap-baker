@@ -87,14 +87,12 @@ function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
   activeFactorName: string | null,
-  animationTime: number,
-  sceneRef: React.MutableRefObject<THREE.Scene | undefined>
+  animationTime: number
 ) {
   const { lightSceneItems, lightSceneLights } = atlas;
 
   return (
-    // ensure the scene is completely re-rendered if it changes
-    <scene key={`light-scene-${Math.random()}`} ref={sceneRef}>
+    <scene>
       {lightSceneLights.map(({ dirLight, factorName }) => {
         if (factorName !== activeFactorName) {
           return null;
@@ -435,9 +433,6 @@ export function useIrradianceRenderer(
   const animationTimeRef = useRef(time || 0); // remember the initial animation time
   const atlas = useIrradianceAtlasContext();
 
-  // light scene lifecycle is fully managed internally
-  const lightSceneRef = useRef<THREE.Scene>();
-
   const createDefaultState = useCallback((activeFactorName: string | null): {
     activeFactorName: string | null;
     activeOutput: THREE.DataTexture;
@@ -493,8 +488,7 @@ export function useIrradianceRenderer(
               atlas,
               prev.activeOutput,
               prev.activeFactorName,
-              animationTimeRef.current,
-              lightSceneRef
+              animationTimeRef.current
             )
           };
         });
@@ -505,15 +499,7 @@ export function useIrradianceRenderer(
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
 
-  useWorkManager();
-
-  useFrame(({ gl }) => {
-    // ensure light scene has been instantiated
-    if (!lightSceneRef.current) {
-      return;
-    }
-
-    const lightScene = lightSceneRef.current; // local var for type safety
+  useWorkManager(lightSceneElement, (gl, lightScene) => {
     const { quads } = atlas;
 
     const [currentItemIndex, fillCount] = activeItemCounter;
@@ -628,11 +614,11 @@ export function useIrradianceRenderer(
         };
       });
     }
-  }, 10);
+  });
 
   return {
     outputIsComplete: passes >= MAX_PASSES,
     outputTexture: activeOutput,
-    lightSceneElement
+    lightSceneElement: null // @todo remove
   };
 }
