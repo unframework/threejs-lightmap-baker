@@ -161,7 +161,6 @@ const Scene: React.FC<{
   return (
     <>
       <scene ref={debugSceneRef}>
-        {/* render textures using probe-scene materials to avoid being affected by tone mapping */}
         {probeDebugTextures.map((tex, texIndex) => (
           <mesh position={[5, 95 - texIndex * 9, 0]} key={texIndex}>
             <planeBufferGeometry attach="geometry" args={[8, 8]} />
