@@ -24,9 +24,7 @@ const Scene: React.FC<{
 }> = React.memo(({ loadedMeshList, loadedLightList, loadedClipList }) => {
   const {
     outputTexture: baseLightTexture,
-    lightSceneElement: baseLightSceneElement,
-    handleDebugClick,
-    probeDebugTextures
+    lightSceneElement: baseLightSceneElement
   } = useIrradianceRenderer(null);
 
   const {
@@ -161,12 +159,6 @@ const Scene: React.FC<{
   return (
     <>
       <scene ref={debugSceneRef}>
-        {probeDebugTextures.map((tex, texIndex) => (
-          <mesh position={[5, 95 - texIndex * 9, 0]} key={texIndex}>
-            <planeBufferGeometry attach="geometry" args={[8, 8]} />
-            <DebugMaterial attach="material" map={tex} />
-          </mesh>
-        ))}
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
           <DebugMaterial attach="material" map={outputTexture} />
@@ -191,11 +183,7 @@ const Scene: React.FC<{
           ))}
 
           <IrradianceSurface factor="sign" innerMaterialRef={signMaterialRef}>
-            <primitive
-              object={baseMesh}
-              dispose={null}
-              onClick={handleDebugClick}
-            />
+            <primitive object={baseMesh} dispose={null} />
           </IrradianceSurface>
 
           <IrradianceSurface>

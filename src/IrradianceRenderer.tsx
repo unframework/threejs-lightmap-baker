@@ -425,8 +425,6 @@ export function useIrradianceRenderer(
   outputIsComplete: boolean;
   outputTexture: THREE.Texture;
   lightSceneElement: React.ReactElement | null;
-  handleDebugClick: (event: PointerEvent) => void;
-  probeDebugTextures: THREE.Texture[];
 } {
   const animationTimeRef = useRef(time || 0); // remember the initial animation time
   const atlas = useIrradianceAtlasContext();
@@ -500,28 +498,6 @@ export function useIrradianceRenderer(
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
-
-  const probeDebugDataList = useMemo(() => {
-    return [
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4)
-    ];
-  }, []);
-
-  const probeDebugTextures = useMemo(() => {
-    return probeDebugDataList.map(
-      (data) =>
-        new THREE.DataTexture(
-          data,
-          probeTargetSize,
-          probeTargetSize,
-          THREE.RGBAFormat
-        )
-    );
-  }, [probeDebugDataList]);
 
   useFrame(({ gl }) => {
     // ensure light scene has been instantiated
@@ -671,114 +647,9 @@ export function useIrradianceRenderer(
     }
   }, 10);
 
-  const { gl } = useThree();
-
-  function handleDebugClick(event: PointerEvent) {
-    const { quads } = atlas;
-
-    const quadIndex = Math.floor(event.faceIndex / 2);
-    const itemIndex = quads.findIndex(
-      (item) => item.mesh === event.object && item.quadIndex === quadIndex
-    );
-
-    if (itemIndex === -1) {
-      return;
-    }
-
-    const item = quads[itemIndex];
-    const { mesh, buffer, left, top } = item;
-
-    if (!buffer.index) {
-      return;
-    }
-
-    const lightScene = lightSceneRef.current;
-
-    if (!lightScene) {
-      return;
-    }
-
-    // get atlas texture UV (not precomputed by Three since it is in custom attribute)
-    fetchFaceIndexes(buffer.index.array, quadIndex);
-
-    fetchFaceAxes(buffer.attributes.position.array, tmpFaceIndexes);
-    tmpOrigin.applyMatrix4(mesh.matrixWorld);
-    tmpU.applyMatrix4(mesh.matrixWorld);
-    tmpV.applyMatrix4(mesh.matrixWorld);
-
-    fetchFaceUVs(buffer.attributes.uv2.array, tmpFaceIndexes);
-
-    const clickAtlasUV = new THREE.Vector2();
-    THREE.Triangle.getUV(
-      event.point,
-      tmpOrigin,
-      tmpU,
-      tmpV,
-      tmpOriginUV,
-      tmpUUV,
-      tmpVUV,
-      clickAtlasUV
-    );
-
-    // find integer texel offset inside atlas item
-    const atlasTexelLeft = Math.floor(left * atlasWidth);
-    const atlasTexelTop = Math.floor(top * atlasWidth);
-
-    const faceTexelX = Math.floor(clickAtlasUV.x * atlasWidth - atlasTexelLeft);
-    const faceTexelY = Math.floor(clickAtlasUV.y * atlasHeight - atlasTexelTop);
-
-    console.log(
-      'probing item',
-      itemIndex,
-      '@',
-      quadIndex,
-      faceTexelX,
-      faceTexelY
-    );
-
-    let debugIndex = 0;
-    renderLightProbe(
-      gl,
-      item,
-      faceTexelX,
-      faceTexelY,
-      lightScene,
-      (probeData, pixelStart, pixelCount) => {
-        // copy viewport data and mark debug texture for copying
-        const probeDebugData = probeDebugDataList[debugIndex];
-        const probeDebugTexture = probeDebugTextures[debugIndex];
-
-        for (let i = 0; i < probeData.length; i += 4) {
-          // compute offset from center (with a bias for target pixel size)
-          const px = i / 4;
-          const pdx = (px % probeTargetSize) + 0.5;
-          const pyx = Math.floor(px / probeTargetSize) + 0.5;
-          const dx = Math.abs(pdx / probeTargetSize - 0.5);
-          const dy = Math.abs(pyx / probeTargetSize - 0.5);
-
-          // compute multiplier as affected by inclination of corresponding ray
-          const span = Math.hypot(dx * 2, dy * 2);
-          const hypo = Math.hypot(span, 1);
-          const area = 1 / hypo;
-
-          probeDebugData[i] = area * Math.min(255, 255 * probeData[i]);
-          probeDebugData[i + 1] = area * Math.min(255, 255 * probeData[i + 1]);
-          probeDebugData[i + 2] = area * Math.min(255, 255 * probeData[i + 2]);
-          probeDebugData[i + 3] = 255;
-        }
-
-        probeDebugTexture.needsUpdate = true;
-
-        debugIndex += 1;
-      }
-    );
-  }
-
   return {
     outputIsComplete: passes >= MAX_PASSES,
     outputTexture: activeOutput,
-    lightSceneElement,
-    handleDebugClick,
-    probeDebugTextures
+    lightSceneElement
   };
 }
