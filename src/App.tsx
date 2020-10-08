@@ -213,7 +213,7 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {sunLightSceneElement || signLightSceneElement}
+      {baseLightSceneElement || sunLightSceneElement || signLightSceneElement}
       {compositorSceneElement}
     </>
   );
