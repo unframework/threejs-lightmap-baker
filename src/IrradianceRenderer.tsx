@@ -19,8 +19,6 @@ import {
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
 
-const iterationsPerFrame = 10; // how many texels to fill per frame
-
 const tmpFaceIndexes: [number, number, number, number] = [-1, -1, -1, -1];
 const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
@@ -508,142 +506,117 @@ export function useIrradianceRenderer(
     const lightScene = lightSceneRef.current; // local var for type safety
     const { quads } = atlas;
 
-    function computeTexel(
-      atlasFaceInfo: AtlasQuad,
-      faceTexelX: number,
-      faceTexelY: number,
-      faceTexelCols: number,
-      faceTexelRows: number,
-      atlasTexelLeft: number,
-      atlasTexelTop: number
-    ) {
-      // render the probe viewports and collect pixel aggregate
-      let r = 0,
-        g = 0,
-        b = 0,
-        totalDivider = 0;
+    const [currentItemIndex, fillCount] = activeItemCounter;
 
-      renderLightProbe(
-        gl,
-        atlasFaceInfo,
-        faceTexelX,
-        faceTexelY,
-        lightScene,
-        (probeData, pixelStart, pixelCount) => {
-          const dataMax = (pixelStart + pixelCount) * 4;
+    // get current atlas face we are filling up
+    const atlasFaceInfo = quads[currentItemIndex];
 
-          for (let i = pixelStart * 4; i < dataMax; i += 4) {
-            // compute offset from center (with a bias for target pixel size)
-            const px = i / 4;
-            const pdx = (px % probeTargetSize) + 0.5;
-            const pyx = Math.floor(px / probeTargetSize) + 0.5;
-            const dx = Math.abs(pdx / probeTargetSize - 0.5);
-            const dy = Math.abs(pyx / probeTargetSize - 0.5);
+    const { left, top, sizeU, sizeV } = atlasFaceInfo;
 
-            // compute multiplier as affected by inclination of corresponding ray
-            const span = Math.hypot(dx * 2, dy * 2);
-            const hypo = Math.hypot(span, 1);
-            const area = 1 / hypo;
+    const texelSizeU = sizeU * atlasWidth;
+    const texelSizeV = sizeV * atlasHeight;
 
-            r += area * probeData[i];
-            g += area * probeData[i + 1];
-            b += area * probeData[i + 2];
+    const faceTexelCols = Math.ceil(texelSizeU);
+    const faceTexelRows = Math.ceil(texelSizeV);
 
-            totalDivider += area;
-          }
-        }
-      );
+    // relative integer texel offset from face origin inside texture data
+    const faceTexelX = fillCount % faceTexelCols;
+    const faceTexelY = Math.floor(fillCount / faceTexelCols);
 
-      const rgb = [r / totalDivider, g / totalDivider, b / totalDivider];
+    const atlasTexelLeft = Math.floor(left * atlasWidth);
+    const atlasTexelTop = Math.floor(top * atlasWidth);
 
-      // find texel inside atlas, as rounded to texel boundary
-      const atlasTexelX = atlasTexelLeft + faceTexelX;
-      const atlasTexelY = atlasTexelTop + faceTexelY;
+    // render the probe viewports and collect pixel aggregate
+    let r = 0,
+      g = 0,
+      b = 0,
+      totalDivider = 0;
 
-      // store computed illumination value
-      const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
-      activeOutputData.set(rgb, atlasTexelBase * 3);
+    renderLightProbe(
+      gl,
+      atlasFaceInfo,
+      faceTexelX,
+      faceTexelY,
+      lightScene,
+      (probeData, pixelStart, pixelCount) => {
+        const dataMax = (pixelStart + pixelCount) * 4;
 
-      // propagate texel value to seam bleed offset area if needed
-      if (faceTexelX === 0) {
-        activeOutputData.set(rgb, (atlasTexelBase - 1) * 3);
-      } else if (faceTexelX === faceTexelCols - 1) {
-        activeOutputData.set(rgb, (atlasTexelBase + 1) * 3);
-      }
+        for (let i = pixelStart * 4; i < dataMax; i += 4) {
+          // compute offset from center (with a bias for target pixel size)
+          const px = i / 4;
+          const pdx = (px % probeTargetSize) + 0.5;
+          const pyx = Math.floor(px / probeTargetSize) + 0.5;
+          const dx = Math.abs(pdx / probeTargetSize - 0.5);
+          const dy = Math.abs(pyx / probeTargetSize - 0.5);
 
-      if (faceTexelY === 0) {
-        activeOutputData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
-      } else if (faceTexelY === faceTexelRows - 1) {
-        activeOutputData.set(rgb, (atlasTexelBase + atlasWidth) * 3);
-      }
+          // compute multiplier as affected by inclination of corresponding ray
+          const span = Math.hypot(dx * 2, dy * 2);
+          const hypo = Math.hypot(span, 1);
+          const area = 1 / hypo;
 
-      if (faceTexelX === 0) {
-        if (faceTexelY === 0) {
-          activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
-        } else if (faceTexelY === faceTexelRows - 1) {
-          activeOutputData.set(rgb, (atlasTexelBase + atlasWidth - 1) * 3);
-        }
-      } else if (faceTexelX === faceTexelCols - 1) {
-        if (faceTexelY === 0) {
-          activeOutputData.set(rgb, (atlasTexelBase - atlasWidth + 1) * 3);
-        } else if (faceTexelY === faceTexelRows - 1) {
-          activeOutputData.set(rgb, (atlasTexelBase + atlasWidth + 1) * 3);
+          r += area * probeData[i];
+          g += area * probeData[i + 1];
+          b += area * probeData[i + 2];
+
+          totalDivider += area;
         }
       }
+    );
 
-      activeOutput.needsUpdate = true;
+    const rgb = [r / totalDivider, g / totalDivider, b / totalDivider];
+
+    // find texel inside atlas, as rounded to texel boundary
+    const atlasTexelX = atlasTexelLeft + faceTexelX;
+    const atlasTexelY = atlasTexelTop + faceTexelY;
+
+    // store computed illumination value
+    const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
+    activeOutputData.set(rgb, atlasTexelBase * 3);
+
+    // propagate texel value to seam bleed offset area if needed
+    if (faceTexelX === 0) {
+      activeOutputData.set(rgb, (atlasTexelBase - 1) * 3);
+    } else if (faceTexelX === faceTexelCols - 1) {
+      activeOutputData.set(rgb, (atlasTexelBase + 1) * 3);
     }
 
-    for (let iteration = 0; iteration < iterationsPerFrame; iteration += 1) {
-      const [currentItemIndex, fillCount] = activeItemCounter;
+    if (faceTexelY === 0) {
+      activeOutputData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
+    } else if (faceTexelY === faceTexelRows - 1) {
+      activeOutputData.set(rgb, (atlasTexelBase + atlasWidth) * 3);
+    }
 
-      // get current atlas face we are filling up
-      const atlasFaceInfo = quads[currentItemIndex];
-
-      const { left, top, sizeU, sizeV } = atlasFaceInfo;
-
-      const texelSizeU = sizeU * atlasWidth;
-      const texelSizeV = sizeV * atlasHeight;
-
-      const faceTexelCols = Math.ceil(texelSizeU);
-      const faceTexelRows = Math.ceil(texelSizeV);
-
-      // relative integer texel offset from face origin inside texture data
-      const faceTexelX = fillCount % faceTexelCols;
-      const faceTexelY = Math.floor(fillCount / faceTexelCols);
-
-      const atlasTexelLeft = Math.floor(left * atlasWidth);
-      const atlasTexelTop = Math.floor(top * atlasWidth);
-
-      computeTexel(
-        atlasFaceInfo,
-        faceTexelX,
-        faceTexelY,
-        faceTexelCols,
-        faceTexelRows,
-        atlasTexelLeft,
-        atlasTexelTop
-      );
-
-      if (fillCount < faceTexelRows * faceTexelCols - 1) {
-        // tick up face index when this one is done
-        activeItemCounter[1] = fillCount + 1;
-      } else if (currentItemIndex < quads.length - 1) {
-        activeItemCounter[0] = currentItemIndex + 1;
-        activeItemCounter[1] = 0;
-      } else {
-        // mark state as completed once all faces are done
-        setProcessingState((prev) => {
-          return {
-            ...prev,
-            lightSceneElement: null,
-            passes: prev.passes + 1
-          };
-        });
-
-        // exit current iteration loop
-        break;
+    if (faceTexelX === 0) {
+      if (faceTexelY === 0) {
+        activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
+      } else if (faceTexelY === faceTexelRows - 1) {
+        activeOutputData.set(rgb, (atlasTexelBase + atlasWidth - 1) * 3);
       }
+    } else if (faceTexelX === faceTexelCols - 1) {
+      if (faceTexelY === 0) {
+        activeOutputData.set(rgb, (atlasTexelBase - atlasWidth + 1) * 3);
+      } else if (faceTexelY === faceTexelRows - 1) {
+        activeOutputData.set(rgb, (atlasTexelBase + atlasWidth + 1) * 3);
+      }
+    }
+
+    activeOutput.needsUpdate = true;
+
+    if (fillCount < faceTexelRows * faceTexelCols - 1) {
+      // tick up face index when this one is done
+      activeItemCounter[1] = fillCount + 1;
+    } else if (currentItemIndex < quads.length - 1) {
+      activeItemCounter[0] = currentItemIndex + 1;
+      activeItemCounter[1] = 0;
+    } else {
+      // mark state as completed once all faces are done
+      setProcessingState((prev) => {
+        return {
+          ...prev,
+          lightSceneElement: null,
+          passes: prev.passes + 1
+        };
+      });
     }
   }, 10);
 
