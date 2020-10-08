@@ -424,7 +424,6 @@ export function useIrradianceRenderer(
 ): {
   outputIsComplete: boolean;
   outputTexture: THREE.Texture;
-  lightSceneElement: React.ReactElement | null;
 } {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
@@ -641,7 +640,6 @@ export function useIrradianceRenderer(
 
   return {
     outputIsComplete,
-    outputTexture: activeOutput,
-    lightSceneElement: null // @todo remove
+    outputTexture: activeOutput
   };
 }

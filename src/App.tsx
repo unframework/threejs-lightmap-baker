@@ -23,20 +23,13 @@ const Scene: React.FC<{
   loadedLightList: THREE.DirectionalLight[];
   loadedClipList: THREE.AnimationClip[];
 }> = React.memo(({ loadedMeshList, loadedLightList, loadedClipList }) => {
-  const {
-    outputTexture: baseLightTexture,
-    lightSceneElement: baseLightSceneElement
-  } = useIrradianceRenderer(null);
+  const { outputTexture: baseLightTexture } = useIrradianceRenderer(null);
 
   const {
-    outputTextures: sunLightTextures,
-    lightSceneElement: sunLightSceneElement
+    outputTextures: sunLightTextures
   } = useIrradianceKeyframeRenderer('sun', [0, 0.1, 0.3, 0.5, 0.8]); // stopping short of the fully open position
 
-  const {
-    outputTexture: signLightTexture,
-    lightSceneElement: signLightSceneElement
-  } = useIrradianceRenderer('sign');
+  const { outputTexture: signLightTexture } = useIrradianceRenderer('sign');
 
   const {
     factorValues,
@@ -201,7 +194,6 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {baseLightSceneElement || sunLightSceneElement || signLightSceneElement}
       {compositorSceneElement}
     </>
   );
