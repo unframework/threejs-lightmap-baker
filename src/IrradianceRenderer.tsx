@@ -197,13 +197,14 @@ function getLightProbeSceneElement(
   );
 }
 
+// alpha channel stays at zero if not filled out yet
 function createAtlasTexture(
   atlasWidth: number,
   atlasHeight: number,
   fillWithPattern?: boolean
 ): [THREE.Texture, Float32Array] {
   const atlasSize = atlasWidth * atlasHeight;
-  const data = new Float32Array(3 * atlasSize);
+  const data = new Float32Array(4 * atlasSize);
 
   if (fillWithPattern) {
     // pre-fill with a test pattern
@@ -211,7 +212,7 @@ function createAtlasTexture(
       const x = i % atlasWidth;
       const y = Math.floor(i / atlasWidth);
 
-      const stride = i * 3;
+      const stride = i * 4;
 
       const tileX = Math.floor(x / 4);
       const tileY = Math.floor(y / 4);
@@ -221,6 +222,7 @@ function createAtlasTexture(
       data[stride] = on ? 0.2 : 0.8;
       data[stride + 1] = 0.5;
       data[stride + 2] = on ? 0.8 : 0.2;
+      data[stride + 3] = 0;
     }
   }
 
@@ -228,7 +230,7 @@ function createAtlasTexture(
     data,
     atlasWidth,
     atlasHeight,
-    THREE.RGBFormat,
+    THREE.RGBAFormat,
     THREE.FloatType
   );
 
@@ -306,11 +308,12 @@ function useLightProbe(probeTargetSize: number) {
     return new Float32Array(probeTargetSize * probeTargetSize * 4);
   }, []);
 
+  // @todo ensure there is biasing to be in middle of texel physical square
   function renderLightProbe(
     gl: THREE.WebGLRenderer,
     atlasFaceInfo: AtlasQuad,
-    faceTexelX: number,
-    faceTexelY: number,
+    pU: number,
+    pV: number,
     lightScene: THREE.Scene,
     handleProbeData: (
       rgbaData: Float32Array,
@@ -318,15 +321,7 @@ function useLightProbe(probeTargetSize: number) {
       pixelCount: number
     ) => void
   ) {
-    const { mesh, buffer, quadIndex, sizeU, sizeV } = atlasFaceInfo;
-
-    const texelSizeU = sizeU * atlasWidth;
-    const texelSizeV = sizeV * atlasHeight;
-
-    // compute rounded texel's U and V position within face
-    // (biasing to be in middle of texel physical square)
-    const pU = (faceTexelX + 0.5) / texelSizeU;
-    const pV = (faceTexelY + 0.5) / texelSizeV;
+    const { mesh, buffer, quadIndex } = atlasFaceInfo;
 
     // read vertex position for this face and interpolate along U and V axes
     if (!buffer.index) {
@@ -418,7 +413,12 @@ function useLightProbe(probeTargetSize: number) {
   return renderLightProbe;
 }
 
+// offsets for 3x3 brush
+const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
+const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
+
 export function useIrradianceRenderer(
+  atlasMapData: Float32Array,
   factorName: string | null,
   time?: number
 ): {
@@ -438,7 +438,7 @@ export function useIrradianceRenderer(
     activeFactorName: string | null;
     activeOutput: THREE.DataTexture;
     activeOutputData: Float32Array;
-    activeItemCounter: [number, number];
+    activeTexelCounter: [number];
     lightSceneElement: React.ReactElement | null;
     passComplete: boolean;
     passes: number;
@@ -452,7 +452,7 @@ export function useIrradianceRenderer(
       activeFactorName,
       activeOutput: initialTexture,
       activeOutputData: initialData,
-      activeItemCounter: [0, 0], // directly changed in place to avoid re-renders
+      activeTexelCounter: [0], // directly changed in place to avoid re-renders
       lightSceneElement: null,
       passComplete: true, // trigger first pass
       passes: 0
@@ -463,7 +463,7 @@ export function useIrradianceRenderer(
     {
       activeOutput,
       activeOutputData,
-      activeItemCounter,
+      activeTexelCounter,
       lightSceneElement,
       passComplete,
       passes
@@ -491,7 +491,7 @@ export function useIrradianceRenderer(
           activeFactorName: prev.activeFactorName,
           activeOutput: nextTexture,
           activeOutputData: nextData,
-          activeItemCounter: [0, 0],
+          activeTexelCounter: [0],
           // @todo create once and just copy texture data
           lightSceneElement: getLightProbeSceneElement(
             atlas,
@@ -515,136 +515,124 @@ export function useIrradianceRenderer(
     outputIsComplete ? null : lightSceneElement,
     (gl, lightScene) => {
       const { quads } = atlas;
+      const totalTexelCount = atlasWidth * atlasHeight;
 
-      const [currentItemIndex, fillCount] = activeItemCounter;
+      // allow for skipping a certain amount of empty texels
+      const maxCounter = Math.min(totalTexelCount, activeTexelCounter[0] + 100);
 
-      // check if there is nothing to do anymore for this scene iteration
-      if (currentItemIndex >= quads.length) {
-        return;
-      }
+      // keep trying texels until non-empty one is found
+      while (activeTexelCounter[0] < maxCounter) {
+        const texelIndex = activeTexelCounter[0];
 
-      // get current atlas face we are filling up
-      const atlasFaceInfo = quads[currentItemIndex];
+        // always update texel count
+        // and mark state as completed once all texels are done
+        activeTexelCounter[0] = texelIndex + 1;
 
-      const { left, top, sizeU, sizeV } = atlasFaceInfo;
+        if (activeTexelCounter[0] >= totalTexelCount) {
+          setProcessingState((prev) => {
+            return {
+              ...prev,
+              passComplete: true
+            };
+          });
+        }
 
-      const texelSizeU = sizeU * atlasWidth;
-      const texelSizeV = sizeV * atlasHeight;
+        // get current atlas face we are filling up
+        const texelInfoBase = texelIndex * 4;
+        const texelPosU = atlasMapData[texelInfoBase];
+        const texelPosV = atlasMapData[texelInfoBase + 1];
+        const texelQuadEnc = atlasMapData[texelInfoBase + 2];
 
-      const faceTexelCols = Math.ceil(texelSizeU);
-      const faceTexelRows = Math.ceil(texelSizeV);
+        // skip computation if this texel is empty
+        if (texelQuadEnc === 0) {
+          continue;
+        }
 
-      // relative integer texel offset from face origin inside texture data
-      const faceTexelX = fillCount % faceTexelCols;
-      const faceTexelY = Math.floor(fillCount / faceTexelCols);
+        // otherwise, proceed with computation and exit
+        const texelQuadIndex = Math.round(texelQuadEnc - 1);
 
-      const atlasTexelLeft = Math.floor(left * atlasWidth);
-      const atlasTexelTop = Math.floor(top * atlasWidth);
+        if (texelQuadIndex < 0 || texelQuadIndex >= quads.length) {
+          throw new Error(
+            `incorrect atlas map data: ${texelPosU}, ${texelPosV}, ${
+              atlasMapData[texelInfoBase + 2]
+            }`
+          );
+        }
 
-      // render the probe viewports and collect pixel aggregate
-      let r = 0,
-        g = 0,
-        b = 0,
-        totalDivider = 0;
+        const atlasFaceInfo = quads[texelQuadIndex];
 
-      renderLightProbe(
-        gl,
-        atlasFaceInfo,
-        faceTexelX,
-        faceTexelY,
-        lightScene,
-        (probeData, pixelStart, pixelCount) => {
-          const dataMax = (pixelStart + pixelCount) * 4;
+        // render the probe viewports and collect pixel aggregate
+        let r = 0,
+          g = 0,
+          b = 0,
+          totalDivider = 0;
 
-          for (let i = pixelStart * 4; i < dataMax; i += 4) {
-            // compute offset from center (with a bias for target pixel size)
-            const px = i / 4;
-            const pdx = (px % probeTargetSize) + 0.5;
-            const pyx = Math.floor(px / probeTargetSize) + 0.5;
-            const dx = Math.abs(pdx / probeTargetSize - 0.5);
-            const dy = Math.abs(pyx / probeTargetSize - 0.5);
+        renderLightProbe(
+          gl,
+          atlasFaceInfo,
+          texelPosU,
+          texelPosV,
+          lightScene,
+          (probeData, pixelStart, pixelCount) => {
+            const dataMax = (pixelStart + pixelCount) * 4;
 
-            // compute multiplier as affected by inclination of corresponding ray
-            const span = Math.hypot(dx * 2, dy * 2);
-            const hypo = Math.hypot(span, 1);
-            const area = 1 / hypo;
+            for (let i = pixelStart * 4; i < dataMax; i += 4) {
+              // compute offset from center (with a bias for target pixel size)
+              const px = i / 4;
+              const pdx = (px % probeTargetSize) + 0.5;
+              const pyx = Math.floor(px / probeTargetSize) + 0.5;
+              const dx = Math.abs(pdx / probeTargetSize - 0.5);
+              const dy = Math.abs(pyx / probeTargetSize - 0.5);
 
-            r += area * probeData[i];
-            g += area * probeData[i + 1];
-            b += area * probeData[i + 2];
+              // compute multiplier as affected by inclination of corresponding ray
+              const span = Math.hypot(dx * 2, dy * 2);
+              const hypo = Math.hypot(span, 1);
+              const area = 1 / hypo;
 
-            totalDivider += area;
+              r += area * probeData[i];
+              g += area * probeData[i + 1];
+              b += area * probeData[i + 2];
+
+              totalDivider += area;
+            }
+          }
+        );
+
+        const rgba = [r / totalDivider, g / totalDivider, b / totalDivider, 1];
+
+        // store computed illumination value
+        activeOutputData.set(rgba, texelIndex * 4);
+
+        // propagate value to 3x3 brush area
+        // @todo track already-written texels
+        const texelX = texelIndex % atlasWidth;
+        const texelRowStart = texelIndex - texelX;
+
+        for (let offDir = 0; offDir < 8; offDir += 1) {
+          const offX = offDirX[offDir];
+          const offY = offDirY[offDir];
+
+          const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
+          const offRowStart =
+            (totalTexelCount + texelRowStart + offY * atlasWidth) %
+            totalTexelCount;
+          const offTexelBase = (offRowStart + offRowX) * 4;
+
+          // fill texel if it will not/did not receive real computed data otherwise;
+          // also ensure strong neighbour values (not diagonal) take precedence
+          const offTexelQuadEnc = atlasMapData[offTexelBase + 2];
+          const isStrongNeighbour = offX === 0 || offY === 0;
+          const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
+
+          if (offTexelQuadEnc === 0 && (isStrongNeighbour || isUnfilled)) {
+            activeOutputData.set(rgba, offTexelBase);
           }
         }
-      );
 
-      const rgb = [r / totalDivider, g / totalDivider, b / totalDivider];
+        activeOutput.needsUpdate = true;
 
-      // find texel inside atlas, as rounded to texel boundary
-      const atlasTexelX = atlasTexelLeft + faceTexelX;
-      const atlasTexelY = atlasTexelTop + faceTexelY;
-
-      // store computed illumination value
-      const atlasTexelBase = atlasTexelY * atlasWidth + atlasTexelX;
-      activeOutputData.set(rgb, atlasTexelBase * 3);
-
-      // propagate texel value to seam bleed offset area if needed
-      // check all conditions for e.g. single-texel width slices
-      if (faceTexelX === 0) {
-        activeOutputData.set(rgb, (atlasTexelBase - 1) * 3);
-      }
-
-      if (faceTexelX === faceTexelCols - 1) {
-        activeOutputData.set(rgb, (atlasTexelBase + 1) * 3);
-      }
-
-      if (faceTexelY === 0) {
-        activeOutputData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
-      }
-
-      if (faceTexelY === faceTexelRows - 1) {
-        activeOutputData.set(rgb, (atlasTexelBase + atlasWidth) * 3);
-      }
-
-      if (faceTexelX === 0) {
-        if (faceTexelY === 0) {
-          activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
-        }
-
-        if (faceTexelY === faceTexelRows - 1) {
-          activeOutputData.set(rgb, (atlasTexelBase + atlasWidth - 1) * 3);
-        }
-      }
-
-      if (faceTexelX === faceTexelCols - 1) {
-        if (faceTexelY === 0) {
-          activeOutputData.set(rgb, (atlasTexelBase - atlasWidth + 1) * 3);
-        }
-
-        if (faceTexelY === faceTexelRows - 1) {
-          activeOutputData.set(rgb, (atlasTexelBase + atlasWidth + 1) * 3);
-        }
-      }
-
-      activeOutput.needsUpdate = true;
-
-      // update texel count
-      activeItemCounter[1] = fillCount + 1;
-
-      // tick up face index when this one is done
-      if (activeItemCounter[1] >= faceTexelRows * faceTexelCols) {
-        activeItemCounter[0] = currentItemIndex + 1;
-        activeItemCounter[1] = 0;
-      }
-
-      // mark state as completed once all faces are done
-      if (activeItemCounter[0] >= quads.length) {
-        setProcessingState((prev) => {
-          return {
-            ...prev,
-            passComplete: true
-          };
-        });
+        // some computation happened, do not iterate further
+        break;
       }
     }
   );
