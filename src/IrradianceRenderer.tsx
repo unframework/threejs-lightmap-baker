@@ -197,13 +197,14 @@ function getLightProbeSceneElement(
   );
 }
 
+// alpha channel stays at zero if not filled out yet
 function createAtlasTexture(
   atlasWidth: number,
   atlasHeight: number,
   fillWithPattern?: boolean
 ): [THREE.Texture, Float32Array] {
   const atlasSize = atlasWidth * atlasHeight;
-  const data = new Float32Array(3 * atlasSize);
+  const data = new Float32Array(4 * atlasSize);
 
   if (fillWithPattern) {
     // pre-fill with a test pattern
@@ -211,7 +212,7 @@ function createAtlasTexture(
       const x = i % atlasWidth;
       const y = Math.floor(i / atlasWidth);
 
-      const stride = i * 3;
+      const stride = i * 4;
 
       const tileX = Math.floor(x / 4);
       const tileY = Math.floor(y / 4);
@@ -221,6 +222,7 @@ function createAtlasTexture(
       data[stride] = on ? 0.2 : 0.8;
       data[stride + 1] = 0.5;
       data[stride + 2] = on ? 0.8 : 0.2;
+      data[stride + 3] = 0;
     }
   }
 
@@ -228,7 +230,7 @@ function createAtlasTexture(
     data,
     atlasWidth,
     atlasHeight,
-    THREE.RGBFormat,
+    THREE.RGBAFormat,
     THREE.FloatType
   );
 
@@ -597,10 +599,10 @@ export function useIrradianceRenderer(
           }
         );
 
-        const rgb = [r / totalDivider, g / totalDivider, b / totalDivider];
+        const rgba = [r / totalDivider, g / totalDivider, b / totalDivider, 1];
 
         // store computed illumination value
-        activeOutputData.set(rgb, texelIndex * 3);
+        activeOutputData.set(rgba, texelIndex * 4);
 
         // propagate value to 3x3 brush area
         // @todo track already-written texels
@@ -615,12 +617,16 @@ export function useIrradianceRenderer(
           const offRowStart =
             (totalTexelCount + texelRowStart + offY * atlasWidth) %
             totalTexelCount;
-          const offTexelDataBase = (offRowStart + offRowX) * 4;
+          const offTexelBase = (offRowStart + offRowX) * 4;
 
-          // fill texel if it will not/did not receive real computed data otherwise
-          const offTexelQuadEnc = atlasMapData[offTexelDataBase + 2];
-          if (offTexelQuadEnc === 0) {
-            activeOutputData.set(rgb, (offRowStart + offRowX) * 3);
+          // fill texel if it will not/did not receive real computed data otherwise;
+          // also ensure strong neighbour values (not diagonal) take precedence
+          const offTexelQuadEnc = atlasMapData[offTexelBase + 2];
+          const isStrongNeighbour = offX === 0 || offY === 0;
+          const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
+
+          if (offTexelQuadEnc === 0 && (isStrongNeighbour || isUnfilled)) {
+            activeOutputData.set(rgba, offTexelBase);
           }
         }
 
