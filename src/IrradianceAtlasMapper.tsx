@@ -4,36 +4,75 @@ import * as THREE from 'three';
 
 import {
   useIrradianceAtlasContext,
+  AtlasQuad,
   atlasWidth,
   atlasHeight
 } from './IrradianceSurfaceManager';
 
-const AtlasItemMaterial: React.FC<{}> = ({}) => {
+// write out original face geometry info into the atlas map
+// each texel corresponds to: (quadX, quadY, quadIndex)
+// where quadX and quadY are 0..1 representing a spot in the original quad
+// which allows to find original 3D position/normal/etc for that texel
+// (quad index is int stored as float, but precision should be good enough)
+// @todo consider rounding to account for texel size
+const AtlasQuadMaterial: React.FC<{ quadIndex: number; quad: AtlasQuad }> = ({
+  quadIndex,
+  quad
+}) => {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
+        uniforms: {
+          quadIndex: { value: 0 },
+          left: { value: 0 },
+          top: { value: 0 },
+          sizeU: { value: 0 },
+          sizeV: { value: 0 }
+        },
+
         vertexShader: `
-          varying vec2 vUV;
+          uniform float left;
+          uniform float top;
+          uniform float sizeU;
+          uniform float sizeV;
+          varying vec2 vQuadPos;
 
           void main() {
-            vUV = position.xy;
-
             vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+            vQuadPos = worldPosition.xy;
+
+            gl_Position = projectionMatrix * vec4(
+              left + sizeU * worldPosition.x,
+              top + sizeV * worldPosition.y,
+              0,
+              1.0
+            );
           }
         `,
         fragmentShader: `
-          varying vec2 vUV;
+          uniform float quadIndex;
+          varying vec2 vQuadPos;
 
           void main() {
-            gl_FragColor = vec4(vUV, 0, 1.0);
+            gl_FragColor = vec4(vQuadPos, quadIndex, 1.0);
           }
         `
       }),
     []
   );
 
-  return <primitive attach="material" object={material} />;
+  return (
+    <primitive
+      attach="material"
+      object={material}
+      uniforms-quadIndex-value={quadIndex}
+      uniforms-left-value={quad.left}
+      uniforms-top-value={quad.top}
+      uniforms-sizeU-value={quad.sizeU}
+      uniforms-sizeV-value={quad.sizeV}
+    />
+  );
 };
 
 // @todo dispose of render target, etc
@@ -80,10 +119,10 @@ export function useIrradianceAtlasMapper(): {
     atlasMapTexture: orthoTarget.texture,
     mapperSceneElement: (
       <scene ref={orthoSceneRef}>
-        {atlas.lightSceneItems.map((item, itemIndex) => (
-          <mesh key={itemIndex} position={[0.5, 0.5, 0]}>
+        {atlas.quads.map((quad, quadIndex) => (
+          <mesh key={quadIndex} position={[0.5, 0.5, 0]}>
             <planeBufferGeometry attach="geometry" args={[1, 1]} />
-            <AtlasItemMaterial />
+            <AtlasQuadMaterial quadIndex={quadIndex} quad={quad} />
           </mesh>
         ))}
       </scene>
