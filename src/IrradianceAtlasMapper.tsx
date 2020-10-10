@@ -77,6 +77,7 @@ const AtlasQuadMaterial: React.FC<{ quadIndex: number; quad: AtlasQuad }> = ({
   );
 };
 
+// @todo provide output via context (esp once quad-based autolayout is removed/separated from main surface manager)
 // @todo dispose of render target, etc
 export function useIrradianceAtlasMapper(): {
   atlasMapTexture: THREE.Texture;

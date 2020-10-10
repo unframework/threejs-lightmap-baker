@@ -417,7 +417,6 @@ function useLightProbe(probeTargetSize: number) {
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
-// @todo read atlas map data from surface manager
 export function useIrradianceRenderer(
   atlasMapData: Float32Array,
   factorName: string | null,
