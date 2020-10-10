@@ -418,7 +418,9 @@ function useLightProbe(probeTargetSize: number) {
   return renderLightProbe;
 }
 
+// @todo read atlas map data from surface manager
 export function useIrradianceRenderer(
+  atlasMapData: Float32Array,
   factorName: string | null,
   time?: number
 ): {

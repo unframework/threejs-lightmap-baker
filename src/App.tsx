@@ -98,7 +98,16 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const { outputTexture: baseLightTexture } = useIrradianceRenderer(null);
+  const {
+    atlasMapTexture,
+    atlasMapData,
+    mapperSceneElement
+  } = useIrradianceAtlasMapper();
+
+  const { outputTexture: baseLightTexture } = useIrradianceRenderer(
+    atlasMapData,
+    null
+  );
 
   const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
     baseLightTexture,
@@ -115,8 +124,6 @@ const Scene: React.FC<{
 
   // debug output texture
   // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
-
-  const { atlasMapTexture, mapperSceneElement } = useIrradianceAtlasMapper();
 
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();

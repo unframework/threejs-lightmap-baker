@@ -14,6 +14,7 @@ import {
 // where quadX and quadY are 0..1 representing a spot in the original quad
 // which allows to find original 3D position/normal/etc for that texel
 // (quad index is int stored as float, but precision should be good enough)
+// @todo consider stencil buffer, or just 8bit texture
 // @todo consider rounding to account for texel size
 const AtlasQuadMaterial: React.FC<{ quadIndex: number; quad: AtlasQuad }> = ({
   quadIndex,
@@ -78,6 +79,7 @@ const AtlasQuadMaterial: React.FC<{ quadIndex: number; quad: AtlasQuad }> = ({
 // @todo dispose of render target, etc
 export function useIrradianceAtlasMapper(): {
   atlasMapTexture: THREE.Texture;
+  atlasMapData: Float32Array;
   mapperSceneElement: React.ReactElement | null;
 } {
   const orthoSceneRef = useRef<THREE.Scene>();
@@ -90,12 +92,17 @@ export function useIrradianceAtlasMapper(): {
       type: THREE.FloatType,
       magFilter: THREE.LinearFilter,
       minFilter: THREE.LinearFilter,
+      depthBuffer: false,
       generateMipmaps: false
     });
   }, []);
 
   const orthoCamera = useMemo(() => {
     return new THREE.OrthographicCamera(0, 1, 1, 0, 0, 1);
+  }, []);
+
+  const orthoData = useMemo(() => {
+    return new Float32Array(atlasWidth * atlasHeight * 4);
   }, []);
 
   useFrame(({ gl }) => {
@@ -113,10 +120,20 @@ export function useIrradianceAtlasMapper(): {
     gl.setRenderTarget(orthoTarget);
     gl.render(orthoScene, orthoCamera);
     gl.setRenderTarget(null);
+
+    gl.readRenderTargetPixels(
+      orthoTarget,
+      0,
+      0,
+      atlasWidth,
+      atlasHeight,
+      orthoData
+    );
   }, 10);
 
   return {
     atlasMapTexture: orthoTarget.texture,
+    atlasMapData: orthoData,
     mapperSceneElement: (
       <scene ref={orthoSceneRef}>
         {atlas.quads.map((quad, quadIndex) => (
