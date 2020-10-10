@@ -9,29 +9,25 @@ export function useIrradianceKeyframeRenderer(
 ): {
   outputIsComplete: boolean;
   outputTextures: THREE.Texture[];
-  lightSceneElement: React.ReactElement | null;
 } {
   const timesRef = useRef(times);
 
   let allComplete = true;
-  let firstLightSceneElement = null;
   const textureList = [];
 
   for (const time of timesRef.current) {
-    const {
-      outputTexture,
-      outputIsComplete,
-      lightSceneElement
-    } = useIrradianceRenderer(factorName, time); // eslint-disable-line react-hooks/rules-of-hooks
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { outputTexture, outputIsComplete } = useIrradianceRenderer(
+      factorName,
+      time
+    );
 
     allComplete = allComplete && outputIsComplete;
-    firstLightSceneElement = firstLightSceneElement || lightSceneElement;
     textureList.push(outputTexture);
   }
 
   return {
     outputIsComplete: allComplete,
-    outputTextures: textureList,
-    lightSceneElement: firstLightSceneElement
+    outputTextures: textureList
   };
 }

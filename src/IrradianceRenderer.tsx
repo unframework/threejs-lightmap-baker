@@ -3,6 +3,7 @@ import React, {
   useState,
   useMemo,
   useCallback,
+  useContext,
   useRef
 } from 'react';
 import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
@@ -15,11 +16,10 @@ import {
   Atlas,
   AtlasQuad
 } from './IrradianceSurfaceManager';
+import { WorkManagerContext } from './WorkManager';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
-
-const iterationsPerFrame = 10; // how many texels to fill per frame
 
 const tmpFaceIndexes: [number, number, number, number] = [-1, -1, -1, -1];
 const tmpOrigin = new THREE.Vector3();
@@ -87,14 +87,14 @@ function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
   activeFactorName: string | null,
-  animationTime: number,
-  sceneRef: React.MutableRefObject<THREE.Scene | undefined>
+  animationTime: number
 ) {
   const { lightSceneItems, lightSceneLights } = atlas;
 
   return (
-    // ensure the scene is completely re-rendered if it changes
-    <scene key={`light-scene-${Math.random()}`} ref={sceneRef}>
+    <scene
+      key={`light-scene-${Math.random()}`} // ensure scene is fully re-created
+    >
       {lightSceneLights.map(({ dirLight, factorName }) => {
         if (factorName !== activeFactorName) {
           return null;
@@ -424,22 +424,23 @@ export function useIrradianceRenderer(
 ): {
   outputIsComplete: boolean;
   outputTexture: THREE.Texture;
-  lightSceneElement: React.ReactElement | null;
-  handleDebugClick: (event: PointerEvent) => void;
-  probeDebugTextures: THREE.Texture[];
 } {
+  // get the work manager hook
+  const useWorkManager = useContext(WorkManagerContext);
+  if (useWorkManager === null) {
+    throw new Error('expected work manager');
+  }
+
   const animationTimeRef = useRef(time || 0); // remember the initial animation time
   const atlas = useIrradianceAtlasContext();
-
-  // light scene lifecycle is fully managed internally
-  const lightSceneRef = useRef<THREE.Scene>();
 
   const createDefaultState = useCallback((activeFactorName: string | null): {
     activeFactorName: string | null;
     activeOutput: THREE.DataTexture;
     activeOutputData: Float32Array;
     activeItemCounter: [number, number];
-    lightSceneElement: React.ReactElement | null; // non-null triggers processing
+    lightSceneElement: React.ReactElement | null;
+    passComplete: boolean;
     passes: number;
   } => {
     const [initialTexture, initialData] = createAtlasTexture(
@@ -453,6 +454,7 @@ export function useIrradianceRenderer(
       activeOutputData: initialData,
       activeItemCounter: [0, 0], // directly changed in place to avoid re-renders
       lightSceneElement: null,
+      passComplete: true, // trigger first pass
       passes: 0
     };
   }, []);
@@ -463,6 +465,7 @@ export function useIrradianceRenderer(
       activeOutputData,
       activeItemCounter,
       lightSceneElement,
+      passComplete,
       passes
     },
     setProcessingState
@@ -470,77 +473,74 @@ export function useIrradianceRenderer(
 
   // automatically kick off new processing when ready
   useLayoutEffect(() => {
-    if (!lightSceneElement && passes < MAX_PASSES) {
-      // wait for scene to populate @todo fix this
-      setTimeout(() => {
-        setProcessingState((prev) => {
-          const [nextTexture, nextData] = createAtlasTexture(
-            atlasWidth,
-            atlasHeight,
-            prev.activeFactorName === null // test pattern only on base
-          );
-
-          return {
-            ...prev,
-            activeOutput: nextTexture,
-            activeOutputData: nextData,
-            activeItemCounter: [0, 0],
-            lightSceneElement: getLightProbeSceneElement(
-              atlas,
-              prev.activeOutput,
-              prev.activeFactorName,
-              animationTimeRef.current,
-              lightSceneRef
-            )
-          };
-        });
-      }, 0);
+    // check if we need to set up new pass
+    if (!passComplete || passes >= MAX_PASSES) {
+      return;
     }
-  }, [atlas, lightSceneElement, passes]);
+
+    // wait for scene to populate @todo fix this
+    setTimeout(() => {
+      setProcessingState((prev) => {
+        const [nextTexture, nextData] = createAtlasTexture(
+          atlasWidth,
+          atlasHeight,
+          prev.activeFactorName === null // test pattern only on base
+        );
+
+        return {
+          activeFactorName: prev.activeFactorName,
+          activeOutput: nextTexture,
+          activeOutputData: nextData,
+          activeItemCounter: [0, 0],
+          // @todo create once and just copy texture data
+          lightSceneElement: getLightProbeSceneElement(
+            atlas,
+            prev.activeOutput,
+            prev.activeFactorName,
+            animationTimeRef.current
+          ),
+          passComplete: false,
+          passes: prev.passes + 1
+        };
+      });
+    }, 0);
+  }, [atlas, passComplete, passes]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
 
-  const probeDebugDataList = useMemo(() => {
-    return [
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4),
-      new Uint8Array(probeTargetSize * probeTargetSize * 4)
-    ];
-  }, []);
+  const outputIsComplete = passes >= MAX_PASSES && passComplete;
 
-  const probeDebugTextures = useMemo(() => {
-    return probeDebugDataList.map(
-      (data) =>
-        new THREE.DataTexture(
-          data,
-          probeTargetSize,
-          probeTargetSize,
-          THREE.RGBAFormat
-        )
-    );
-  }, [probeDebugDataList]);
+  useWorkManager(
+    outputIsComplete ? null : lightSceneElement,
+    (gl, lightScene) => {
+      const { quads } = atlas;
 
-  useFrame(({ gl }) => {
-    // ensure light scene has been instantiated
-    if (!lightSceneRef.current) {
-      return;
-    }
+      const [currentItemIndex, fillCount] = activeItemCounter;
 
-    const lightScene = lightSceneRef.current; // local var for type safety
-    const { quads } = atlas;
+      // check if there is nothing to do anymore for this scene iteration
+      if (currentItemIndex >= quads.length) {
+        return;
+      }
 
-    function computeTexel(
-      atlasFaceInfo: AtlasQuad,
-      faceTexelX: number,
-      faceTexelY: number,
-      faceTexelCols: number,
-      faceTexelRows: number,
-      atlasTexelLeft: number,
-      atlasTexelTop: number
-    ) {
+      // get current atlas face we are filling up
+      const atlasFaceInfo = quads[currentItemIndex];
+
+      const { left, top, sizeU, sizeV } = atlasFaceInfo;
+
+      const texelSizeU = sizeU * atlasWidth;
+      const texelSizeV = sizeV * atlasHeight;
+
+      const faceTexelCols = Math.ceil(texelSizeU);
+      const faceTexelRows = Math.ceil(texelSizeV);
+
+      // relative integer texel offset from face origin inside texture data
+      const faceTexelX = fillCount % faceTexelCols;
+      const faceTexelY = Math.floor(fillCount / faceTexelCols);
+
+      const atlasTexelLeft = Math.floor(left * atlasWidth);
+      const atlasTexelTop = Math.floor(top * atlasWidth);
+
       // render the probe viewports and collect pixel aggregate
       let r = 0,
         g = 0,
@@ -616,169 +616,30 @@ export function useIrradianceRenderer(
       }
 
       activeOutput.needsUpdate = true;
-    }
 
-    for (let iteration = 0; iteration < iterationsPerFrame; iteration += 1) {
-      const [currentItemIndex, fillCount] = activeItemCounter;
+      // update texel count
+      activeItemCounter[1] = fillCount + 1;
 
-      // get current atlas face we are filling up
-      const atlasFaceInfo = quads[currentItemIndex];
-
-      const { left, top, sizeU, sizeV } = atlasFaceInfo;
-
-      const texelSizeU = sizeU * atlasWidth;
-      const texelSizeV = sizeV * atlasHeight;
-
-      const faceTexelCols = Math.ceil(texelSizeU);
-      const faceTexelRows = Math.ceil(texelSizeV);
-
-      // relative integer texel offset from face origin inside texture data
-      const faceTexelX = fillCount % faceTexelCols;
-      const faceTexelY = Math.floor(fillCount / faceTexelCols);
-
-      const atlasTexelLeft = Math.floor(left * atlasWidth);
-      const atlasTexelTop = Math.floor(top * atlasWidth);
-
-      computeTexel(
-        atlasFaceInfo,
-        faceTexelX,
-        faceTexelY,
-        faceTexelCols,
-        faceTexelRows,
-        atlasTexelLeft,
-        atlasTexelTop
-      );
-
-      if (fillCount < faceTexelRows * faceTexelCols - 1) {
-        // tick up face index when this one is done
-        activeItemCounter[1] = fillCount + 1;
-      } else if (currentItemIndex < quads.length - 1) {
+      // tick up face index when this one is done
+      if (activeItemCounter[1] >= faceTexelRows * faceTexelCols) {
         activeItemCounter[0] = currentItemIndex + 1;
         activeItemCounter[1] = 0;
-      } else {
-        // mark state as completed once all faces are done
+      }
+
+      // mark state as completed once all faces are done
+      if (activeItemCounter[0] >= quads.length) {
         setProcessingState((prev) => {
           return {
             ...prev,
-            lightSceneElement: null,
-            passes: prev.passes + 1
+            passComplete: true
           };
         });
-
-        // exit current iteration loop
-        break;
       }
     }
-  }, 10);
-
-  const { gl } = useThree();
-
-  function handleDebugClick(event: PointerEvent) {
-    const { quads } = atlas;
-
-    const quadIndex = Math.floor(event.faceIndex / 2);
-    const itemIndex = quads.findIndex(
-      (item) => item.mesh === event.object && item.quadIndex === quadIndex
-    );
-
-    if (itemIndex === -1) {
-      return;
-    }
-
-    const item = quads[itemIndex];
-    const { mesh, buffer, left, top } = item;
-
-    if (!buffer.index) {
-      return;
-    }
-
-    const lightScene = lightSceneRef.current;
-
-    if (!lightScene) {
-      return;
-    }
-
-    // get atlas texture UV (not precomputed by Three since it is in custom attribute)
-    fetchFaceIndexes(buffer.index.array, quadIndex);
-
-    fetchFaceAxes(buffer.attributes.position.array, tmpFaceIndexes);
-    tmpOrigin.applyMatrix4(mesh.matrixWorld);
-    tmpU.applyMatrix4(mesh.matrixWorld);
-    tmpV.applyMatrix4(mesh.matrixWorld);
-
-    fetchFaceUVs(buffer.attributes.uv2.array, tmpFaceIndexes);
-
-    const clickAtlasUV = new THREE.Vector2();
-    THREE.Triangle.getUV(
-      event.point,
-      tmpOrigin,
-      tmpU,
-      tmpV,
-      tmpOriginUV,
-      tmpUUV,
-      tmpVUV,
-      clickAtlasUV
-    );
-
-    // find integer texel offset inside atlas item
-    const atlasTexelLeft = Math.floor(left * atlasWidth);
-    const atlasTexelTop = Math.floor(top * atlasWidth);
-
-    const faceTexelX = Math.floor(clickAtlasUV.x * atlasWidth - atlasTexelLeft);
-    const faceTexelY = Math.floor(clickAtlasUV.y * atlasHeight - atlasTexelTop);
-
-    console.log(
-      'probing item',
-      itemIndex,
-      '@',
-      quadIndex,
-      faceTexelX,
-      faceTexelY
-    );
-
-    let debugIndex = 0;
-    renderLightProbe(
-      gl,
-      item,
-      faceTexelX,
-      faceTexelY,
-      lightScene,
-      (probeData, pixelStart, pixelCount) => {
-        // copy viewport data and mark debug texture for copying
-        const probeDebugData = probeDebugDataList[debugIndex];
-        const probeDebugTexture = probeDebugTextures[debugIndex];
-
-        for (let i = 0; i < probeData.length; i += 4) {
-          // compute offset from center (with a bias for target pixel size)
-          const px = i / 4;
-          const pdx = (px % probeTargetSize) + 0.5;
-          const pyx = Math.floor(px / probeTargetSize) + 0.5;
-          const dx = Math.abs(pdx / probeTargetSize - 0.5);
-          const dy = Math.abs(pyx / probeTargetSize - 0.5);
-
-          // compute multiplier as affected by inclination of corresponding ray
-          const span = Math.hypot(dx * 2, dy * 2);
-          const hypo = Math.hypot(span, 1);
-          const area = 1 / hypo;
-
-          probeDebugData[i] = area * Math.min(255, 255 * probeData[i]);
-          probeDebugData[i + 1] = area * Math.min(255, 255 * probeData[i + 1]);
-          probeDebugData[i + 2] = area * Math.min(255, 255 * probeData[i + 2]);
-          probeDebugData[i + 3] = 255;
-        }
-
-        probeDebugTexture.needsUpdate = true;
-
-        debugIndex += 1;
-      }
-    );
-  }
+  );
 
   return {
-    outputIsComplete: passes >= MAX_PASSES,
-    outputTexture: activeOutput,
-    lightSceneElement,
-    handleDebugClick,
-    probeDebugTextures
+    outputIsComplete,
+    outputTexture: activeOutput
   };
 }

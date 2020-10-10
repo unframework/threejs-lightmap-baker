@@ -8,6 +8,7 @@ import IrradianceSurfaceManager, {
 } from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
+import WorkManager from './WorkManager';
 import { useIrradianceRenderer } from './IrradianceRenderer';
 import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
@@ -22,22 +23,13 @@ const Scene: React.FC<{
   loadedLightList: THREE.DirectionalLight[];
   loadedClipList: THREE.AnimationClip[];
 }> = React.memo(({ loadedMeshList, loadedLightList, loadedClipList }) => {
-  const {
-    outputTexture: baseLightTexture,
-    lightSceneElement: baseLightSceneElement,
-    handleDebugClick,
-    probeDebugTextures
-  } = useIrradianceRenderer(null);
+  const { outputTexture: baseLightTexture } = useIrradianceRenderer(null);
 
   const {
-    outputTextures: sunLightTextures,
-    lightSceneElement: sunLightSceneElement
+    outputTextures: sunLightTextures
   } = useIrradianceKeyframeRenderer('sun', [0, 0.1, 0.3, 0.5, 0.8]); // stopping short of the fully open position
 
-  const {
-    outputTexture: signLightTexture,
-    lightSceneElement: signLightSceneElement
-  } = useIrradianceRenderer('sign');
+  const { outputTexture: signLightTexture } = useIrradianceRenderer('sign');
 
   const {
     factorValues,
@@ -161,12 +153,6 @@ const Scene: React.FC<{
   return (
     <>
       <scene ref={debugSceneRef}>
-        {probeDebugTextures.map((tex, texIndex) => (
-          <mesh position={[5, 95 - texIndex * 9, 0]} key={texIndex}>
-            <planeBufferGeometry attach="geometry" args={[8, 8]} />
-            <DebugMaterial attach="material" map={tex} />
-          </mesh>
-        ))}
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
           <DebugMaterial attach="material" map={outputTexture} />
@@ -191,11 +177,7 @@ const Scene: React.FC<{
           ))}
 
           <IrradianceSurface factor="sign" innerMaterialRef={signMaterialRef}>
-            <primitive
-              object={baseMesh}
-              dispose={null}
-              onClick={handleDebugClick}
-            />
+            <primitive object={baseMesh} dispose={null} />
           </IrradianceSurface>
 
           <IrradianceSurface>
@@ -212,7 +194,6 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {baseLightSceneElement || sunLightSceneElement || signLightSceneElement}
       {compositorSceneElement}
     </>
   );
@@ -319,13 +300,15 @@ function App() {
       }}
     >
       {loaded ? (
-        <IrradianceSurfaceManager>
-          <Scene
-            loadedMeshList={loadedMeshList}
-            loadedLightList={loadedLightList}
-            loadedClipList={loadedClipList}
-          />
-        </IrradianceSurfaceManager>
+        <WorkManager>
+          <IrradianceSurfaceManager>
+            <Scene
+              loadedMeshList={loadedMeshList}
+              loadedLightList={loadedLightList}
+              loadedClipList={loadedClipList}
+            />
+          </IrradianceSurfaceManager>
+        </WorkManager>
       ) : null}
 
       <SceneControls />
