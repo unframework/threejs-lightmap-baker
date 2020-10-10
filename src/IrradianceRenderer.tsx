@@ -187,7 +187,7 @@ function getLightProbeSceneElement(
                 // if output directly from visible scene's shader)
                 EMISSIVE_MULTIPLIER * activeEmissiveIntensity
               }
-              lightMap={lastTexture}
+              lightMap={albedoMap ? lastTexture : undefined} // only light if has UV
               toneMapped={false} // must output in raw linear space
             />
           </primitive>
@@ -589,28 +589,39 @@ export function useIrradianceRenderer(
       activeOutputData.set(rgb, atlasTexelBase * 3);
 
       // propagate texel value to seam bleed offset area if needed
+      // check all conditions for e.g. single-texel width slices
       if (faceTexelX === 0) {
         activeOutputData.set(rgb, (atlasTexelBase - 1) * 3);
-      } else if (faceTexelX === faceTexelCols - 1) {
+      }
+
+      if (faceTexelX === faceTexelCols - 1) {
         activeOutputData.set(rgb, (atlasTexelBase + 1) * 3);
       }
 
       if (faceTexelY === 0) {
         activeOutputData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
-      } else if (faceTexelY === faceTexelRows - 1) {
+      }
+
+      if (faceTexelY === faceTexelRows - 1) {
         activeOutputData.set(rgb, (atlasTexelBase + atlasWidth) * 3);
       }
 
       if (faceTexelX === 0) {
         if (faceTexelY === 0) {
           activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
-        } else if (faceTexelY === faceTexelRows - 1) {
+        }
+
+        if (faceTexelY === faceTexelRows - 1) {
           activeOutputData.set(rgb, (atlasTexelBase + atlasWidth - 1) * 3);
         }
-      } else if (faceTexelX === faceTexelCols - 1) {
+      }
+
+      if (faceTexelX === faceTexelCols - 1) {
         if (faceTexelY === 0) {
           activeOutputData.set(rgb, (atlasTexelBase - atlasWidth + 1) * 3);
-        } else if (faceTexelY === faceTexelRows - 1) {
+        }
+
+        if (faceTexelY === faceTexelRows - 1) {
           activeOutputData.set(rgb, (atlasTexelBase + atlasWidth + 1) * 3);
         }
       }

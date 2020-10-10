@@ -16,7 +16,7 @@ const itemSizeU = itemTexelU / atlasWidth;
 const itemSizeV = itemTexelV / atlasHeight;
 
 // maximum physical dimension of a stored item's face
-const atlasItemMaxDim = 5;
+const atlasItemMaxDim = 4;
 
 const itemsPerRow = Math.floor(1 / itemCellU);
 
