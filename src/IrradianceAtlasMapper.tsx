@@ -21,14 +21,15 @@ const AtlasItemMaterial: React.FC = () => {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
+        side: THREE.DoubleSide, // UVs might have arbitrary winding
         vertexShader: `
           varying vec3 vFacePos;
 
           void main() {
-            vFacePos = facePosition;
+            vFacePos = position;
 
             gl_Position = projectionMatrix * vec4(
-              facePosition.xy,
+              uv, // UV is the actual position on map
               0,
               1.0
             );
@@ -38,7 +39,8 @@ const AtlasItemMaterial: React.FC = () => {
           varying vec3 vFacePos;
 
           void main() {
-            gl_FragColor = vec4(vFacePos, 1.0);
+            // encode the face information in map
+            gl_FragColor = vec4(vFacePos.xy, vFacePos.z + 1.0, 1.0);
           }
         `
       }),
@@ -122,15 +124,13 @@ export function useIrradianceAtlasMapper(): {
                   faceVertexIndex,
                   facePosX,
                   facePosY,
-                  itemIndex * 1000 + faceIndex
+                  itemIndex * 1000 + faceIndex // @todo put +1 here instead of shader (Threejs somehow fails to set it though?)
                 );
               }
 
               const atlasBuffer = new THREE.BufferGeometry();
+              atlasBuffer.setAttribute('position', atlasFacePosAttr);
               atlasBuffer.setAttribute('uv', atlasUVAttr);
-              atlasBuffer.setAttribute('facePosition', atlasFacePosAttr);
-
-              console.log(atlasFacePosAttr.array);
 
               return atlasBuffer;
             })
