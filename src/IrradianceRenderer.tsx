@@ -510,21 +510,40 @@ export function useIrradianceRenderer(
     outputIsComplete ? null : lightSceneElement,
     (gl, lightScene) => {
       const { quads } = atlas;
+      const totalTexelCount = atlasWidth * atlasHeight;
 
-      const [texelIndex] = activeTexelCounter;
+      // allow for skipping a certain amount of empty texels
+      const maxCounter = Math.min(totalTexelCount, activeTexelCounter[0] + 100);
 
-      // check if there is nothing to do anymore for this scene iteration
-      if (texelIndex >= atlasWidth * atlasHeight) {
-        return;
-      }
+      // keep trying texels until non-empty one is found
+      while (activeTexelCounter[0] < maxCounter) {
+        const texelIndex = activeTexelCounter[0];
 
-      // get current atlas face we are filling up
-      const texelInfoBase = texelIndex * 4;
-      const texelPosU = atlasMapData[texelInfoBase];
-      const texelPosV = atlasMapData[texelInfoBase + 1];
-      const texelQuadEnc = atlasMapData[texelInfoBase + 2];
+        // always update texel count
+        // and mark state as completed once all texels are done
+        activeTexelCounter[0] = texelIndex + 1;
 
-      if (texelQuadEnc !== 0) {
+        if (activeTexelCounter[0] >= totalTexelCount) {
+          setProcessingState((prev) => {
+            return {
+              ...prev,
+              passComplete: true
+            };
+          });
+        }
+
+        // get current atlas face we are filling up
+        const texelInfoBase = texelIndex * 4;
+        const texelPosU = atlasMapData[texelInfoBase];
+        const texelPosV = atlasMapData[texelInfoBase + 1];
+        const texelQuadEnc = atlasMapData[texelInfoBase + 2];
+
+        // skip computation if this texel is empty
+        if (texelQuadEnc === 0) {
+          continue;
+        }
+
+        // otherwise, proceed with computation and exit
         const texelQuadIndex = Math.round(texelQuadEnc - 1);
 
         if (texelQuadIndex < 0 || texelQuadIndex >= quads.length) {
@@ -580,6 +599,9 @@ export function useIrradianceRenderer(
         activeOutputData.set(rgb, texelIndex * 3);
 
         activeOutput.needsUpdate = true;
+
+        // some computation happened, do not iterate further
+        break;
       }
 
       // propagate texel value to seam bleed offset area if needed
@@ -622,19 +644,6 @@ export function useIrradianceRenderer(
       //     activeOutputData.set(rgb, (atlasTexelBase + atlasWidth + 1) * 3);
       //   }
       // }
-
-      // always update texel count
-      activeTexelCounter[0] = texelIndex + 1;
-
-      // mark state as completed once all faces are done
-      if (activeTexelCounter[0] >= atlasWidth * atlasHeight) {
-        setProcessingState((prev) => {
-          return {
-            ...prev,
-            passComplete: true
-          };
-        });
-      }
     }
   );
 
