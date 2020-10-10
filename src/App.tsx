@@ -9,6 +9,7 @@ import IrradianceSurfaceManager, {
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
+import { useIrradianceAtlasMapper } from './IrradianceAtlasMapper';
 import { useIrradianceRenderer } from './IrradianceRenderer';
 import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
@@ -115,6 +116,8 @@ const Scene: React.FC<{
   // debug output texture
   // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
 
+  const { atlasMapTexture, mapperSceneElement } = useIrradianceAtlasMapper();
+
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
 
@@ -142,6 +145,11 @@ const Scene: React.FC<{
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
           <DebugMaterial attach="material" map={outputTexture} />
+        </mesh>
+
+        <mesh position={[85, 60, 0]}>
+          <planeBufferGeometry attach="geometry" args={[20, 20]} />
+          <DebugMaterial attach="material" map={atlasMapTexture} />
         </mesh>
       </scene>
 
@@ -176,6 +184,7 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
+      {mapperSceneElement}
       {compositorSceneElement}
     </>
   );
