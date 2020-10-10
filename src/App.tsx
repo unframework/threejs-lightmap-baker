@@ -17,7 +17,7 @@ import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
 
-import sceneUrl from './tile-game-room5.glb';
+import sceneUrl from './tile-game-room6.glb';
 
 const Scene: React.FC<{
   loadedData: GLTF;
@@ -115,10 +115,9 @@ const Scene: React.FC<{
   );
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
-  const postsMesh = loadedMeshList.find((item) => item.name === 'Posts');
   const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
 
-  if (!baseMesh || !postsMesh || !coverMesh) {
+  if (!baseMesh || !coverMesh) {
     throw new Error('objects not found');
   }
 
@@ -179,10 +178,6 @@ const Scene: React.FC<{
 
           <IrradianceSurface>
             <primitive object={baseMesh} dispose={null} />
-          </IrradianceSurface>
-
-          <IrradianceSurface>
-            <primitive object={postsMesh} dispose={null} />
           </IrradianceSurface>
 
           <IrradianceSurface>
