@@ -8,15 +8,7 @@ import {
   atlasHeight
 } from './IrradianceSurfaceManager';
 
-// @todo dispose of render target, etc
-export function useIrradianceAtlasMapper(): {
-  atlasMapTexture: THREE.Texture;
-  mapperSceneElement: React.ReactElement | null;
-} {
-  const orthoSceneRef = useRef<THREE.Scene>();
-
-  const atlas = useIrradianceAtlasContext();
-
+const AtlasItemMaterial: React.FC<{}> = ({}) => {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -41,12 +33,18 @@ export function useIrradianceAtlasMapper(): {
     []
   );
 
-  useEffect(
-    () => () => {
-      material.dispose();
-    },
-    [material]
-  );
+  return <primitive attach="material" object={material} />;
+};
+
+// @todo dispose of render target, etc
+export function useIrradianceAtlasMapper(): {
+  atlasMapTexture: THREE.Texture;
+  mapperSceneElement: React.ReactElement | null;
+} {
+  const orthoSceneRef = useRef<THREE.Scene>();
+  const renderComplete = useRef(false);
+
+  const atlas = useIrradianceAtlasContext();
 
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
@@ -63,9 +61,11 @@ export function useIrradianceAtlasMapper(): {
 
   useFrame(({ gl }) => {
     // ensure render scene has been instantiated
-    if (!orthoSceneRef.current) {
+    if (!orthoSceneRef.current || renderComplete.current) {
       return;
     }
+
+    renderComplete.current = true; // prevent further renders
 
     const orthoScene = orthoSceneRef.current; // local var for type safety
 
@@ -83,7 +83,7 @@ export function useIrradianceAtlasMapper(): {
         {atlas.lightSceneItems.map((item, itemIndex) => (
           <mesh key={itemIndex} position={[0.5, 0.5, 0]}>
             <planeBufferGeometry attach="geometry" args={[1, 1]} />
-            <primitive attach="material" object={material} dispose={null} />
+            <AtlasItemMaterial />
           </mesh>
         ))}
       </scene>
