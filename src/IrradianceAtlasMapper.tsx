@@ -12,6 +12,7 @@ import {
 // write out original face geometry info into the atlas map
 // each texel corresponds to: (quadX, quadY, quadIndex)
 // where quadX and quadY are 0..1 representing a spot in the original quad
+// and quadIndex is 1-based to distinguish from blank space
 // which allows to find original 3D position/normal/etc for that texel
 // (quad index is int stored as float, but precision should be good enough)
 // @todo consider stencil buffer, or just 8bit texture
@@ -56,7 +57,7 @@ const AtlasQuadMaterial: React.FC<{ quadIndex: number; quad: AtlasQuad }> = ({
           varying vec2 vQuadPos;
 
           void main() {
-            gl_FragColor = vec4(vQuadPos, quadIndex, 1.0);
+            gl_FragColor = vec4(vQuadPos, quadIndex + 1.0, 1.0);
           }
         `
       }),
@@ -132,7 +133,7 @@ export function useIrradianceAtlasMapper(): {
   }, 10);
 
   return {
-    atlasMapTexture: orthoTarget.texture,
+    atlasMapTexture: orthoTarget.texture, // @todo suppress until render is complete
     atlasMapData: orthoData,
     mapperSceneElement: (
       <scene ref={orthoSceneRef}>
