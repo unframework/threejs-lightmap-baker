@@ -411,6 +411,10 @@ function useLightProbe(probeTargetSize: number) {
   return renderLightProbe;
 }
 
+// offsets for 3x3 brush
+const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
+const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
+
 // @todo read atlas map data from surface manager
 export function useIrradianceRenderer(
   atlasMapData: Float32Array,
@@ -598,52 +602,33 @@ export function useIrradianceRenderer(
         // store computed illumination value
         activeOutputData.set(rgb, texelIndex * 3);
 
+        // propagate value to 3x3 brush area
+        // @todo track already-written texels
+        const texelX = texelIndex % atlasWidth;
+        const texelRowStart = texelIndex - texelX;
+
+        for (let offDir = 0; offDir < 8; offDir += 1) {
+          const offX = offDirX[offDir];
+          const offY = offDirY[offDir];
+
+          const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
+          const offRowStart =
+            (totalTexelCount + texelRowStart + offY * atlasWidth) %
+            totalTexelCount;
+          const offTexelDataBase = (offRowStart + offRowX) * 4;
+
+          // fill texel if it will not/did not receive real computed data otherwise
+          const offTexelQuadEnc = atlasMapData[offTexelDataBase + 2];
+          if (offTexelQuadEnc === 0) {
+            activeOutputData.set(rgb, (offRowStart + offRowX) * 3);
+          }
+        }
+
         activeOutput.needsUpdate = true;
 
         // some computation happened, do not iterate further
         break;
       }
-
-      // propagate texel value to seam bleed offset area if needed
-      // check all conditions for e.g. single-texel width slices
-
-      // @todo replace this to better support arbitrary shapes (e.g. use 3x3 brush)
-
-      // if (faceTexelX === 0) {
-      //   activeOutputData.set(rgb, (atlasTexelBase - 1) * 3);
-      // }
-
-      // if (faceTexelX === faceTexelCols - 1) {
-      //   activeOutputData.set(rgb, (atlasTexelBase + 1) * 3);
-      // }
-
-      // if (faceTexelY === 0) {
-      //   activeOutputData.set(rgb, (atlasTexelBase - atlasWidth) * 3);
-      // }
-
-      // if (faceTexelY === faceTexelRows - 1) {
-      //   activeOutputData.set(rgb, (atlasTexelBase + atlasWidth) * 3);
-      // }
-
-      // if (faceTexelX === 0) {
-      //   if (faceTexelY === 0) {
-      //     activeOutputData.set(rgb, (atlasTexelBase - atlasWidth - 1) * 3);
-      //   }
-
-      //   if (faceTexelY === faceTexelRows - 1) {
-      //     activeOutputData.set(rgb, (atlasTexelBase + atlasWidth - 1) * 3);
-      //   }
-      // }
-
-      // if (faceTexelX === faceTexelCols - 1) {
-      //   if (faceTexelY === 0) {
-      //     activeOutputData.set(rgb, (atlasTexelBase - atlasWidth + 1) * 3);
-      //   }
-
-      //   if (faceTexelY === faceTexelRows - 1) {
-      //     activeOutputData.set(rgb, (atlasTexelBase + atlasWidth + 1) * 3);
-      //   }
-      // }
     }
   );
 
