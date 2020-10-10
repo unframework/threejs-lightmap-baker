@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -17,64 +17,35 @@ import {
 // (quad index is int stored as float, but precision should be good enough)
 // @todo consider stencil buffer, or just 8bit texture
 // @todo consider rounding to account for texel size
-const AtlasQuadMaterial: React.FC<{ quadIndex: number; quad: AtlasQuad }> = ({
-  quadIndex,
-  quad
-}) => {
+const AtlasItemMaterial: React.FC = () => {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        uniforms: {
-          quadIndex: { value: 0 },
-          left: { value: 0 },
-          top: { value: 0 },
-          sizeU: { value: 0 },
-          sizeV: { value: 0 }
-        },
-
         vertexShader: `
-          uniform float left;
-          uniform float top;
-          uniform float sizeU;
-          uniform float sizeV;
-          varying vec2 vQuadPos;
+          varying vec3 vFacePos;
 
           void main() {
-            vec4 worldPosition = modelMatrix * vec4( position, 1.0 );
-
-            vQuadPos = worldPosition.xy;
+            vFacePos = facePosition;
 
             gl_Position = projectionMatrix * vec4(
-              left + sizeU * worldPosition.x,
-              top + sizeV * worldPosition.y,
+              facePosition.xy,
               0,
               1.0
             );
           }
         `,
         fragmentShader: `
-          uniform float quadIndex;
-          varying vec2 vQuadPos;
+          varying vec3 vFacePos;
 
           void main() {
-            gl_FragColor = vec4(vQuadPos, quadIndex + 1.0, 1.0);
+            gl_FragColor = vec4(vFacePos, 1.0);
           }
         `
       }),
     []
   );
 
-  return (
-    <primitive
-      attach="material"
-      object={material}
-      uniforms-quadIndex-value={quadIndex}
-      uniforms-left-value={quad.left}
-      uniforms-top-value={quad.top}
-      uniforms-sizeU-value={quad.sizeU}
-      uniforms-sizeV-value={quad.sizeV}
-    />
-  );
+  return <primitive attach="material" object={material} />;
 };
 
 // @todo provide output via context (esp once quad-based autolayout is removed/separated from main surface manager)
@@ -87,7 +58,85 @@ export function useIrradianceAtlasMapper(): {
   const orthoSceneRef = useRef<THREE.Scene>();
   const renderComplete = useRef(false);
 
+  const [isLoaded, setIsLoaded] = useState(false);
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
+
   const atlas = useIrradianceAtlasContext();
+
+  const geoms = useMemo(
+    () =>
+      isLoaded
+        ? atlas.lightSceneItems
+            .filter((item) => !!item.albedoMap)
+            .map((item, itemIndex) => {
+              const { buffer } = item;
+
+              if (!(buffer instanceof THREE.BufferGeometry)) {
+                throw new Error('expected buffer geometry');
+              }
+
+              const indexAttr = buffer.index;
+              if (!indexAttr) {
+                throw new Error('expected face index array');
+              }
+
+              const faceVertexCount = indexAttr.count;
+              const uv2Attr = buffer.attributes.uv2;
+              if (!uv2Attr || !(uv2Attr instanceof THREE.BufferAttribute)) {
+                throw new Error('expected uv2 attribute');
+              }
+              const uv2Data = uv2Attr.array;
+
+              const atlasUVAttr = new THREE.Float32BufferAttribute(
+                faceVertexCount * 2,
+                2
+              );
+              const atlasFacePosAttr = new THREE.Float32BufferAttribute(
+                faceVertexCount * 3,
+                3
+              );
+
+              const indexData = indexAttr.array;
+              for (
+                let faceVertexIndex = 0;
+                faceVertexIndex < faceVertexCount;
+                faceVertexIndex += 1
+              ) {
+                atlasUVAttr.copyAt(
+                  faceVertexIndex,
+                  uv2Attr,
+                  indexData[faceVertexIndex]
+                );
+
+                // positioning in face
+                const faceMod = faceVertexIndex % 3;
+                const facePosX = faceMod & 1;
+                const facePosY = (faceMod & 2) >> 1;
+
+                // mesh index + face index combined into one
+                const faceIndex = (faceVertexIndex - faceMod) / 3;
+
+                atlasFacePosAttr.setXYZ(
+                  faceVertexIndex,
+                  facePosX,
+                  facePosY,
+                  itemIndex * 1000 + faceIndex
+                );
+              }
+
+              const atlasBuffer = new THREE.BufferGeometry();
+              atlasBuffer.setAttribute('uv', atlasUVAttr);
+              atlasBuffer.setAttribute('facePosition', atlasFacePosAttr);
+
+              console.log(atlasFacePosAttr.array);
+
+              return atlasBuffer;
+            })
+        : null,
+    [atlas.lightSceneItems, isLoaded]
+  );
 
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
@@ -136,14 +185,16 @@ export function useIrradianceAtlasMapper(): {
   return {
     atlasMapTexture: orthoTarget.texture, // @todo suppress until render is complete
     atlasMapData: orthoData,
-    mapperSceneElement: (
+    mapperSceneElement: geoms && (
       <scene ref={orthoSceneRef}>
-        {atlas.quads.map((quad, quadIndex) => (
-          <mesh key={quadIndex} position={[0.5, 0.5, 0]}>
-            <planeBufferGeometry attach="geometry" args={[1, 1]} />
-            <AtlasQuadMaterial quadIndex={quadIndex} quad={quad} />
-          </mesh>
-        ))}
+        {geoms.map((geom, geomIndex) => {
+          return (
+            <mesh key={geomIndex}>
+              <primitive attach="geometry" object={geom} />
+              <AtlasItemMaterial />
+            </mesh>
+          );
+        })}
       </scene>
     )
   };

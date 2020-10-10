@@ -222,10 +222,10 @@ export function useAtlasMeshRef(
       }
 
       // store illumination UV as dedicated attribute
-      meshBuffer.setAttribute(
-        'uv2',
-        atlasUVAttr.setUsage(THREE.StaticDrawUsage)
-      );
+      // meshBuffer.setAttribute(
+      //   'uv2',
+      //   atlasUVAttr.setUsage(THREE.StaticDrawUsage)
+      // );
     }
 
     // allow upstream code to run

@@ -18,7 +18,7 @@ import {
 } from './IrradianceSurfaceManager';
 import { WorkManagerContext } from './WorkManager';
 
-const MAX_PASSES = 2;
+const MAX_PASSES = 0;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
 
 const tmpFaceIndexes: [number, number, number, number] = [-1, -1, -1, -1];
@@ -445,7 +445,8 @@ export function useIrradianceRenderer(
   } => {
     const [initialTexture, initialData] = createAtlasTexture(
       atlasWidth,
-      atlasHeight
+      atlasHeight,
+      factorName === null // test pattern only on base
     );
 
     return {
