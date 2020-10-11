@@ -410,13 +410,13 @@ export function useIrradianceRenderer(
   const atlas = useIrradianceAtlasContext();
 
   const [
-    { activeFactorName, activeTexelCounter, passComplete, passes },
+    { activeFactorName, activeTexelCounter, passComplete, passesRemaining },
     setProcessingState
   ] = useState(() => ({
     activeFactorName: factorName,
     activeTexelCounter: [0], // directly changed in place to avoid re-renders
     passComplete: true, // trigger first pass
-    passes: 0
+    passesRemaining: MAX_PASSES
   }));
 
   // output of the previous pass to apply to light scene during current pass
@@ -446,7 +446,7 @@ export function useIrradianceRenderer(
   // automatically kick off new processing when ready
   useLayoutEffect(() => {
     // check if we need to set up new pass
-    if (!passComplete || passes >= MAX_PASSES) {
+    if (!passComplete || passesRemaining === 0) {
       return;
     }
 
@@ -454,9 +454,7 @@ export function useIrradianceRenderer(
     setTimeout(() => {
       setProcessingState((prev) => {
         // copy completed data
-        if (passes > 0) {
-          previousOutputData.set(activeOutputData);
-        }
+        previousOutputData.set(activeOutputData);
 
         // reset output (re-create test pattern only on base)
         // @todo do this only when needing to show debug output?
@@ -472,16 +470,16 @@ export function useIrradianceRenderer(
           activeFactorName: prev.activeFactorName,
           activeTexelCounter: [0],
           passComplete: false,
-          passes: prev.passes + 1
+          passesRemaining: prev.passesRemaining - 1
         };
       });
     }, 0);
-  }, [passComplete, passes, previousOutputData, activeOutputData]);
+  }, [passComplete, passesRemaining, previousOutputData, activeOutputData]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
 
-  const outputIsComplete = passes >= MAX_PASSES && passComplete;
+  const outputIsComplete = passesRemaining === 0 && passComplete;
 
   useWorkManager(
     outputIsComplete ? null : lightSceneElement,
