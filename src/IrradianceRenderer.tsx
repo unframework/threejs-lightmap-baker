@@ -476,6 +476,7 @@ export function useIrradianceRenderer(
 
     // copy completed data
     previousOutputData.set(activeOutputData);
+    previousOutput.needsUpdate = true;
 
     // reset output (re-create test pattern only on base)
     // @todo do this only when needing to show debug output?
@@ -500,6 +501,7 @@ export function useIrradianceRenderer(
     withTestPattern,
     passComplete,
     passesRemaining,
+    previousOutput,
     previousOutputData,
     activeOutputData
   ]);
