@@ -2,9 +2,6 @@ import React, { useMemo, useCallback, useContext } from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
-export const atlasWidth = 64;
-export const atlasHeight = 64;
-
 export interface AtlasSceneItem {
   mesh: THREE.Mesh;
   buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine

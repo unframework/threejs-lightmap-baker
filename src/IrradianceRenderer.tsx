@@ -9,14 +9,14 @@ import React, {
 import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
 import * as THREE from 'three';
 
+import { useIrradianceAtlasContext, Atlas } from './IrradianceSurfaceManager';
+import { WorkManagerContext } from './WorkManager';
 import {
   atlasWidth,
   atlasHeight,
-  useIrradianceAtlasContext,
-  Atlas
-} from './IrradianceSurfaceManager';
-import { WorkManagerContext } from './WorkManager';
-import { MAX_ITEM_FACES, AtlasMapItem } from './IrradianceAtlasMapper';
+  MAX_ITEM_FACES,
+  AtlasMapItem
+} from './IrradianceAtlasMapper';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness

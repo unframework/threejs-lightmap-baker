@@ -2,11 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import {
-  useIrradianceAtlasContext,
-  atlasWidth,
-  atlasHeight
-} from './IrradianceSurfaceManager';
+import { useIrradianceAtlasContext } from './IrradianceSurfaceManager';
 
 export interface AtlasMapItem {
   faceCount: number;
@@ -14,6 +10,9 @@ export interface AtlasMapItem {
   originalMesh: THREE.Mesh;
   originalBuffer: THREE.BufferGeometry;
 }
+
+export const atlasWidth = 64;
+export const atlasHeight = 64;
 
 export const MAX_ITEM_FACES = 1000; // used for encoding item+face index in texture
 
