@@ -424,6 +424,11 @@ export function useIrradianceRenderer(
 
   const [
     {
+      previousOutput,
+      previousOutputData,
+      activeOutput,
+      activeOutputData,
+
       activeLightSceneElement, // light scene used for actual light probes
       activeTexelCounter, // directly changed in place to avoid re-renders
       withTestPattern,
@@ -431,26 +436,52 @@ export function useIrradianceRenderer(
       passesRemaining
     },
     setProcessingState
-  ] = useState(() => ({
-    activeLightSceneElement: null as React.ReactElement | null,
-    activeTexelCounter: [0],
-    withTestPattern: false,
-    passComplete: true,
-    passesRemaining: 0 // initial state is just blank + complete
-  }));
+  ] = useState(() => {
+    // placeholder textures for the empty state
+    const [dummyOutput, dummyOutputData] = createOutputTexture(
+      atlasWidth,
+      atlasHeight
+    );
 
-  // output of the previous pass to apply to light scene during current pass
-  const [previousOutput, previousOutputData] = useMemo(
-    () => createOutputTexture(atlasWidth, atlasHeight),
-    []
-  );
+    return {
+      // output of the previous baking pass (applied to the light probe scene)
+      previousOutput: dummyOutput,
+      previousOutputData: dummyOutputData,
+
+      // currently produced output
+      activeOutput: dummyOutput,
+      activeOutputData: dummyOutputData,
+
+      activeLightSceneElement: null as React.ReactElement | null,
+      activeTexelCounter: [0],
+      withTestPattern: false,
+      passComplete: true,
+      passesRemaining: 0 // initial state is just blank + complete
+    };
+  });
 
   // start new processing when ready
   useEffect(() => {
+    const [
+      createdPreviousOutput,
+      createdPreviousOutputData
+    ] = createOutputTexture(atlasWidth, atlasHeight);
+
+    // this will be pre-filled with test pattern if needed on start of pass
+    const [createdActiveOutput, createdActiveOutputData] = createOutputTexture(
+      atlasWidth,
+      atlasHeight
+    );
+
     setProcessingState({
+      previousOutput: createdPreviousOutput,
+      previousOutputData: createdPreviousOutputData,
+      activeOutput: createdActiveOutput,
+      activeOutputData: createdActiveOutputData,
+
       activeLightSceneElement: getLightProbeSceneElement(
         atlas,
-        previousOutput,
+        createdPreviousOutput,
         factorNameRef.current,
         animationTimeRef.current
       ),
@@ -459,13 +490,7 @@ export function useIrradianceRenderer(
       passComplete: true, // this triggers new pass on next render
       passesRemaining: MAX_PASSES
     });
-  }, [atlas, previousOutput]);
-
-  // output of the current pass
-  const [activeOutput, activeOutputData] = useMemo(
-    () => createOutputTexture(atlasWidth, atlasHeight),
-    []
-  );
+  }, [atlas]);
 
   // automatically kick off new processing when ready
   useEffect(() => {
@@ -490,9 +515,9 @@ export function useIrradianceRenderer(
 
     setProcessingState((prev) => {
       return {
-        activeLightSceneElement: prev.activeLightSceneElement,
+        ...prev,
+
         activeTexelCounter: [0],
-        withTestPattern: prev.withTestPattern,
         passComplete: false,
         passesRemaining: prev.passesRemaining - 1
       };
@@ -503,6 +528,7 @@ export function useIrradianceRenderer(
     passesRemaining,
     previousOutput,
     previousOutputData,
+    activeOutput,
     activeOutputData
   ]);
 
