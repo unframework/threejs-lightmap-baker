@@ -260,7 +260,15 @@ function useLightProbe(probeTargetSize: number) {
     return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
       type: THREE.FloatType
     });
-  }, []);
+  }, [probeTargetSize]);
+
+  useEffect(
+    () => () => {
+      // clean up on unmount
+      probeTarget.dispose();
+    },
+    [probeTarget]
+  );
 
   const probeCam = useMemo(() => {
     const rtFov = 90; // view cone must be quarter of the hemisphere
@@ -272,7 +280,7 @@ function useLightProbe(probeTargetSize: number) {
 
   const probeData = useMemo(() => {
     return new Float32Array(probeTargetSize * probeTargetSize * 4);
-  }, []);
+  }, [probeTargetSize]);
 
   // @todo ensure there is biasing to be in middle of texel physical square
   function renderLightProbe(
