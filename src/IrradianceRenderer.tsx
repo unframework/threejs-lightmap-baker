@@ -207,7 +207,6 @@ function setUpProbeUp(
 ) {
   probeCam.position.copy(origin);
 
-  // align "up" to be along U-axis of face (for convenience)
   probeCam.up.copy(uDir);
 
   // add normal to accumulator and look at it
@@ -306,6 +305,20 @@ function useLightProbe(probeTargetSize: number) {
     tmpOrigin.addScaledVector(tmpV, pV);
 
     tmpNormal.fromArray(normalArray, faceVertexBase * 3);
+
+    // use consistent "left" and "up" directions based on just the normal
+    // @todo move into atlas map logic
+    if (tmpNormal.x === 0 && tmpNormal.y === 0) {
+      tmpU.set(1, 0, 0);
+    } else {
+      tmpU.set(0, 0, 1);
+    }
+
+    tmpV.crossVectors(tmpNormal, tmpU);
+    tmpV.normalize();
+
+    tmpU.crossVectors(tmpNormal, tmpV);
+    tmpU.normalize();
 
     gl.setRenderTarget(probeTarget);
 
@@ -521,11 +534,7 @@ export function useIrradianceRenderer(
         const texelItemIndex =
           (texelFaceIndexCombo - texelFaceIndex) / MAX_ITEM_FACES;
 
-        if (
-          texelItemIndex < 0 ||
-          texelFaceIndex < 0 ||
-          texelItemIndex >= atlasMapItems.length
-        ) {
+        if (texelItemIndex < 0 || texelItemIndex >= atlasMapItems.length) {
           throw new Error(
             `incorrect atlas map item data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
           );
@@ -533,7 +542,7 @@ export function useIrradianceRenderer(
 
         const atlasItem = atlasMapItems[texelItemIndex];
 
-        if (texelFaceIndex >= atlasItem.faceCount) {
+        if (texelFaceIndex < 0 || texelFaceIndex >= atlasItem.faceCount) {
           throw new Error(
             `incorrect atlas map face data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
           );

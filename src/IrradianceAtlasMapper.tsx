@@ -134,7 +134,7 @@ export function useIrradianceAtlasMapper(): {
                   indexData[faceVertexIndex]
                 );
 
-                // @todo properly compute from real position of verts? source data may not be reliable
+                // source data should specify normals correctly (since winding order is unknown)
                 atlasNormalAttr.copyAt(
                   faceVertexIndex,
                   normalAttr,
