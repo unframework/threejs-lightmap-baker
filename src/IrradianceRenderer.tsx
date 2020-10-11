@@ -229,13 +229,13 @@ function setUpProbeSide(
   direction: THREE.Vector3,
   directionSign: number
 ) {
-  probeCam.position.copy(tmpOrigin);
+  probeCam.position.copy(origin);
 
   // up is the normal
   probeCam.up.copy(normal);
 
   // add normal to accumulator and look at it
-  tmpLookAt.copy(tmpOrigin);
+  tmpLookAt.copy(origin);
   tmpLookAt.addScaledVector(direction, directionSign);
 
   probeCam.lookAt(tmpLookAt);
