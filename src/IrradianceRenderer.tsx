@@ -39,6 +39,7 @@ export interface IrradianceStagingTimeline {
   meshes: IrradianceStagingTimelineMesh[];
 }
 
+// @todo move into surface manager?
 function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
@@ -303,21 +304,10 @@ function useLightProbe(probeTargetSize: number) {
     tmpOrigin.addScaledVector(tmpU, pU);
     tmpOrigin.addScaledVector(tmpV, pV);
 
+    // get precomputed normal and cardinal directions
     tmpNormal.fromArray(normalArray, faceVertexBase * 3);
-
-    // use consistent "left" and "up" directions based on just the normal
-    // @todo move into atlas map logic
-    if (tmpNormal.x === 0 && tmpNormal.y === 0) {
-      tmpU.set(1, 0, 0);
-    } else {
-      tmpU.set(0, 0, 1);
-    }
-
-    tmpV.crossVectors(tmpNormal, tmpU);
-    tmpV.normalize();
-
-    tmpU.crossVectors(tmpNormal, tmpV);
-    tmpU.normalize();
+    tmpU.fromArray(normalArray, (faceVertexBase + 1) * 3);
+    tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
 
     gl.setRenderTarget(probeTarget);
 

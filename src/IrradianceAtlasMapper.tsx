@@ -16,6 +16,11 @@ export const atlasHeight = 64;
 
 export const MAX_ITEM_FACES = 1000; // used for encoding item+face index in texture
 
+// temp objects for computation
+const tmpNormal = new THREE.Vector3();
+const tmpU = new THREE.Vector3();
+const tmpV = new THREE.Vector3();
+
 // write out original face geometry info into the atlas map
 // each texel corresponds to: (quadX, quadY, quadIndex)
 // where quadX and quadY are 0..1 representing a spot in the original quad
@@ -126,21 +131,56 @@ export function useIrradianceAtlasMapper(): {
                 faceVertexIndex < faceVertexCount;
                 faceVertexIndex += 1
               ) {
+                const faceMod = faceVertexIndex % 3;
+
                 atlasUVAttr.copyAt(
                   faceVertexIndex,
                   uv2Attr,
                   indexData[faceVertexIndex]
                 );
 
-                // source data should specify normals correctly (since winding order is unknown)
-                atlasNormalAttr.copyAt(
-                  faceVertexIndex,
-                  normalAttr,
-                  indexData[faceVertexIndex]
-                );
+                // store normal and compute cardinal directions for later
+                if (faceMod === 0) {
+                  // source data should specify normals correctly (since winding order is unknown)
+                  atlasNormalAttr.copyAt(
+                    faceVertexIndex,
+                    normalAttr,
+                    indexData[faceVertexIndex]
+                  );
+
+                  tmpNormal.fromArray(
+                    atlasNormalAttr.array,
+                    faceVertexIndex * 3
+                  );
+
+                  // use consistent "left" and "up" directions based on just the normal
+                  if (tmpNormal.x === 0 && tmpNormal.y === 0) {
+                    tmpU.set(1, 0, 0);
+                  } else {
+                    tmpU.set(0, 0, 1);
+                  }
+
+                  tmpV.crossVectors(tmpNormal, tmpU);
+                  tmpV.normalize();
+
+                  tmpU.crossVectors(tmpNormal, tmpV);
+                  tmpU.normalize();
+
+                  atlasNormalAttr.setXYZ(
+                    faceVertexIndex + 1,
+                    tmpU.x,
+                    tmpU.y,
+                    tmpU.z
+                  );
+                  atlasNormalAttr.setXYZ(
+                    faceVertexIndex + 2,
+                    tmpV.x,
+                    tmpV.y,
+                    tmpV.z
+                  );
+                }
 
                 // positioning in face
-                const faceMod = faceVertexIndex % 3;
                 const facePosX = faceMod & 1;
                 const facePosY = (faceMod & 2) >> 1;
 
