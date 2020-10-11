@@ -160,7 +160,7 @@ export function useIrradianceAtlasMapper(): {
               const atlasBuffer = new THREE.BufferGeometry();
               atlasBuffer.setAttribute('position', atlasFacePosAttr);
               atlasBuffer.setAttribute('uv', atlasUVAttr);
-              atlasBuffer.setAttribute('normal', atlasUVAttr);
+              atlasBuffer.setAttribute('normal', atlasNormalAttr);
 
               return {
                 faceCount: faceVertexCount / 3,
