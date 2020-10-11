@@ -13,8 +13,7 @@ import {
   atlasWidth,
   atlasHeight,
   useIrradianceAtlasContext,
-  Atlas,
-  AtlasQuad
+  Atlas
 } from './IrradianceSurfaceManager';
 import { WorkManagerContext } from './WorkManager';
 import { MAX_ITEM_FACES, AtlasMapItem } from './IrradianceAtlasMapper';

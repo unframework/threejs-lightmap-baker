@@ -4,7 +4,6 @@ import * as THREE from 'three';
 
 import {
   useIrradianceAtlasContext,
-  AtlasQuad,
   atlasWidth,
   atlasHeight
 } from './IrradianceSurfaceManager';
