@@ -2,8 +2,8 @@ import React, { useMemo, useCallback, useContext } from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
-export const atlasWidth = 128;
-export const atlasHeight = 128;
+export const atlasWidth = 64;
+export const atlasHeight = 64;
 
 const bleedOffsetU = 1 / atlasWidth;
 const bleedOffsetV = 1 / atlasHeight;
@@ -222,10 +222,10 @@ export function useAtlasMeshRef(
       }
 
       // store illumination UV as dedicated attribute
-      meshBuffer.setAttribute(
-        'uv2',
-        atlasUVAttr.setUsage(THREE.StaticDrawUsage)
-      );
+      // meshBuffer.setAttribute(
+      //   'uv2',
+      //   atlasUVAttr.setUsage(THREE.StaticDrawUsage)
+      // );
     }
 
     // allow upstream code to run

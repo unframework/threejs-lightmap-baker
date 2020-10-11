@@ -17,21 +17,17 @@ import {
   AtlasQuad
 } from './IrradianceSurfaceManager';
 import { WorkManagerContext } from './WorkManager';
+import { MAX_ITEM_FACES, AtlasMapItem } from './IrradianceAtlasMapper';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
 
-const tmpFaceIndexes: [number, number, number, number] = [-1, -1, -1, -1];
 const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
 const tmpNormal = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
-
-const tmpOriginUV = new THREE.Vector2();
-const tmpUUV = new THREE.Vector2();
-const tmpVUV = new THREE.Vector2();
 
 export interface IrradianceStagingTimelineMesh {
   uuid: string;
@@ -42,45 +38,6 @@ export interface IrradianceStagingTimeline {
   factorName: string | null;
   time: number;
   meshes: IrradianceStagingTimelineMesh[];
-}
-
-// @todo cache this info inside atlas item
-function fetchFaceIndexes(indexArray: ArrayLike<number>, quadIndex: number) {
-  const vBase = quadIndex * 6;
-
-  // pattern is ABD, BCD
-  tmpFaceIndexes[0] = indexArray[vBase];
-  tmpFaceIndexes[1] = indexArray[vBase + 1];
-  tmpFaceIndexes[2] = indexArray[vBase + 4];
-  tmpFaceIndexes[3] = indexArray[vBase + 5];
-}
-
-function fetchFaceAxes(
-  posArray: ArrayLike<number>,
-  quadIndexes: [number, number, number, number]
-) {
-  // get face vertex positions
-  const facePosOrigin = quadIndexes[1] * 3;
-  const facePosU = quadIndexes[2] * 3;
-  const facePosV = quadIndexes[0] * 3;
-
-  tmpOrigin.fromArray(posArray, facePosOrigin);
-  tmpU.fromArray(posArray, facePosU);
-  tmpV.fromArray(posArray, facePosV);
-}
-
-function fetchFaceUVs(
-  uvArray: ArrayLike<number>,
-  quadIndexes: [number, number, number, number]
-) {
-  // get face vertex positions
-  const offsetOrigin = quadIndexes[1] * 2;
-  const offsetU = quadIndexes[2] * 2;
-  const offsetV = quadIndexes[0] * 2;
-
-  tmpOriginUV.fromArray(uvArray, offsetOrigin);
-  tmpUUV.fromArray(uvArray, offsetU);
-  tmpVUV.fromArray(uvArray, offsetV);
 }
 
 function getLightProbeSceneElement(
@@ -250,7 +207,6 @@ function setUpProbeUp(
 ) {
   probeCam.position.copy(origin);
 
-  // align "up" to be along U-axis of face (for convenience)
   probeCam.up.copy(uDir);
 
   // add normal to accumulator and look at it
@@ -272,13 +228,13 @@ function setUpProbeSide(
   direction: THREE.Vector3,
   directionSign: number
 ) {
-  probeCam.position.copy(tmpOrigin);
+  probeCam.position.copy(origin);
 
   // up is the normal
   probeCam.up.copy(normal);
 
   // add normal to accumulator and look at it
-  tmpLookAt.copy(tmpOrigin);
+  tmpLookAt.copy(origin);
   tmpLookAt.addScaledVector(direction, directionSign);
 
   probeCam.lookAt(tmpLookAt);
@@ -311,7 +267,8 @@ function useLightProbe(probeTargetSize: number) {
   // @todo ensure there is biasing to be in middle of texel physical square
   function renderLightProbe(
     gl: THREE.WebGLRenderer,
-    atlasFaceInfo: AtlasQuad,
+    atlasMapItem: AtlasMapItem,
+    faceIndex: number,
     pU: number,
     pV: number,
     lightScene: THREE.Scene,
@@ -321,19 +278,23 @@ function useLightProbe(probeTargetSize: number) {
       pixelCount: number
     ) => void
   ) {
-    const { mesh, buffer, quadIndex } = atlasFaceInfo;
+    const { faceBuffer, originalMesh, originalBuffer } = atlasMapItem;
+
+    if (!originalBuffer.index) {
+      throw new Error('expected indexed mesh');
+    }
 
     // read vertex position for this face and interpolate along U and V axes
-    if (!buffer.index) {
-      throw new Error('no indexes');
-    }
-    const indexes = buffer.index.array;
-    const posArray = buffer.attributes.position.array;
-    const normalArray = buffer.attributes.normal.array;
+    const origIndexArray = originalBuffer.index.array;
+    const origPosArray = originalBuffer.attributes.position.array;
+
+    const normalArray = faceBuffer.attributes.normal.array;
 
     // get face vertex positions
-    fetchFaceIndexes(indexes, quadIndex);
-    fetchFaceAxes(posArray, tmpFaceIndexes);
+    const faceVertexBase = faceIndex * 3;
+    tmpOrigin.fromArray(origPosArray, origIndexArray[faceVertexBase] * 3);
+    tmpU.fromArray(origPosArray, origIndexArray[faceVertexBase + 1] * 3);
+    tmpV.fromArray(origPosArray, origIndexArray[faceVertexBase + 2] * 3);
 
     // compute face dimensions
     tmpU.sub(tmpOrigin);
@@ -343,11 +304,25 @@ function useLightProbe(probeTargetSize: number) {
     tmpOrigin.addScaledVector(tmpU, pU);
     tmpOrigin.addScaledVector(tmpV, pV);
 
-    tmpNormal.fromArray(normalArray, tmpFaceIndexes[0] * 3);
+    tmpNormal.fromArray(normalArray, faceVertexBase * 3);
+
+    // use consistent "left" and "up" directions based on just the normal
+    // @todo move into atlas map logic
+    if (tmpNormal.x === 0 && tmpNormal.y === 0) {
+      tmpU.set(1, 0, 0);
+    } else {
+      tmpU.set(0, 0, 1);
+    }
+
+    tmpV.crossVectors(tmpNormal, tmpU);
+    tmpV.normalize();
+
+    tmpU.crossVectors(tmpNormal, tmpV);
+    tmpU.normalize();
 
     gl.setRenderTarget(probeTarget);
 
-    setUpProbeUp(probeCam, mesh, tmpOrigin, tmpNormal, tmpU);
+    setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -359,7 +334,7 @@ function useLightProbe(probeTargetSize: number) {
     );
     handleProbeData(probeData, 0, probePixelCount);
 
-    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, 1);
+    setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -371,7 +346,7 @@ function useLightProbe(probeTargetSize: number) {
     );
     handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
 
-    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpU, -1);
+    setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -383,7 +358,7 @@ function useLightProbe(probeTargetSize: number) {
     );
     handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
 
-    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, 1);
+    setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, 1);
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -395,7 +370,7 @@ function useLightProbe(probeTargetSize: number) {
     );
     handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
 
-    setUpProbeSide(probeCam, mesh, tmpOrigin, tmpNormal, tmpV, -1);
+    setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, -1);
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -419,6 +394,7 @@ const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
 export function useIrradianceRenderer(
   atlasMapData: Float32Array,
+  atlasMapItems: AtlasMapItem[] | null,
   factorName: string | null,
   time?: number
 ): {
@@ -445,7 +421,8 @@ export function useIrradianceRenderer(
   } => {
     const [initialTexture, initialData] = createAtlasTexture(
       atlasWidth,
-      atlasHeight
+      atlasHeight,
+      false // always blank so that test colours do not reflect on surface
     );
 
     return {
@@ -514,7 +491,10 @@ export function useIrradianceRenderer(
   useWorkManager(
     outputIsComplete ? null : lightSceneElement,
     (gl, lightScene) => {
-      const { quads } = atlas;
+      if (!atlasMapItems) {
+        return;
+      }
+
       const totalTexelCount = atlasWidth * atlasHeight;
 
       // allow for skipping a certain amount of empty texels
@@ -541,25 +521,32 @@ export function useIrradianceRenderer(
         const texelInfoBase = texelIndex * 4;
         const texelPosU = atlasMapData[texelInfoBase];
         const texelPosV = atlasMapData[texelInfoBase + 1];
-        const texelQuadEnc = atlasMapData[texelInfoBase + 2];
+        const texelFaceEnc = atlasMapData[texelInfoBase + 2];
 
         // skip computation if this texel is empty
-        if (texelQuadEnc === 0) {
+        if (texelFaceEnc === 0) {
           continue;
         }
 
         // otherwise, proceed with computation and exit
-        const texelQuadIndex = Math.round(texelQuadEnc - 1);
+        const texelFaceIndexCombo = Math.round(texelFaceEnc - 1);
+        const texelFaceIndex = texelFaceIndexCombo % MAX_ITEM_FACES;
+        const texelItemIndex =
+          (texelFaceIndexCombo - texelFaceIndex) / MAX_ITEM_FACES;
 
-        if (texelQuadIndex < 0 || texelQuadIndex >= quads.length) {
+        if (texelItemIndex < 0 || texelItemIndex >= atlasMapItems.length) {
           throw new Error(
-            `incorrect atlas map data: ${texelPosU}, ${texelPosV}, ${
-              atlasMapData[texelInfoBase + 2]
-            }`
+            `incorrect atlas map item data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
           );
         }
 
-        const atlasFaceInfo = quads[texelQuadIndex];
+        const atlasItem = atlasMapItems[texelItemIndex];
+
+        if (texelFaceIndex < 0 || texelFaceIndex >= atlasItem.faceCount) {
+          throw new Error(
+            `incorrect atlas map face data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
+          );
+        }
 
         // render the probe viewports and collect pixel aggregate
         let r = 0,
@@ -569,7 +556,8 @@ export function useIrradianceRenderer(
 
         renderLightProbe(
           gl,
-          atlasFaceInfo,
+          atlasItem,
+          texelFaceIndex,
           texelPosU,
           texelPosV,
           lightScene,
@@ -620,11 +608,11 @@ export function useIrradianceRenderer(
 
           // fill texel if it will not/did not receive real computed data otherwise;
           // also ensure strong neighbour values (not diagonal) take precedence
-          const offTexelQuadEnc = atlasMapData[offTexelBase + 2];
+          const offTexelFaceEnc = atlasMapData[offTexelBase + 2];
           const isStrongNeighbour = offX === 0 || offY === 0;
           const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
 
-          if (offTexelQuadEnc === 0 && (isStrongNeighbour || isUnfilled)) {
+          if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
             activeOutputData.set(rgba, offTexelBase);
           }
         }
