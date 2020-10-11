@@ -1,5 +1,5 @@
 import React, {
-  useLayoutEffect,
+  useEffect,
   useState,
   useMemo,
   useCallback,
@@ -406,17 +406,29 @@ export function useIrradianceRenderer(
     throw new Error('expected work manager');
   }
 
-  const animationTimeRef = useRef(time || 0); // remember the initial animation time
+  // wrap params in ref to avoid unintended re-triggering
+  const factorNameRef = useRef(factorName);
+  factorNameRef.current = factorName;
+  const animationTimeRef = useRef(time || 0);
+  animationTimeRef.current = time || 0;
+
   const atlas = useIrradianceAtlasContext();
 
   const [
-    { activeFactorName, activeTexelCounter, passComplete, passesRemaining },
+    {
+      activeLightSceneElement, // light scene used for actual light probes
+      activeTexelCounter, // directly changed in place to avoid re-renders
+      withTestPattern,
+      passComplete,
+      passesRemaining
+    },
     setProcessingState
   ] = useState(() => ({
-    activeFactorName: factorName,
-    activeTexelCounter: [0], // directly changed in place to avoid re-renders
-    passComplete: true, // trigger first pass
-    passesRemaining: MAX_PASSES
+    activeLightSceneElement: null as React.ReactElement | null,
+    activeTexelCounter: [0],
+    withTestPattern: false,
+    passComplete: true,
+    passesRemaining: 0 // initial state is just blank + complete
   }));
 
   // output of the previous pass to apply to light scene during current pass
@@ -425,17 +437,21 @@ export function useIrradianceRenderer(
     []
   );
 
-  // light scene used for actual light probes
-  const lightSceneElement = useMemo(
-    () =>
-      getLightProbeSceneElement(
+  // start new processing when ready
+  useEffect(() => {
+    setProcessingState({
+      activeLightSceneElement: getLightProbeSceneElement(
         atlas,
         previousOutput,
-        activeFactorName,
+        factorNameRef.current,
         animationTimeRef.current
       ),
-    [atlas, previousOutput, activeFactorName]
-  );
+      activeTexelCounter: [0],
+      withTestPattern: factorNameRef.current === null, // only base factor gets pattern
+      passComplete: true, // this triggers new pass on next render
+      passesRemaining: MAX_PASSES
+    });
+  }, [atlas, previousOutput]);
 
   // output of the current pass
   const [activeOutput, activeOutputData] = useMemo(
@@ -444,37 +460,41 @@ export function useIrradianceRenderer(
   );
 
   // automatically kick off new processing when ready
-  useLayoutEffect(() => {
+  useEffect(() => {
     // check if we need to set up new pass
     if (!passComplete || passesRemaining === 0) {
       return;
     }
 
-    // wait for scene to populate @todo fix this
-    setTimeout(() => {
-      setProcessingState((prev) => {
-        // copy completed data
-        previousOutputData.set(activeOutputData);
+    // copy completed data
+    previousOutputData.set(activeOutputData);
 
-        // reset output (re-create test pattern only on base)
-        // @todo do this only when needing to show debug output?
-        clearOutputTexture(
-          atlasWidth,
-          atlasHeight,
-          activeOutputData,
-          prev.activeFactorName === null
-        );
-        activeOutput.needsUpdate = true;
+    // reset output (re-create test pattern only on base)
+    // @todo do this only when needing to show debug output?
+    clearOutputTexture(
+      atlasWidth,
+      atlasHeight,
+      activeOutputData,
+      withTestPattern
+    );
+    activeOutput.needsUpdate = true;
 
-        return {
-          activeFactorName: prev.activeFactorName,
-          activeTexelCounter: [0],
-          passComplete: false,
-          passesRemaining: prev.passesRemaining - 1
-        };
-      });
-    }, 0);
-  }, [passComplete, passesRemaining, previousOutputData, activeOutputData]);
+    setProcessingState((prev) => {
+      return {
+        activeLightSceneElement: prev.activeLightSceneElement,
+        activeTexelCounter: [0],
+        withTestPattern: prev.withTestPattern,
+        passComplete: false,
+        passesRemaining: prev.passesRemaining - 1
+      };
+    });
+  }, [
+    withTestPattern,
+    passComplete,
+    passesRemaining,
+    previousOutputData,
+    activeOutputData
+  ]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
@@ -482,7 +502,7 @@ export function useIrradianceRenderer(
   const outputIsComplete = passesRemaining === 0 && passComplete;
 
   useWorkManager(
-    outputIsComplete ? null : lightSceneElement,
+    outputIsComplete ? null : activeLightSceneElement,
     (gl, lightScene) => {
       if (!atlasMapItems) {
         return;
