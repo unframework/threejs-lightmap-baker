@@ -424,8 +424,11 @@ export function useIrradianceRenderer(
 
   const [
     {
+      // output of the previous baking pass (applied to the light probe scene)
       previousOutput,
       previousOutputData,
+
+      // currently produced output
       activeOutput,
       activeOutputData,
 
@@ -444,11 +447,8 @@ export function useIrradianceRenderer(
     );
 
     return {
-      // output of the previous baking pass (applied to the light probe scene)
       previousOutput: dummyOutput,
       previousOutputData: dummyOutputData,
-
-      // currently produced output
       activeOutput: dummyOutput,
       activeOutputData: dummyOutputData,
 
@@ -473,26 +473,30 @@ export function useIrradianceRenderer(
       atlasHeight
     );
 
-    setProcessingState({
-      previousOutput: createdPreviousOutput,
-      previousOutputData: createdPreviousOutputData,
-      activeOutput: createdActiveOutput,
-      activeOutputData: createdActiveOutputData,
+    // @todo for some reason the scene does not render unless created inside the timeout
+    // (even though the atlas is already initialized/etc by now anyway)
+    setTimeout(() => {
+      setProcessingState({
+        previousOutput: createdPreviousOutput,
+        previousOutputData: createdPreviousOutputData,
+        activeOutput: createdActiveOutput,
+        activeOutputData: createdActiveOutputData,
 
-      activeLightSceneElement: getLightProbeSceneElement(
-        atlas,
-        createdPreviousOutput,
-        factorNameRef.current,
-        animationTimeRef.current
-      ),
-      activeTexelCounter: [0],
-      withTestPattern: factorNameRef.current === null, // only base factor gets pattern
-      passComplete: true, // this triggers new pass on next render
-      passesRemaining: MAX_PASSES
-    });
+        activeLightSceneElement: getLightProbeSceneElement(
+          atlas,
+          createdPreviousOutput,
+          factorNameRef.current,
+          animationTimeRef.current
+        ),
+        activeTexelCounter: [0],
+        withTestPattern: factorNameRef.current === null, // only base factor gets pattern
+        passComplete: true, // this triggers new pass on next render
+        passesRemaining: MAX_PASSES
+      });
+    }, 0);
   }, [atlas]);
 
-  // automatically kick off new processing when ready
+  // kick off new pass when current one is complete
   useEffect(() => {
     // check if we need to set up new pass
     if (!passComplete || passesRemaining === 0) {
