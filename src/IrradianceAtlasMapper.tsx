@@ -141,8 +141,8 @@ export function useIrradianceAtlasMapper(): {
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
       type: THREE.FloatType,
-      magFilter: THREE.LinearFilter,
-      minFilter: THREE.LinearFilter,
+      magFilter: THREE.NearestFilter, // pixelate for debug display
+      minFilter: THREE.NearestFilter,
       depthBuffer: false,
       generateMipmaps: false
     });

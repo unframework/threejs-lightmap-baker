@@ -153,7 +153,7 @@ const Scene: React.FC<{
           <DebugMaterial attach="material" map={outputTexture} />
         </mesh>
 
-        <mesh position={[85, 60, 0]}>
+        <mesh position={[85, 64, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
           <DebugMaterial attach="material" map={atlasMapTexture} />
         </mesh>
