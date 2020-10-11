@@ -101,11 +101,13 @@ const Scene: React.FC<{
   const {
     atlasMapTexture,
     atlasMapData,
+    atlasMapItems,
     mapperSceneElement
   } = useIrradianceAtlasMapper();
 
   const { outputTexture: baseLightTexture } = useIrradianceRenderer(
     atlasMapData,
+    atlasMapItems,
     null
   );
 

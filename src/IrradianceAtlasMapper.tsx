@@ -9,6 +9,15 @@ import {
   atlasHeight
 } from './IrradianceSurfaceManager';
 
+export interface AtlasMapItem {
+  faceCount: number;
+  faceBuffer: THREE.BufferGeometry;
+  originalMesh: THREE.Mesh;
+  originalBuffer: THREE.BufferGeometry;
+}
+
+export const MAX_ITEM_FACES = 1000; // used for encoding item+face index in texture
+
 // write out original face geometry info into the atlas map
 // each texel corresponds to: (quadX, quadY, quadIndex)
 // where quadX and quadY are 0..1 representing a spot in the original quad
@@ -55,6 +64,7 @@ const AtlasItemMaterial: React.FC = () => {
 export function useIrradianceAtlasMapper(): {
   atlasMapTexture: THREE.Texture;
   atlasMapData: Float32Array;
+  atlasMapItems: AtlasMapItem[] | null;
   mapperSceneElement: React.ReactElement | null;
 } {
   const orthoSceneRef = useRef<THREE.Scene>();
@@ -67,13 +77,13 @@ export function useIrradianceAtlasMapper(): {
 
   const atlas = useIrradianceAtlasContext();
 
-  const geoms = useMemo(
+  const geoms = useMemo<AtlasMapItem[] | null>(
     () =>
       isLoaded
         ? atlas.lightSceneItems
             .filter((item) => !!item.albedoMap)
             .map((item, itemIndex) => {
-              const { buffer } = item;
+              const { mesh, buffer } = item;
 
               if (!(buffer instanceof THREE.BufferGeometry)) {
                 throw new Error('expected buffer geometry');
@@ -86,14 +96,26 @@ export function useIrradianceAtlasMapper(): {
 
               const faceVertexCount = indexAttr.count;
               const uv2Attr = buffer.attributes.uv2;
+              const normalAttr = buffer.attributes.normal;
+
               if (!uv2Attr || !(uv2Attr instanceof THREE.BufferAttribute)) {
                 throw new Error('expected uv2 attribute');
               }
-              const uv2Data = uv2Attr.array;
+
+              if (
+                !normalAttr ||
+                !(normalAttr instanceof THREE.BufferAttribute)
+              ) {
+                throw new Error('expected normal attribute');
+              }
 
               const atlasUVAttr = new THREE.Float32BufferAttribute(
                 faceVertexCount * 2,
                 2
+              );
+              const atlasNormalAttr = new THREE.Float32BufferAttribute(
+                faceVertexCount * 3,
+                3
               );
               const atlasFacePosAttr = new THREE.Float32BufferAttribute(
                 faceVertexCount * 3,
@@ -112,6 +134,13 @@ export function useIrradianceAtlasMapper(): {
                   indexData[faceVertexIndex]
                 );
 
+                // @todo properly compute from real position of verts? source data may not be reliable
+                atlasNormalAttr.copyAt(
+                  faceVertexIndex,
+                  normalAttr,
+                  indexData[faceVertexIndex]
+                );
+
                 // positioning in face
                 const faceMod = faceVertexIndex % 3;
                 const facePosX = faceMod & 1;
@@ -124,15 +153,21 @@ export function useIrradianceAtlasMapper(): {
                   faceVertexIndex,
                   facePosX,
                   facePosY,
-                  itemIndex * 1000 + faceIndex // @todo put +1 here instead of shader (Threejs somehow fails to set it though?)
+                  itemIndex * MAX_ITEM_FACES + faceIndex // @todo put +1 here instead of shader (Threejs somehow fails to set it though?)
                 );
               }
 
               const atlasBuffer = new THREE.BufferGeometry();
               atlasBuffer.setAttribute('position', atlasFacePosAttr);
               atlasBuffer.setAttribute('uv', atlasUVAttr);
+              atlasBuffer.setAttribute('normal', atlasUVAttr);
 
-              return atlasBuffer;
+              return {
+                faceCount: faceVertexCount / 3,
+                faceBuffer: atlasBuffer,
+                originalMesh: mesh,
+                originalBuffer: buffer
+              };
             })
         : null,
     [atlas.lightSceneItems, isLoaded]
@@ -185,12 +220,13 @@ export function useIrradianceAtlasMapper(): {
   return {
     atlasMapTexture: orthoTarget.texture, // @todo suppress until render is complete
     atlasMapData: orthoData,
+    atlasMapItems: geoms,
     mapperSceneElement: geoms && (
       <scene ref={orthoSceneRef}>
         {geoms.map((geom, geomIndex) => {
           return (
             <mesh key={geomIndex}>
-              <primitive attach="geometry" object={geom} />
+              <primitive attach="geometry" object={geom.faceBuffer} />
               <AtlasItemMaterial />
             </mesh>
           );
