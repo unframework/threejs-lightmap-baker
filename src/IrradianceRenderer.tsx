@@ -35,6 +35,8 @@ const tmpV = new THREE.Vector3();
 const tmpNormal = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
 
+const tmpProbeBox = new THREE.Vector4();
+
 const tmpRgba = [0, 0, 0, 0];
 
 export interface IrradianceStagingTimelineMesh {
@@ -265,9 +267,10 @@ function setUpProbeSide(
 
 type ProbeDataHandler = (
   rgbaData: Float32Array,
-  pixelStart: number,
-  pixelCount: number,
-  probeTargetSize: number
+  rowPixelStride: number,
+  probeBox: THREE.Vector4,
+  originX: number, // device coordinates of lower-left corner of the viewbox
+  originY: number
 ) => void;
 
 type ProbeRenderer = (
@@ -314,7 +317,7 @@ function useLightProbe(
   }, []);
 
   const probeData = useMemo(() => {
-    return new Float32Array(probeTargetSize * probeTargetSize * 4);
+    return new Float32Array(probeTargetSize * 4 * probeTargetSize * 2 * 4);
   }, [probeTargetSize]);
 
   // @todo ensure there is biasing to be in middle of texel physical square
@@ -376,34 +379,11 @@ function useLightProbe(
       probeTargetSize
     );
     gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
-      0,
-      probeTargetSize,
-      probeTargetSize,
-      probeData
-    );
-    handleProbeData(probeData, 0, probePixelCount, probeTargetSize);
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
     probeTarget.viewport.set(0, 0, probeTargetSize, probeTargetSize);
     probeTarget.scissor.set(0, 0, probeTargetSize, probeTargetSize);
     gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
-      0,
-      probeTargetSize,
-      probeTargetSize,
-      probeData
-    );
-    handleProbeData(
-      probeData,
-      probePixelCount / 2,
-      probePixelCount / 2,
-      probeTargetSize
-    );
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
     probeTarget.viewport.set(
@@ -419,20 +399,6 @@ function useLightProbe(
       probeTargetSize
     );
     gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
-      0,
-      probeTargetSize,
-      probeTargetSize,
-      probeData
-    );
-    handleProbeData(
-      probeData,
-      probePixelCount / 2,
-      probePixelCount / 2,
-      probeTargetSize
-    );
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, 1);
     probeTarget.viewport.set(
@@ -448,20 +414,6 @@ function useLightProbe(
       probeTargetSize
     );
     gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
-      0,
-      probeTargetSize,
-      probeTargetSize,
-      probeData
-    );
-    handleProbeData(
-      probeData,
-      probePixelCount / 2,
-      probePixelCount / 2,
-      probeTargetSize
-    );
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, -1);
     probeTarget.viewport.set(
@@ -477,23 +429,37 @@ function useLightProbe(
       probeTargetSize
     );
     gl.render(lightScene, probeCam);
+
     gl.readRenderTargetPixels(
       probeTarget,
       0,
       0,
-      probeTargetSize,
-      probeTargetSize,
+      probeTargetSize * 4,
+      probeTargetSize * 2,
       probeData
-    );
-    handleProbeData(
-      probeData,
-      probePixelCount / 2,
-      probePixelCount / 2,
-      probeTargetSize
     );
 
     gl.autoClear = true;
     gl.setRenderTarget(null);
+
+    // consume the rendered data
+    const rowPixelStride = probeTargetSize * 4;
+    const halfSize = probeTargetSize / 2;
+
+    tmpProbeBox.set(0, probeTargetSize, probeTargetSize, probeTargetSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, -0.5);
+
+    tmpProbeBox.set(0, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
+
+    tmpProbeBox.set(probeTargetSize, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
+
+    tmpProbeBox.set(probeTargetSize * 2, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
+
+    tmpProbeBox.set(probeTargetSize * 3, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
   };
 
   return {
@@ -554,27 +520,42 @@ function processTexel(
     texelPosU,
     texelPosV,
     lightScene,
-    (probeData, pixelStart, pixelCount, probeTargetSize) => {
-      const dataMax = (pixelStart + pixelCount) * 4;
+    (probeData, rowPixelStride, box, originX, originY) => {
+      const probeTargetSize = box.z; // assuming width is always full
 
-      for (let i = pixelStart * 4; i < dataMax; i += 4) {
+      const rowStride = rowPixelStride * 4;
+      let rowStart = box.y * rowStride;
+      const totalMax = (box.y + box.w) * rowStride;
+      let py = 0;
+
+      while (rowStart < totalMax) {
         // compute offset from center (with a bias for target pixel size)
-        const px = i / 4;
-        const pdx = (px % probeTargetSize) + 0.5;
-        const pyx = Math.floor(px / probeTargetSize) + 0.5;
-        const dx = Math.abs(pdx / probeTargetSize - 0.5);
-        const dy = Math.abs(pyx / probeTargetSize - 0.5);
+        const dy = Math.abs((py + 0.5) / probeTargetSize) + originY;
 
-        // compute multiplier as affected by inclination of corresponding ray
-        const span = Math.hypot(dx * 2, dy * 2);
-        const hypo = Math.hypot(span, 1);
-        const area = 1 / hypo;
+        const rowMax = rowStart + box.z * 4;
+        let px = 0;
 
-        r += area * probeData[i];
-        g += area * probeData[i + 1];
-        b += area * probeData[i + 2];
+        for (let i = rowStart; i < rowMax; i += 4) {
+          // compute offset from center (with a bias for target pixel size)
+          const dx = Math.abs((px + 0.5) / probeTargetSize) + originX;
 
-        totalDivider += area;
+          // compute multiplier as affected by inclination of corresponding ray
+          // @todo precompute this
+          const span = Math.hypot(dx * 2, dy * 2);
+          const hypo = Math.hypot(span, 1);
+          const area = 1 / hypo;
+
+          r += area * probeData[i];
+          g += area * probeData[i + 1];
+          b += area * probeData[i + 2];
+
+          totalDivider += area;
+
+          px += 1;
+        }
+
+        rowStart += rowStride;
+        py += 1;
       }
     }
   );
@@ -811,11 +792,18 @@ const IrradianceRenderer: React.FC<{
     renderLightProbe: debugProbe,
     debugLightProbeTexture
   } = useLightProbe(probeTargetSize);
+  const debugProbeDone = useRef(false);
   useFrame(({ gl }) => {
     const lightScene = lightSceneRef.current;
     if (!lightScene) {
       return; // nothing to do yet
     }
+
+    // run only once
+    if (debugProbeDone.current) {
+      return;
+    }
+    debugProbeDone.current = true;
 
     const atlasMap = atlasMapRef.current;
 
