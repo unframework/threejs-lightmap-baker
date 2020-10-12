@@ -422,18 +422,35 @@ const IrradianceRenderer: React.FC<{
 
   const atlas = useIrradianceAtlasContext();
 
+  // output of the previous baking pass (applied to the light probe scene)
+  const [previousOutput, previousOutputData] = useMemo(
+    () => createOutputTexture(atlasWidth, atlasHeight),
+    []
+  );
+  useEffect(
+    () => () => {
+      previousOutput.dispose();
+    },
+    [previousOutput]
+  );
+
+  // currently produced output
+  // this will be pre-filled with test pattern if needed on start of pass
+  const [activeOutput, activeOutputData] = useMemo(
+    () => createOutputTexture(atlasWidth, atlasHeight),
+    []
+  );
+  useEffect(
+    () => () => {
+      activeOutput.dispose();
+    },
+    [activeOutput]
+  );
+
+  const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
+
   const [
     {
-      // @todo move this out into memo
-      // output of the previous baking pass (applied to the light probe scene)
-      previousOutput,
-      previousOutputData,
-
-      // currently produced output
-      activeOutput,
-      activeOutputData,
-      withTestPattern,
-
       activeLightSceneElement, // light scene used for actual light probes
 
       passTexelCounter, // directly changed in place to avoid re-renders
@@ -442,19 +459,7 @@ const IrradianceRenderer: React.FC<{
     },
     setProcessingState
   ] = useState(() => {
-    // placeholder textures for the empty state
-    // @todo remove this?
-    const [dummyOutput, dummyOutputData] = createOutputTexture(
-      atlasWidth,
-      atlasHeight
-    );
-
     return {
-      previousOutput: dummyOutput,
-      previousOutputData: dummyOutputData,
-      activeOutput: dummyOutput,
-      activeOutputData: dummyOutputData,
-      withTestPattern: false,
       activeLightSceneElement: null as React.ReactElement | null,
       passTexelCounter: [0],
       passComplete: true,
@@ -462,48 +467,15 @@ const IrradianceRenderer: React.FC<{
     };
   });
 
-  // texture cleanup
-  useEffect(
-    () => () => {
-      previousOutput.dispose();
-    },
-    [previousOutput]
-  );
-
-  useEffect(
-    () => () => {
-      activeOutput.dispose();
-    },
-    [activeOutput]
-  );
-
   // start new processing when ready
   useEffect(() => {
-    const [
-      createdPreviousOutput,
-      createdPreviousOutputData
-    ] = createOutputTexture(atlasWidth, atlasHeight);
-
-    // this will be pre-filled with test pattern if needed on start of pass
-    const [createdActiveOutput, createdActiveOutputData] = createOutputTexture(
-      atlasWidth,
-      atlasHeight
-    );
-
     // @todo for some reason the scene does not render unless created inside the timeout
     // (even though the atlas is already initialized/etc by now anyway)
     setTimeout(() => {
       setProcessingState({
-        previousOutput: createdPreviousOutput,
-        previousOutputData: createdPreviousOutputData,
-        activeOutput: createdActiveOutput,
-        activeOutputData: createdActiveOutputData,
-
-        withTestPattern: factorNameRef.current === null, // only base factor gets pattern
-
         activeLightSceneElement: getLightProbeSceneElement(
           atlas,
-          createdPreviousOutput,
+          previousOutput,
           factorNameRef.current,
           animationTimeRef.current
         ),
@@ -514,8 +486,9 @@ const IrradianceRenderer: React.FC<{
       });
     }, 0);
 
-    onStartRef.current(createdActiveOutput);
-  }, [atlas]);
+    // running last in case there are errors
+    onStartRef.current(activeOutput);
+  }, [atlas, previousOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {
@@ -562,6 +535,7 @@ const IrradianceRenderer: React.FC<{
 
   const outputIsComplete = passesRemaining === 0 && passComplete;
 
+  // @todo do not rely on WorkManager for scene rendering
   useWorkManager(
     outputIsComplete ? null : activeLightSceneElement,
     (gl, lightScene) => {
