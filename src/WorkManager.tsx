@@ -17,7 +17,7 @@ export const WorkManagerContext = React.createContext<WorkManagerHook | null>(
 
 interface RendererJobInfo {
   id: number;
-  callbackRef: React.MutableRefObject<WorkCallback>;
+  callbackRef: React.MutableRefObject<WorkCallback | null>;
 }
 
 // this runs inside the renderer hook instance
@@ -87,7 +87,14 @@ const WorkManager: React.FC = ({ children }) => {
 
     // invoke work callback
     for (let i = 0; i < WORK_PER_FRAME; i += 1) {
-      activeJob.callbackRef.current(gl);
+      // check if callback is still around (might go away mid-batch)
+      const callback = activeJob.callbackRef.current;
+
+      if (!callback) {
+        return;
+      }
+
+      callback(gl);
     }
   }, 10);
 
