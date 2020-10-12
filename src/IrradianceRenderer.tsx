@@ -285,7 +285,11 @@ type ProbeRenderer = (
 
 function useLightProbe(
   probeTargetSize: number
-): { renderLightProbe: ProbeRenderer; debugLightProbeTexture: THREE.Texture } {
+): {
+  renderLightProbe: ProbeRenderer;
+  probePixelAreaLookup: number[];
+  debugLightProbeTexture: THREE.Texture;
+} {
   const probePixelCount = probeTargetSize * probeTargetSize;
   const probeTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(
@@ -299,6 +303,33 @@ function useLightProbe(
       }
     );
   }, [probeTargetSize]);
+
+  // for each pixel in the individual probe viewport, compute contribution to final tally
+  // (edges are weaker because each pixel covers less of a view angle)
+  const probePixelAreaLookup = useMemo(() => {
+    const lookup = new Array(probePixelCount);
+
+    const probePixelBias = 0.5 / probeTargetSize;
+
+    for (let py = 0; py < probeTargetSize; py += 1) {
+      // compute offset from center (with a bias for target pixel size)
+      const dy = py / probeTargetSize - 0.5 + probePixelBias;
+
+      for (let px = 0; px < probeTargetSize; px += 1) {
+        // compute offset from center (with a bias for target pixel size)
+        const dx = px / probeTargetSize - 0.5 + probePixelBias;
+
+        // compute multiplier as affected by inclination of corresponding ray
+        const span = Math.hypot(dx * 2, dy * 2);
+        const hypo = Math.hypot(span, 1);
+        const area = 1 / hypo;
+
+        lookup[py * probeTargetSize + px] = area;
+      }
+    }
+
+    return lookup;
+  }, [probePixelCount]);
 
   useEffect(
     () => () => {
@@ -452,23 +483,24 @@ function useLightProbe(
     const halfSize = probeTargetSize / 2;
 
     tmpProbeBox.set(0, probeTargetSize, probeTargetSize, probeTargetSize);
-    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, -0.5);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, 0);
 
     tmpProbeBox.set(0, halfSize, probeTargetSize, halfSize);
-    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
 
     tmpProbeBox.set(probeTargetSize, halfSize, probeTargetSize, halfSize);
-    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
 
     tmpProbeBox.set(probeTargetSize * 2, halfSize, probeTargetSize, halfSize);
-    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
 
     tmpProbeBox.set(probeTargetSize * 3, halfSize, probeTargetSize, halfSize);
-    handleProbeData(probeData, rowPixelStride, tmpProbeBox, -0.5, 0);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
   };
 
   return {
     renderLightProbe,
+    probePixelAreaLookup,
     debugLightProbeTexture: probeTarget.texture
   };
 }
@@ -479,6 +511,7 @@ function processTexel(
   texelIndex: number,
   lightScene: THREE.Scene,
   renderLightProbe: ProbeRenderer,
+  probePixelAreaLookup: number[],
   rgba: number[]
 ): boolean {
   // get current atlas face we are filling up
@@ -527,28 +560,20 @@ function processTexel(
     lightScene,
     (probeData, rowPixelStride, box, originX, originY) => {
       const probeTargetSize = box.z; // assuming width is always full
+      const probePixelBias = 0.5 / probeTargetSize;
 
       const rowStride = rowPixelStride * 4;
       let rowStart = box.y * rowStride + box.x * 4;
       const totalMax = (box.y + box.w) * rowStride;
-      let py = 0;
+      let py = originY;
 
       while (rowStart < totalMax) {
-        // compute offset from center (with a bias for target pixel size)
-        const dy = Math.abs((py + 0.5) / probeTargetSize) + originY;
-
         const rowMax = rowStart + box.z * 4;
-        let px = 0;
+        let px = originX;
 
         for (let i = rowStart; i < rowMax; i += 4) {
-          // compute offset from center (with a bias for target pixel size)
-          const dx = Math.abs((px + 0.5) / probeTargetSize) + originX;
-
           // compute multiplier as affected by inclination of corresponding ray
-          // @todo precompute this
-          const span = Math.hypot(dx * 2, dy * 2);
-          const hypo = Math.hypot(span, 1);
-          const area = 1 / hypo;
+          const area = probePixelAreaLookup[py * probeTargetSize + px];
 
           r += area * probeData[i];
           g += area * probeData[i + 1];
@@ -701,7 +726,9 @@ const IrradianceRenderer: React.FC<{
   ]);
 
   const probeTargetSize = 16;
-  const { renderLightProbe } = useLightProbe(probeTargetSize);
+  const { renderLightProbe, probePixelAreaLookup } = useLightProbe(
+    probeTargetSize
+  );
 
   const outputIsComplete =
     processingState.passesRemaining === 0 && processingState.passComplete;
@@ -750,6 +777,7 @@ const IrradianceRenderer: React.FC<{
                 texelIndex,
                 lightScene,
                 renderLightProbe,
+                probePixelAreaLookup,
                 tmpRgba
               )
             ) {
@@ -795,6 +823,7 @@ const IrradianceRenderer: React.FC<{
   // debug probe
   const {
     renderLightProbe: debugProbe,
+    probePixelAreaLookup: debugProbePixelAreaLookup,
     debugLightProbeTexture
   } = useLightProbe(probeTargetSize);
   const debugProbeRef = useRef(false);
@@ -818,6 +847,7 @@ const IrradianceRenderer: React.FC<{
       atlasWidth * 18 + 28,
       lightScene,
       debugProbe,
+      debugProbePixelAreaLookup,
       tmpRgba
     );
   }, 10);
