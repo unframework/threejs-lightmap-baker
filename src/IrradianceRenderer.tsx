@@ -550,11 +550,18 @@ const IrradianceRenderer: React.FC<{
 
     const atlasMap = atlasMapRef.current;
 
+    let batchCount = 0;
+
     debugProbeBatch(
       gl,
       lightScene,
       (renderBatchItem) => {
-        queueTexel(atlasMap, atlasWidth * 18 + 28, renderBatchItem);
+        queueTexel(
+          atlasMap,
+          atlasWidth * 18 + 24 + batchCount,
+          renderBatchItem
+        );
+        batchCount += 1;
       },
       () => {
         // no-op (not consuming the data)

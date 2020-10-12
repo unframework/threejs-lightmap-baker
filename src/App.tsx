@@ -167,8 +167,8 @@ const Scene: React.FC<{
           </mesh>
         )}
 
-        <mesh position={[15, 90, 0]} ref={probeDebugMeshRef}>
-          <planeBufferGeometry attach="geometry" args={[20, 10]} />
+        <mesh position={[15, 75, 0]} ref={probeDebugMeshRef}>
+          <planeBufferGeometry attach="geometry" args={[20, 40]} />
         </mesh>
       </scene>
 

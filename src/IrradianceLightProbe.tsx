@@ -31,6 +31,8 @@ const tmpLookAt = new THREE.Vector3();
 
 const tmpProbeBox = new THREE.Vector4();
 
+const PROBE_BATCH_COUNT = 4;
+
 export type ProbeDataHandler = (
   rgbaData: Float32Array,
   rowPixelStride: number,
@@ -111,18 +113,18 @@ export function useLightProbe(
 } {
   const probePixelCount = probeTargetSize * probeTargetSize;
   const halfSize = probeTargetSize / 2;
+
+  const targetWidth = probeTargetSize * 4; // 4 tiles across
+  const targetHeight = probeTargetSize * 2 * PROBE_BATCH_COUNT; // 2 tiles x batch count
+
   const probeTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(
-      probeTargetSize * 4,
-      probeTargetSize * 2,
-      {
-        type: THREE.FloatType,
-        magFilter: THREE.NearestFilter, // pixelate for debug display
-        minFilter: THREE.NearestFilter,
-        generateMipmaps: false
-      }
-    );
-  }, [probeTargetSize]);
+    return new THREE.WebGLRenderTarget(targetWidth, targetHeight, {
+      type: THREE.FloatType,
+      magFilter: THREE.NearestFilter, // pixelate for debug display
+      minFilter: THREE.NearestFilter,
+      generateMipmaps: false
+    });
+  }, [targetWidth, targetHeight]);
 
   // for each pixel in the individual probe viewport, compute contribution to final tally
   // (edges are weaker because each pixel covers less of a view angle)
@@ -168,8 +170,10 @@ export function useLightProbe(
   }, []);
 
   const probeData = useMemo(() => {
-    return new Float32Array(probeTargetSize * 4 * probeTargetSize * 2 * 4);
-  }, [probeTargetSize]);
+    return new Float32Array(targetWidth * targetHeight * 4);
+  }, [targetWidth, targetHeight]);
+
+  const batchTexels = new Array(PROBE_BATCH_COUNT) as (number | undefined)[];
 
   // @todo ensure there is biasing to be in middle of texel physical square
   const renderLightProbeBatch: ProbeBatcher = function renderLightProbeBatch(
@@ -182,111 +186,133 @@ export function useLightProbe(
     gl.autoClear = false;
 
     // clear entire area
-    probeTarget.scissor.set(0, 0, probeTargetSize * 4, probeTargetSize * 2);
+    probeTarget.scissor.set(0, 0, targetWidth, targetHeight);
     gl.clearDepth();
     gl.clearColor();
 
-    let queuedTexelIndex = null as number | null;
+    for (let batchItem = 0; batchItem < PROBE_BATCH_COUNT; batchItem += 1) {
+      batchTexels[batchItem] = undefined;
 
-    batchItemCallback((texelIndex, atlasMapItem, faceIndex, pU, pV) => {
-      queuedTexelIndex = texelIndex;
-      const { faceBuffer, originalMesh, originalBuffer } = atlasMapItem;
+      batchItemCallback((texelIndex, atlasMapItem, faceIndex, pU, pV) => {
+        // each batch is 2 tiles high
+        const batchOffsetY = batchItem * probeTargetSize * 2;
 
-      if (!originalBuffer.index) {
-        throw new Error('expected indexed mesh');
+        // save which texel is being rendered for later reporting
+        batchTexels[batchItem] = texelIndex;
+
+        const { faceBuffer, originalMesh, originalBuffer } = atlasMapItem;
+
+        if (!originalBuffer.index) {
+          throw new Error('expected indexed mesh');
+        }
+
+        // read vertex position for this face and interpolate along U and V axes
+        const origIndexArray = originalBuffer.index.array;
+        const origPosArray = originalBuffer.attributes.position.array;
+
+        const normalArray = faceBuffer.attributes.normal.array;
+
+        // get face vertex positions
+        const faceVertexBase = faceIndex * 3;
+        tmpOrigin.fromArray(origPosArray, origIndexArray[faceVertexBase] * 3);
+        tmpU.fromArray(origPosArray, origIndexArray[faceVertexBase + 1] * 3);
+        tmpV.fromArray(origPosArray, origIndexArray[faceVertexBase + 2] * 3);
+
+        // compute face dimensions
+        tmpU.sub(tmpOrigin);
+        tmpV.sub(tmpOrigin);
+
+        // set camera to match texel, first in mesh-local space
+        tmpOrigin.addScaledVector(tmpU, pU);
+        tmpOrigin.addScaledVector(tmpV, pV);
+
+        // get precomputed normal and cardinal directions
+        tmpNormal.fromArray(normalArray, faceVertexBase * 3);
+        tmpU.fromArray(normalArray, (faceVertexBase + 1) * 3);
+        tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
+
+        setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
+        probeTarget.viewport.set(
+          0,
+          batchOffsetY + probeTargetSize,
+          probeTargetSize,
+          probeTargetSize
+        );
+        probeTarget.scissor.set(
+          0,
+          batchOffsetY + probeTargetSize,
+          probeTargetSize,
+          probeTargetSize
+        );
+        gl.render(lightScene, probeCam);
+
+        // sides only need the upper half of rendered view, so we set scissor accordingly
+        setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
+        probeTarget.viewport.set(
+          0,
+          batchOffsetY,
+          probeTargetSize,
+          probeTargetSize
+        );
+        probeTarget.scissor.set(
+          0,
+          batchOffsetY + halfSize,
+          probeTargetSize,
+          halfSize
+        );
+        gl.render(lightScene, probeCam);
+
+        setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
+        probeTarget.viewport.set(
+          probeTargetSize,
+          batchOffsetY,
+          probeTargetSize,
+          probeTargetSize
+        );
+        probeTarget.scissor.set(
+          probeTargetSize,
+          batchOffsetY + halfSize,
+          probeTargetSize,
+          halfSize
+        );
+        gl.render(lightScene, probeCam);
+
+        setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, 1);
+        probeTarget.viewport.set(
+          probeTargetSize * 2,
+          batchOffsetY,
+          probeTargetSize,
+          probeTargetSize
+        );
+        probeTarget.scissor.set(
+          probeTargetSize * 2,
+          batchOffsetY + halfSize,
+          probeTargetSize,
+          halfSize
+        );
+        gl.render(lightScene, probeCam);
+
+        setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, -1);
+        probeTarget.viewport.set(
+          probeTargetSize * 3,
+          batchOffsetY,
+          probeTargetSize,
+          probeTargetSize
+        );
+        probeTarget.scissor.set(
+          probeTargetSize * 3,
+          batchOffsetY + halfSize,
+          probeTargetSize,
+          halfSize
+        );
+        gl.render(lightScene, probeCam);
+      });
+
+      // if nothing was rendered there is no need to finish the batch
+      if (batchTexels[batchItem] === undefined) {
+        break;
       }
-
-      // read vertex position for this face and interpolate along U and V axes
-      const origIndexArray = originalBuffer.index.array;
-      const origPosArray = originalBuffer.attributes.position.array;
-
-      const normalArray = faceBuffer.attributes.normal.array;
-
-      // get face vertex positions
-      const faceVertexBase = faceIndex * 3;
-      tmpOrigin.fromArray(origPosArray, origIndexArray[faceVertexBase] * 3);
-      tmpU.fromArray(origPosArray, origIndexArray[faceVertexBase + 1] * 3);
-      tmpV.fromArray(origPosArray, origIndexArray[faceVertexBase + 2] * 3);
-
-      // compute face dimensions
-      tmpU.sub(tmpOrigin);
-      tmpV.sub(tmpOrigin);
-
-      // set camera to match texel, first in mesh-local space
-      tmpOrigin.addScaledVector(tmpU, pU);
-      tmpOrigin.addScaledVector(tmpV, pV);
-
-      // get precomputed normal and cardinal directions
-      tmpNormal.fromArray(normalArray, faceVertexBase * 3);
-      tmpU.fromArray(normalArray, (faceVertexBase + 1) * 3);
-      tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
-
-      setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
-      probeTarget.viewport.set(
-        0,
-        probeTargetSize,
-        probeTargetSize,
-        probeTargetSize
-      );
-      probeTarget.scissor.set(
-        0,
-        probeTargetSize,
-        probeTargetSize,
-        probeTargetSize
-      );
-      gl.render(lightScene, probeCam);
-
-      // sides only need the upper half of rendered view, so we set scissor accordingly
-      setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
-      probeTarget.viewport.set(0, 0, probeTargetSize, probeTargetSize);
-      probeTarget.scissor.set(0, halfSize, probeTargetSize, halfSize);
-      gl.render(lightScene, probeCam);
-
-      setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
-      probeTarget.viewport.set(
-        probeTargetSize,
-        0,
-        probeTargetSize,
-        probeTargetSize
-      );
-      probeTarget.scissor.set(
-        probeTargetSize,
-        halfSize,
-        probeTargetSize,
-        halfSize
-      );
-      gl.render(lightScene, probeCam);
-
-      setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, 1);
-      probeTarget.viewport.set(
-        probeTargetSize * 2,
-        0,
-        probeTargetSize,
-        probeTargetSize
-      );
-      probeTarget.scissor.set(
-        probeTargetSize * 2,
-        halfSize,
-        probeTargetSize,
-        halfSize
-      );
-      gl.render(lightScene, probeCam);
-
-      setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, -1);
-      probeTarget.viewport.set(
-        probeTargetSize * 3,
-        0,
-        probeTargetSize,
-        probeTargetSize
-      );
-      probeTarget.scissor.set(
-        probeTargetSize * 3,
-        halfSize,
-        probeTargetSize,
-        halfSize
-      );
-      gl.render(lightScene, probeCam);
-    });
+    }
 
     // fetch rendered data in one go (this is very slow)
     gl.readRenderTargetPixels(
@@ -302,22 +328,41 @@ export function useLightProbe(
     gl.setRenderTarget(null);
 
     // if something was rendered, send off the data for consumption
-    if (queuedTexelIndex !== null) {
-      batchResultCallback(queuedTexelIndex, (handleProbeData) => {
+    for (let batchItem = 0; batchItem < PROBE_BATCH_COUNT; batchItem += 1) {
+      const renderedTexelIndex = batchTexels[batchItem];
+
+      // see if the batch ended early
+      if (renderedTexelIndex === undefined) {
+        break;
+      }
+
+      batchResultCallback(renderedTexelIndex, (handleProbeData) => {
+        // each batch is 2 tiles high
+        const batchOffsetY = batchItem * probeTargetSize * 2;
         const rowPixelStride = probeTargetSize * 4;
 
-        tmpProbeBox.set(0, probeTargetSize, probeTargetSize, probeTargetSize);
+        tmpProbeBox.set(
+          0,
+          batchOffsetY + probeTargetSize,
+          probeTargetSize,
+          probeTargetSize
+        );
         handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, 0);
 
-        tmpProbeBox.set(0, halfSize, probeTargetSize, halfSize);
+        tmpProbeBox.set(0, batchOffsetY + halfSize, probeTargetSize, halfSize);
         handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
 
-        tmpProbeBox.set(probeTargetSize, halfSize, probeTargetSize, halfSize);
+        tmpProbeBox.set(
+          probeTargetSize,
+          batchOffsetY + halfSize,
+          probeTargetSize,
+          halfSize
+        );
         handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
 
         tmpProbeBox.set(
           probeTargetSize * 2,
-          halfSize,
+          batchOffsetY + halfSize,
           probeTargetSize,
           halfSize
         );
@@ -325,7 +370,7 @@ export function useLightProbe(
 
         tmpProbeBox.set(
           probeTargetSize * 3,
-          halfSize,
+          batchOffsetY + halfSize,
           probeTargetSize,
           halfSize
         );
