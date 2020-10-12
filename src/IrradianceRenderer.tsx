@@ -363,7 +363,11 @@ function useLightProbe(
 
     gl.setRenderTarget(probeTarget);
     gl.autoClear = false;
+
+    // clear entire area
+    probeTarget.scissor.set(0, 0, probeTargetSize * 4, probeTargetSize * 2);
     gl.clearDepth();
+    gl.clearColor();
 
     setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
     probeTarget.viewport.set(
@@ -380,6 +384,7 @@ function useLightProbe(
     );
     gl.render(lightScene, probeCam);
 
+    // @todo scissor only half of side views
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
     probeTarget.viewport.set(0, 0, probeTargetSize, probeTargetSize);
     probeTarget.scissor.set(0, 0, probeTargetSize, probeTargetSize);
@@ -524,7 +529,7 @@ function processTexel(
       const probeTargetSize = box.z; // assuming width is always full
 
       const rowStride = rowPixelStride * 4;
-      let rowStart = box.y * rowStride;
+      let rowStart = box.y * rowStride + box.x * 4;
       const totalMax = (box.y + box.w) * rowStride;
       let py = 0;
 
@@ -792,7 +797,7 @@ const IrradianceRenderer: React.FC<{
     renderLightProbe: debugProbe,
     debugLightProbeTexture
   } = useLightProbe(probeTargetSize);
-  const debugProbeDone = useRef(false);
+  const debugProbeRef = useRef(false);
   useFrame(({ gl }) => {
     const lightScene = lightSceneRef.current;
     if (!lightScene) {
@@ -800,10 +805,10 @@ const IrradianceRenderer: React.FC<{
     }
 
     // run only once
-    if (debugProbeDone.current) {
+    if (debugProbeRef.current) {
       return;
     }
-    debugProbeDone.current = true;
+    debugProbeRef.current = true;
 
     const atlasMap = atlasMapRef.current;
 
