@@ -291,6 +291,7 @@ function useLightProbe(
   debugLightProbeTexture: THREE.Texture;
 } {
   const probePixelCount = probeTargetSize * probeTargetSize;
+  const halfSize = probeTargetSize / 2;
   const probeTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(
       probeTargetSize * 4,
@@ -415,10 +416,10 @@ function useLightProbe(
     );
     gl.render(lightScene, probeCam);
 
-    // @todo scissor only half of side views
+    // sides only need the upper half of rendered view, so we set scissor accordingly
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
     probeTarget.viewport.set(0, 0, probeTargetSize, probeTargetSize);
-    probeTarget.scissor.set(0, 0, probeTargetSize, probeTargetSize);
+    probeTarget.scissor.set(0, halfSize, probeTargetSize, halfSize);
     gl.render(lightScene, probeCam);
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
@@ -430,9 +431,9 @@ function useLightProbe(
     );
     probeTarget.scissor.set(
       probeTargetSize,
-      0,
+      halfSize,
       probeTargetSize,
-      probeTargetSize
+      halfSize
     );
     gl.render(lightScene, probeCam);
 
@@ -445,9 +446,9 @@ function useLightProbe(
     );
     probeTarget.scissor.set(
       probeTargetSize * 2,
-      0,
+      halfSize,
       probeTargetSize,
-      probeTargetSize
+      halfSize
     );
     gl.render(lightScene, probeCam);
 
@@ -460,9 +461,9 @@ function useLightProbe(
     );
     probeTarget.scissor.set(
       probeTargetSize * 3,
-      0,
+      halfSize,
       probeTargetSize,
-      probeTargetSize
+      halfSize
     );
     gl.render(lightScene, probeCam);
 
@@ -480,7 +481,6 @@ function useLightProbe(
 
     // consume the rendered data
     const rowPixelStride = probeTargetSize * 4;
-    const halfSize = probeTargetSize / 2;
 
     tmpProbeBox.set(0, probeTargetSize, probeTargetSize, probeTargetSize);
     handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, 0);
