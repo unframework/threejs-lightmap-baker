@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -53,13 +53,24 @@ const CompositorLayerMaterial: React.FC<{
   );
 };
 
-export function useIrradianceCompositor<
+export default function IrradianceCompositor<
   FactorMap extends { [name: string]: THREE.Texture }
->(baseOutput: THREE.Texture, factorOutputs: FactorMap) {
+>({
+  baseOutput,
+  factorOutputs,
+  factorValues,
+  onStart
+}: React.PropsWithChildren<{
+  baseOutput: THREE.Texture;
+  factorOutputs: FactorMap;
+  factorValues?: { [name in keyof FactorMap]: number | undefined };
+  onStart: (outputTexture: THREE.Texture) => void;
+}>): React.ReactElement {
+  // wrap in ref to avoid re-triggering effect
+  const onStartRef = useRef(onStart);
+  onStartRef.current = onStart;
+
   const orthoSceneRef = useRef<THREE.Scene>();
-  const factorValues = useRef<
-    { [name in keyof FactorMap]: number | undefined }
-  >({}).current;
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
@@ -83,6 +94,19 @@ export function useIrradianceCompositor<
     });
   }, []);
 
+  useEffect(
+    () => () => {
+      // clean up on unmount
+      orthoTarget.dispose();
+    },
+    [orthoTarget]
+  );
+
+  useEffect(() => {
+    // notify separately in case of errors
+    onStartRef.current(orthoTarget.texture);
+  }, [orthoTarget]);
+
   const orthoCamera = useMemo(() => {
     return new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
   }, []);
@@ -102,7 +126,7 @@ export function useIrradianceCompositor<
 
     for (const factorName in factorOutputs) {
       const factorMaterialRef = factorMaterialRefMap[factorName];
-      const multiplier = factorValues[factorName];
+      const multiplier = factorValues && factorValues[factorName];
 
       if (factorMaterialRef.current && multiplier) {
         factorMaterialRef.current.uniforms.multiplier.value = multiplier;
@@ -115,31 +139,27 @@ export function useIrradianceCompositor<
     gl.setRenderTarget(null);
   }, 10);
 
-  return {
-    factorValues,
-    outputTexture: orthoTarget.texture,
-    compositorSceneElement: (
-      <scene ref={orthoSceneRef}>
-        <mesh>
+  return (
+    <scene ref={orthoSceneRef}>
+      <mesh>
+        <planeBufferGeometry attach="geometry" args={[2, 2]} />
+        <CompositorLayerMaterial
+          attach="material"
+          map={baseOutput}
+          materialRef={baseMaterialRef}
+        />
+      </mesh>
+
+      {Object.keys(factorOutputs).map((factorName) => (
+        <mesh key={factorName}>
           <planeBufferGeometry attach="geometry" args={[2, 2]} />
           <CompositorLayerMaterial
             attach="material"
-            map={baseOutput}
-            materialRef={baseMaterialRef}
+            map={factorOutputs[factorName]}
+            materialRef={factorMaterialRefMap[factorName]}
           />
         </mesh>
-
-        {Object.keys(factorOutputs).map((factorName) => (
-          <mesh key={factorName}>
-            <planeBufferGeometry attach="geometry" args={[2, 2]} />
-            <CompositorLayerMaterial
-              attach="material"
-              map={factorOutputs[factorName]}
-              materialRef={factorMaterialRefMap[factorName]}
-            />
-          </mesh>
-        ))}
-      </scene>
-    )
-  };
+      ))}
+    </scene>
+  );
 }
