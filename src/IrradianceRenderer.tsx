@@ -23,7 +23,12 @@ import {
   AtlasMap,
   AtlasMapItem
 } from './IrradianceAtlasMapper';
-import { ProbeRenderer, useLightProbe } from './IrradianceLightProbe';
+import {
+  ProbeBatcher,
+  ProbeBatchRenderer,
+  ProbeBatchReader,
+  useLightProbe
+} from './IrradianceLightProbe';
 import { DebugMaterial } from './DebugMaterial';
 
 const MAX_PASSES = 2;
@@ -211,14 +216,10 @@ function clearOutputTexture(
   }
 }
 
-function processTexel(
-  gl: THREE.WebGLRenderer,
+function queueTexel(
   atlasMap: AtlasMap,
   texelIndex: number,
-  lightScene: THREE.Scene,
-  renderLightProbe: ProbeRenderer,
-  probePixelAreaLookup: number[],
-  rgba: number[]
+  renderLightProbe: ProbeBatchRenderer
 ): boolean {
   // get current atlas face we are filling up
   const texelInfoBase = texelIndex * 4;
@@ -251,58 +252,59 @@ function processTexel(
     );
   }
 
+  // render the probe viewports (will read the data later)
+  renderLightProbe(texelIndex, atlasItem, texelFaceIndex, texelPosU, texelPosV);
+
+  // signal that computation happened
+  return true;
+}
+
+function readTexel(
+  rgba: number[],
+  readLightProbe: ProbeBatchReader,
+  probePixelAreaLookup: number[]
+) {
   // render the probe viewports and collect pixel aggregate
   let r = 0,
     g = 0,
     b = 0,
     totalDivider = 0;
 
-  renderLightProbe(
-    gl,
-    atlasItem,
-    texelFaceIndex,
-    texelPosU,
-    texelPosV,
-    lightScene,
-    (probeData, rowPixelStride, box, originX, originY) => {
-      const probeTargetSize = box.z; // assuming width is always full
-      const probePixelBias = 0.5 / probeTargetSize;
+  readLightProbe((probeData, rowPixelStride, box, originX, originY) => {
+    const probeTargetSize = box.z; // assuming width is always full
+    const probePixelBias = 0.5 / probeTargetSize;
 
-      const rowStride = rowPixelStride * 4;
-      let rowStart = box.y * rowStride + box.x * 4;
-      const totalMax = (box.y + box.w) * rowStride;
-      let py = originY;
+    const rowStride = rowPixelStride * 4;
+    let rowStart = box.y * rowStride + box.x * 4;
+    const totalMax = (box.y + box.w) * rowStride;
+    let py = originY;
 
-      while (rowStart < totalMax) {
-        const rowMax = rowStart + box.z * 4;
-        let px = originX;
+    while (rowStart < totalMax) {
+      const rowMax = rowStart + box.z * 4;
+      let px = originX;
 
-        for (let i = rowStart; i < rowMax; i += 4) {
-          // compute multiplier as affected by inclination of corresponding ray
-          const area = probePixelAreaLookup[py * probeTargetSize + px];
+      for (let i = rowStart; i < rowMax; i += 4) {
+        // compute multiplier as affected by inclination of corresponding ray
+        const area = probePixelAreaLookup[py * probeTargetSize + px];
 
-          r += area * probeData[i];
-          g += area * probeData[i + 1];
-          b += area * probeData[i + 2];
+        r += area * probeData[i];
+        g += area * probeData[i + 1];
+        b += area * probeData[i + 2];
 
-          totalDivider += area;
+        totalDivider += area;
 
-          px += 1;
-        }
-
-        rowStart += rowStride;
-        py += 1;
+        px += 1;
       }
+
+      rowStart += rowStride;
+      py += 1;
     }
-  );
+  });
 
   rgba[0] = r / totalDivider;
   rgba[1] = g / totalDivider;
   rgba[2] = b / totalDivider;
   rgba[3] = 1;
-
-  // signal that computation happened
-  return true;
 }
 
 // offsets for 3x3 brush
@@ -432,7 +434,7 @@ const IrradianceRenderer: React.FC<{
   ]);
 
   const probeTargetSize = 16;
-  const { renderLightProbe, probePixelAreaLookup } = useLightProbe(
+  const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
     probeTargetSize
   );
 
@@ -459,77 +461,78 @@ const IrradianceRenderer: React.FC<{
             passTexelCounter[0] + 100
           );
 
-          // keep trying texels until non-empty one is found
-          while (passTexelCounter[0] < maxCounter) {
-            const texelIndex = passTexelCounter[0];
+          renderLightProbeBatch(
+            gl,
+            lightScene,
+            (renderBatchItem) => {
+              // keep trying texels until non-empty one is found
+              while (passTexelCounter[0] < maxCounter) {
+                const texelIndex = passTexelCounter[0];
 
-            // always update texel count
-            // and mark state as completed once all texels are done
-            passTexelCounter[0] = texelIndex + 1;
+                // always update texel count
+                passTexelCounter[0] = texelIndex + 1;
 
-            if (passTexelCounter[0] >= totalTexelCount) {
-              setProcessingState((prev) => {
-                return {
-                  ...prev,
-                  passComplete: true
-                };
-              });
-            }
+                if (!queueTexel(atlasMap, texelIndex, renderBatchItem)) {
+                  continue;
+                }
 
-            if (
-              !processTexel(
-                gl,
-                atlasMap,
-                texelIndex,
-                lightScene,
-                renderLightProbe,
-                probePixelAreaLookup,
-                tmpRgba
-              )
-            ) {
-              continue;
-            }
-
-            // store computed illumination value
-            activeOutputData.set(tmpRgba, texelIndex * 4);
-
-            // propagate value to 3x3 brush area
-            const texelX = texelIndex % atlasWidth;
-            const texelRowStart = texelIndex - texelX;
-
-            for (let offDir = 0; offDir < 8; offDir += 1) {
-              const offX = offDirX[offDir];
-              const offY = offDirY[offDir];
-
-              const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
-              const offRowStart =
-                (totalTexelCount + texelRowStart + offY * atlasWidth) %
-                totalTexelCount;
-              const offTexelBase = (offRowStart + offRowX) * 4;
-
-              // fill texel if it will not/did not receive real computed data otherwise;
-              // also ensure strong neighbour values (not diagonal) take precedence
-              const offTexelFaceEnc = atlasMap.data[offTexelBase + 2];
-              const isStrongNeighbour = offX === 0 || offY === 0;
-              const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
-
-              if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
-                activeOutputData.set(tmpRgba, offTexelBase);
+                // if something was queued, stop the loop
+                break;
               }
+            },
+            (texelIndex, readLightProbe) => {
+              readTexel(tmpRgba, readLightProbe, probePixelAreaLookup);
+
+              // store computed illumination value
+              activeOutputData.set(tmpRgba, texelIndex * 4);
+
+              // propagate value to 3x3 brush area
+              const texelX = texelIndex % atlasWidth;
+              const texelRowStart = texelIndex - texelX;
+
+              for (let offDir = 0; offDir < 8; offDir += 1) {
+                const offX = offDirX[offDir];
+                const offY = offDirY[offDir];
+
+                const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
+                const offRowStart =
+                  (totalTexelCount + texelRowStart + offY * atlasWidth) %
+                  totalTexelCount;
+                const offTexelBase = (offRowStart + offRowX) * 4;
+
+                // fill texel if it will not/did not receive real computed data otherwise;
+                // also ensure strong neighbour values (not diagonal) take precedence
+                const offTexelFaceEnc = atlasMap.data[offTexelBase + 2];
+                const isStrongNeighbour = offX === 0 || offY === 0;
+                const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
+
+                if (
+                  offTexelFaceEnc === 0 &&
+                  (isStrongNeighbour || isUnfilled)
+                ) {
+                  activeOutputData.set(tmpRgba, offTexelBase);
+                }
+              }
+
+              activeOutput.needsUpdate = true;
             }
+          );
 
-            activeOutput.needsUpdate = true;
-
-            // some computation happened, do not iterate further
-            break;
+          // mark state as completed once all texels are done
+          if (passTexelCounter[0] >= totalTexelCount) {
+            setProcessingState((prev) => {
+              return {
+                ...prev,
+                passComplete: true
+              };
+            });
           }
         }
   );
 
   // debug probe
   const {
-    renderLightProbe: debugProbe,
-    probePixelAreaLookup: debugProbePixelAreaLookup,
+    renderLightProbeBatch: debugProbeBatch,
     debugLightProbeTexture
   } = useLightProbe(probeTargetSize);
   const debugProbeRef = useRef(false);
@@ -547,14 +550,15 @@ const IrradianceRenderer: React.FC<{
 
     const atlasMap = atlasMapRef.current;
 
-    processTexel(
+    debugProbeBatch(
       gl,
-      atlasMap,
-      atlasWidth * 18 + 28,
       lightScene,
-      debugProbe,
-      debugProbePixelAreaLookup,
-      tmpRgba
+      (renderBatchItem) => {
+        queueTexel(atlasMap, atlasWidth * 18 + 28, renderBatchItem);
+      },
+      () => {
+        // no-op (not consuming the data)
+      }
     );
   }, 10);
 
