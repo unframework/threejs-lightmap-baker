@@ -119,6 +119,8 @@ const Scene: React.FC<{
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
 
+  const [probeDebugMeshRef, probeDebugMesh] = useResource<THREE.Mesh>();
+
   const { size } = useThree();
   const debugCamera = useMemo(() => {
     // top-left corner is (0, 100), top-right is (100, 100)
@@ -146,6 +148,7 @@ const Scene: React.FC<{
           atlasMap={atlasMap}
           factorName={null}
           onStart={setBaseLightTexture}
+          debugMesh={probeDebugMesh}
         />
       )}
 
@@ -163,6 +166,10 @@ const Scene: React.FC<{
             <DebugMaterial attach="material" map={atlasMap.texture} />
           </mesh>
         )}
+
+        <mesh position={[15, 90, 0]} ref={probeDebugMeshRef}>
+          <planeBufferGeometry attach="geometry" args={[20, 10]} />
+        </mesh>
       </scene>
 
       <IrradianceCompositor

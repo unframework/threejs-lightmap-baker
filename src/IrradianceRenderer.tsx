@@ -6,7 +6,12 @@ import React, {
   useContext,
   useRef
 } from 'react';
-import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
+import {
+  useThree,
+  useFrame,
+  createPortal,
+  PointerEvent
+} from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useIrradianceAtlasContext, Atlas } from './IrradianceSurfaceManager';
@@ -18,6 +23,7 @@ import {
   AtlasMap,
   AtlasMapItem
 } from './IrradianceAtlasMapper';
+import { DebugMaterial } from './DebugMaterial';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
@@ -28,6 +34,10 @@ const tmpV = new THREE.Vector3();
 
 const tmpNormal = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
+
+const tmpProbeBox = new THREE.Vector4();
+
+const tmpRgba = [0, 0, 0, 0];
 
 export interface IrradianceStagingTimelineMesh {
   uuid: string;
@@ -255,13 +265,72 @@ function setUpProbeSide(
   probeCam.applyMatrix4(mesh.matrixWorld);
 }
 
-function useLightProbe(probeTargetSize: number) {
+type ProbeDataHandler = (
+  rgbaData: Float32Array,
+  rowPixelStride: number,
+  probeBox: THREE.Vector4,
+  originX: number, // device coordinates of lower-left corner of the viewbox
+  originY: number
+) => void;
+
+type ProbeRenderer = (
+  gl: THREE.WebGLRenderer,
+  atlasMapItem: AtlasMapItem,
+  faceIndex: number,
+  pU: number,
+  pV: number,
+  lightScene: THREE.Scene,
+  handleProbeData: ProbeDataHandler
+) => void;
+
+function useLightProbe(
+  probeTargetSize: number
+): {
+  renderLightProbe: ProbeRenderer;
+  probePixelAreaLookup: number[];
+  debugLightProbeTexture: THREE.Texture;
+} {
   const probePixelCount = probeTargetSize * probeTargetSize;
+  const halfSize = probeTargetSize / 2;
   const probeTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
-      type: THREE.FloatType
-    });
+    return new THREE.WebGLRenderTarget(
+      probeTargetSize * 4,
+      probeTargetSize * 2,
+      {
+        type: THREE.FloatType,
+        magFilter: THREE.NearestFilter, // pixelate for debug display
+        minFilter: THREE.NearestFilter,
+        generateMipmaps: false
+      }
+    );
   }, [probeTargetSize]);
+
+  // for each pixel in the individual probe viewport, compute contribution to final tally
+  // (edges are weaker because each pixel covers less of a view angle)
+  const probePixelAreaLookup = useMemo(() => {
+    const lookup = new Array(probePixelCount);
+
+    const probePixelBias = 0.5 / probeTargetSize;
+
+    for (let py = 0; py < probeTargetSize; py += 1) {
+      // compute offset from center (with a bias for target pixel size)
+      const dy = py / probeTargetSize - 0.5 + probePixelBias;
+
+      for (let px = 0; px < probeTargetSize; px += 1) {
+        // compute offset from center (with a bias for target pixel size)
+        const dx = px / probeTargetSize - 0.5 + probePixelBias;
+
+        // compute multiplier as affected by inclination of corresponding ray
+        const span = Math.hypot(dx * 2, dy * 2);
+        const hypo = Math.hypot(span, 1);
+        const area = 1 / hypo;
+
+        lookup[py * probeTargetSize + px] = area;
+      }
+    }
+
+    return lookup;
+  }, [probePixelCount]);
 
   useEffect(
     () => () => {
@@ -280,22 +349,18 @@ function useLightProbe(probeTargetSize: number) {
   }, []);
 
   const probeData = useMemo(() => {
-    return new Float32Array(probeTargetSize * probeTargetSize * 4);
+    return new Float32Array(probeTargetSize * 4 * probeTargetSize * 2 * 4);
   }, [probeTargetSize]);
 
   // @todo ensure there is biasing to be in middle of texel physical square
-  function renderLightProbe(
-    gl: THREE.WebGLRenderer,
-    atlasMapItem: AtlasMapItem,
-    faceIndex: number,
-    pU: number,
-    pV: number,
-    lightScene: THREE.Scene,
-    handleProbeData: (
-      rgbaData: Float32Array,
-      pixelStart: number,
-      pixelCount: number
-    ) => void
+  const renderLightProbe: ProbeRenderer = function renderLightProbe(
+    gl,
+    atlasMapItem,
+    faceIndex,
+    pU,
+    pV,
+    lightScene,
+    handleProbeData
   ) {
     const { faceBuffer, originalMesh, originalBuffer } = atlasMapItem;
 
@@ -329,71 +394,209 @@ function useLightProbe(probeTargetSize: number) {
     tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
 
     gl.setRenderTarget(probeTarget);
+    gl.autoClear = false;
+
+    // clear entire area
+    probeTarget.scissor.set(0, 0, probeTargetSize * 4, probeTargetSize * 2);
+    gl.clearDepth();
+    gl.clearColor();
 
     setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
-    gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
+    probeTarget.viewport.set(
       0,
       probeTargetSize,
       probeTargetSize,
-      probeData
+      probeTargetSize
     );
-    handleProbeData(probeData, 0, probePixelCount);
+    probeTarget.scissor.set(
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeTargetSize
+    );
+    gl.render(lightScene, probeCam);
 
+    // sides only need the upper half of rendered view, so we set scissor accordingly
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
+    probeTarget.viewport.set(0, 0, probeTargetSize, probeTargetSize);
+    probeTarget.scissor.set(0, halfSize, probeTargetSize, halfSize);
     gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
-      0,
-      probeTargetSize,
-      probeTargetSize,
-      probeData
-    );
-    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
-    gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
+    probeTarget.viewport.set(
+      probeTargetSize,
       0,
       probeTargetSize,
-      probeTargetSize,
-      probeData
+      probeTargetSize
     );
-    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
+    probeTarget.scissor.set(
+      probeTargetSize,
+      halfSize,
+      probeTargetSize,
+      halfSize
+    );
+    gl.render(lightScene, probeCam);
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, 1);
-    gl.render(lightScene, probeCam);
-    gl.readRenderTargetPixels(
-      probeTarget,
-      0,
+    probeTarget.viewport.set(
+      probeTargetSize * 2,
       0,
       probeTargetSize,
-      probeTargetSize,
-      probeData
+      probeTargetSize
     );
-    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
+    probeTarget.scissor.set(
+      probeTargetSize * 2,
+      halfSize,
+      probeTargetSize,
+      halfSize
+    );
+    gl.render(lightScene, probeCam);
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, -1);
+    probeTarget.viewport.set(
+      probeTargetSize * 3,
+      0,
+      probeTargetSize,
+      probeTargetSize
+    );
+    probeTarget.scissor.set(
+      probeTargetSize * 3,
+      halfSize,
+      probeTargetSize,
+      halfSize
+    );
     gl.render(lightScene, probeCam);
+
     gl.readRenderTargetPixels(
       probeTarget,
       0,
       0,
-      probeTargetSize,
-      probeTargetSize,
+      probeTargetSize * 4,
+      probeTargetSize * 2,
       probeData
     );
-    handleProbeData(probeData, probePixelCount / 2, probePixelCount / 2);
 
+    gl.autoClear = true;
     gl.setRenderTarget(null);
+
+    // consume the rendered data
+    const rowPixelStride = probeTargetSize * 4;
+
+    tmpProbeBox.set(0, probeTargetSize, probeTargetSize, probeTargetSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, 0);
+
+    tmpProbeBox.set(0, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
+
+    tmpProbeBox.set(probeTargetSize, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
+
+    tmpProbeBox.set(probeTargetSize * 2, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
+
+    tmpProbeBox.set(probeTargetSize * 3, halfSize, probeTargetSize, halfSize);
+    handleProbeData(probeData, rowPixelStride, tmpProbeBox, 0, halfSize);
+  };
+
+  return {
+    renderLightProbe,
+    probePixelAreaLookup,
+    debugLightProbeTexture: probeTarget.texture
+  };
+}
+
+function processTexel(
+  gl: THREE.WebGLRenderer,
+  atlasMap: AtlasMap,
+  texelIndex: number,
+  lightScene: THREE.Scene,
+  renderLightProbe: ProbeRenderer,
+  probePixelAreaLookup: number[],
+  rgba: number[]
+): boolean {
+  // get current atlas face we are filling up
+  const texelInfoBase = texelIndex * 4;
+  const texelPosU = atlasMap.data[texelInfoBase];
+  const texelPosV = atlasMap.data[texelInfoBase + 1];
+  const texelFaceEnc = atlasMap.data[texelInfoBase + 2];
+
+  // skip computation if this texel is empty
+  if (texelFaceEnc === 0) {
+    return false;
   }
 
-  return renderLightProbe;
+  // otherwise, proceed with computation and exit
+  const texelFaceIndexCombo = Math.round(texelFaceEnc - 1);
+  const texelFaceIndex = texelFaceIndexCombo % MAX_ITEM_FACES;
+  const texelItemIndex =
+    (texelFaceIndexCombo - texelFaceIndex) / MAX_ITEM_FACES;
+
+  if (texelItemIndex < 0 || texelItemIndex >= atlasMap.items.length) {
+    throw new Error(
+      `incorrect atlas map item data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
+    );
+  }
+
+  const atlasItem = atlasMap.items[texelItemIndex];
+
+  if (texelFaceIndex < 0 || texelFaceIndex >= atlasItem.faceCount) {
+    throw new Error(
+      `incorrect atlas map face data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
+    );
+  }
+
+  // render the probe viewports and collect pixel aggregate
+  let r = 0,
+    g = 0,
+    b = 0,
+    totalDivider = 0;
+
+  renderLightProbe(
+    gl,
+    atlasItem,
+    texelFaceIndex,
+    texelPosU,
+    texelPosV,
+    lightScene,
+    (probeData, rowPixelStride, box, originX, originY) => {
+      const probeTargetSize = box.z; // assuming width is always full
+      const probePixelBias = 0.5 / probeTargetSize;
+
+      const rowStride = rowPixelStride * 4;
+      let rowStart = box.y * rowStride + box.x * 4;
+      const totalMax = (box.y + box.w) * rowStride;
+      let py = originY;
+
+      while (rowStart < totalMax) {
+        const rowMax = rowStart + box.z * 4;
+        let px = originX;
+
+        for (let i = rowStart; i < rowMax; i += 4) {
+          // compute multiplier as affected by inclination of corresponding ray
+          const area = probePixelAreaLookup[py * probeTargetSize + px];
+
+          r += area * probeData[i];
+          g += area * probeData[i + 1];
+          b += area * probeData[i + 2];
+
+          totalDivider += area;
+
+          px += 1;
+        }
+
+        rowStart += rowStride;
+        py += 1;
+      }
+    }
+  );
+
+  rgba[0] = r / totalDivider;
+  rgba[1] = g / totalDivider;
+  rgba[2] = b / totalDivider;
+  rgba[3] = 1;
+
+  // signal that computation happened
+  return true;
 }
 
 // offsets for 3x3 brush
@@ -404,6 +607,7 @@ const IrradianceRenderer: React.FC<{
   atlasMap: AtlasMap;
   factorName: string | null;
   time?: number;
+  debugMesh?: THREE.Mesh;
   onStart: (lightMap: THREE.Texture) => void;
 }> = (props) => {
   // get the work manager hook
@@ -522,7 +726,9 @@ const IrradianceRenderer: React.FC<{
   ]);
 
   const probeTargetSize = 16;
-  const renderLightProbe = useLightProbe(probeTargetSize);
+  const { renderLightProbe, probePixelAreaLookup } = useLightProbe(
+    probeTargetSize
+  );
 
   const outputIsComplete =
     processingState.passesRemaining === 0 && processingState.passComplete;
@@ -564,84 +770,22 @@ const IrradianceRenderer: React.FC<{
               });
             }
 
-            // get current atlas face we are filling up
-            const texelInfoBase = texelIndex * 4;
-            const texelPosU = atlasMap.data[texelInfoBase];
-            const texelPosV = atlasMap.data[texelInfoBase + 1];
-            const texelFaceEnc = atlasMap.data[texelInfoBase + 2];
-
-            // skip computation if this texel is empty
-            if (texelFaceEnc === 0) {
+            if (
+              !processTexel(
+                gl,
+                atlasMap,
+                texelIndex,
+                lightScene,
+                renderLightProbe,
+                probePixelAreaLookup,
+                tmpRgba
+              )
+            ) {
               continue;
             }
 
-            // otherwise, proceed with computation and exit
-            const texelFaceIndexCombo = Math.round(texelFaceEnc - 1);
-            const texelFaceIndex = texelFaceIndexCombo % MAX_ITEM_FACES;
-            const texelItemIndex =
-              (texelFaceIndexCombo - texelFaceIndex) / MAX_ITEM_FACES;
-
-            if (texelItemIndex < 0 || texelItemIndex >= atlasMap.items.length) {
-              throw new Error(
-                `incorrect atlas map item data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
-              );
-            }
-
-            const atlasItem = atlasMap.items[texelItemIndex];
-
-            if (texelFaceIndex < 0 || texelFaceIndex >= atlasItem.faceCount) {
-              throw new Error(
-                `incorrect atlas map face data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
-              );
-            }
-
-            // render the probe viewports and collect pixel aggregate
-            let r = 0,
-              g = 0,
-              b = 0,
-              totalDivider = 0;
-
-            renderLightProbe(
-              gl,
-              atlasItem,
-              texelFaceIndex,
-              texelPosU,
-              texelPosV,
-              lightScene,
-              (probeData, pixelStart, pixelCount) => {
-                const dataMax = (pixelStart + pixelCount) * 4;
-
-                for (let i = pixelStart * 4; i < dataMax; i += 4) {
-                  // compute offset from center (with a bias for target pixel size)
-                  const px = i / 4;
-                  const pdx = (px % probeTargetSize) + 0.5;
-                  const pyx = Math.floor(px / probeTargetSize) + 0.5;
-                  const dx = Math.abs(pdx / probeTargetSize - 0.5);
-                  const dy = Math.abs(pyx / probeTargetSize - 0.5);
-
-                  // compute multiplier as affected by inclination of corresponding ray
-                  const span = Math.hypot(dx * 2, dy * 2);
-                  const hypo = Math.hypot(span, 1);
-                  const area = 1 / hypo;
-
-                  r += area * probeData[i];
-                  g += area * probeData[i + 1];
-                  b += area * probeData[i + 2];
-
-                  totalDivider += area;
-                }
-              }
-            );
-
-            const rgba = [
-              r / totalDivider,
-              g / totalDivider,
-              b / totalDivider,
-              1
-            ];
-
             // store computed illumination value
-            activeOutputData.set(rgba, texelIndex * 4);
+            activeOutputData.set(tmpRgba, texelIndex * 4);
 
             // propagate value to 3x3 brush area
             const texelX = texelIndex % atlasWidth;
@@ -664,7 +808,7 @@ const IrradianceRenderer: React.FC<{
               const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
 
               if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
-                activeOutputData.set(rgba, offTexelBase);
+                activeOutputData.set(tmpRgba, offTexelBase);
               }
             }
 
@@ -676,12 +820,54 @@ const IrradianceRenderer: React.FC<{
         }
   );
 
-  return outputIsComplete
-    ? null
-    : lightSceneElement &&
-        React.cloneElement(lightSceneElement, {
-          ref: lightSceneRef
-        });
+  // debug probe
+  const {
+    renderLightProbe: debugProbe,
+    probePixelAreaLookup: debugProbePixelAreaLookup,
+    debugLightProbeTexture
+  } = useLightProbe(probeTargetSize);
+  const debugProbeRef = useRef(false);
+  useFrame(({ gl }) => {
+    const lightScene = lightSceneRef.current;
+    if (!lightScene) {
+      return; // nothing to do yet
+    }
+
+    // run only once
+    if (debugProbeRef.current) {
+      return;
+    }
+    debugProbeRef.current = true;
+
+    const atlasMap = atlasMapRef.current;
+
+    processTexel(
+      gl,
+      atlasMap,
+      atlasWidth * 18 + 28,
+      lightScene,
+      debugProbe,
+      debugProbePixelAreaLookup,
+      tmpRgba
+    );
+  }, 10);
+
+  return (
+    <>
+      {outputIsComplete
+        ? null
+        : lightSceneElement &&
+          React.cloneElement(lightSceneElement, {
+            ref: lightSceneRef
+          })}
+
+      {props.debugMesh &&
+        createPortal(
+          <DebugMaterial attach="material" map={debugLightProbeTexture} />,
+          props.debugMesh
+        )}
+    </>
+  );
 };
 
 export default IrradianceRenderer;
