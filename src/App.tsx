@@ -9,7 +9,7 @@ import IrradianceSurfaceManager, {
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
-import { useIrradianceAtlasMapper } from './IrradianceAtlasMapper';
+import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
 import { useIrradianceRenderer } from './IrradianceRenderer';
 import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
@@ -98,7 +98,7 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const { atlasMap, mapperSceneElement } = useIrradianceAtlasMapper();
+  const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
 
   const { outputTexture: baseLightTexture } = useIrradianceRenderer(
     atlasMap,
@@ -143,6 +143,8 @@ const Scene: React.FC<{
 
   return (
     <>
+      <IrradianceAtlasMapper onComplete={setAtlasMap} />
+
       <scene ref={debugSceneRef}>
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
@@ -184,7 +186,6 @@ const Scene: React.FC<{
         </scene>
       </IrradianceTextureContext.Provider>
 
-      {mapperSceneElement}
       {compositorSceneElement}
     </>
   );

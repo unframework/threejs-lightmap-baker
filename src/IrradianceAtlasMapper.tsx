@@ -36,15 +36,14 @@ const tmpV = new THREE.Vector3();
 // @todo consider stencil buffer, or just 8bit texture
 // @todo consider rounding to account for texel size
 // @todo provide output via context
-export function useIrradianceAtlasMapper(): {
-  atlasMap: AtlasMap | null;
-  mapperSceneElement: React.ReactElement | null;
-} {
+const IrradianceAtlasMapper: React.FC<{
+  onComplete: (atlasMap: AtlasMap) => void;
+}> = ({ onComplete }) => {
   const atlas = useIrradianceAtlasContext();
 
+  // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
 
-  // queue up data to render into atlas texture
   useEffect(() => {
     // disposed during scene unmount
     setInputItems(
@@ -251,7 +250,7 @@ export function useIrradianceAtlasMapper(): {
         orthoData
       );
 
-      setOutput({
+      onComplete({
         texture: orthoTarget.texture,
         data: orthoData,
         items: inputItems
@@ -260,12 +259,8 @@ export function useIrradianceAtlasMapper(): {
     [inputItems]
   );
 
-  return {
-    // expose current output unless it is stale
-    atlasMap: output && output.items === inputItems ? output : null,
-
-    // scene to instantiate for rendering
-    mapperSceneElement: inputItems && (
+  return (
+    inputItems && (
       <scene ref={orthoSceneRef}>
         {inputItems.map((geom, geomIndex) => {
           return (
@@ -277,5 +272,7 @@ export function useIrradianceAtlasMapper(): {
         })}
       </scene>
     )
-  };
-}
+  );
+};
+
+export default IrradianceAtlasMapper;
