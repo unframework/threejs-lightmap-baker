@@ -75,11 +75,11 @@ const WorkManager: React.FC = ({ children }) => {
     useJobInstance(jobCountRef, setJobs, callback); // eslint-disable-line react-hooks/rules-of-hooks
   }, []);
 
-  // get active job, if any
-  const activeJob = jobs.find((job) => !!job.callbackRef.current);
-
   // actual per-frame work invocation
   useFrame(({ gl }) => {
+    // get active job, if any
+    const activeJob = jobs.find((job) => !!job.callbackRef.current);
+
     // check if there is nothing to do
     if (!activeJob) {
       return;
