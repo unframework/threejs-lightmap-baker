@@ -15,6 +15,7 @@ import {
   atlasWidth,
   atlasHeight,
   MAX_ITEM_FACES,
+  AtlasMap,
   AtlasMapItem
 } from './IrradianceAtlasMapper';
 
@@ -399,15 +400,12 @@ function useLightProbe(probeTargetSize: number) {
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
-export function useIrradianceRenderer(
-  atlasMapData: Float32Array,
-  atlasMapItems: AtlasMapItem[] | null,
-  factorName: string | null,
-  time?: number
-): {
-  outputIsComplete: boolean;
-  outputTexture: THREE.Texture;
-} {
+const IrradianceRenderer: React.FC<{
+  atlasMap: AtlasMap;
+  factorName: string | null;
+  time?: number;
+  onStart: (lightMap: THREE.Texture) => void;
+}> = (props) => {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
   if (useWorkManager === null) {
@@ -415,91 +413,79 @@ export function useIrradianceRenderer(
   }
 
   // wrap params in ref to avoid unintended re-triggering
-  const factorNameRef = useRef(factorName);
-  factorNameRef.current = factorName;
-  const animationTimeRef = useRef(time || 0);
-  animationTimeRef.current = time || 0;
+  const atlasMapRef = useRef(props.atlasMap); // read once
+  const factorNameRef = useRef(props.factorName); // read once
+  const animationTimeRef = useRef(props.time || 0); // read once
+
+  const onStartRef = useRef(props.onStart);
+  onStartRef.current = props.onStart; // keep latest
 
   const atlas = useIrradianceAtlasContext();
 
-  const [
-    {
-      // output of the previous baking pass (applied to the light probe scene)
-      previousOutput,
-      previousOutputData,
-
-      // currently produced output
-      activeOutput,
-      activeOutputData,
-      withTestPattern,
-
-      activeLightSceneElement, // light scene used for actual light probes
-
-      passTexelCounter, // directly changed in place to avoid re-renders
-      passComplete,
-      passesRemaining
+  // output of the previous baking pass (applied to the light probe scene)
+  const [previousOutput, previousOutputData] = useMemo(
+    () => createOutputTexture(atlasWidth, atlasHeight),
+    []
+  );
+  useEffect(
+    () => () => {
+      previousOutput.dispose();
     },
-    setProcessingState
-  ] = useState(() => {
-    // placeholder textures for the empty state
-    const [dummyOutput, dummyOutputData] = createOutputTexture(
-      atlasWidth,
-      atlasHeight
-    );
+    [previousOutput]
+  );
 
+  // currently produced output
+  // this will be pre-filled with test pattern if needed on start of pass
+  const [activeOutput, activeOutputData] = useMemo(
+    () => createOutputTexture(atlasWidth, atlasHeight),
+    []
+  );
+  useEffect(
+    () => () => {
+      activeOutput.dispose();
+    },
+    [activeOutput]
+  );
+
+  const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
+
+  const lightSceneRef = useRef<THREE.Scene>();
+  const [
+    lightSceneElement,
+    setLightSceneElement
+  ] = useState<React.ReactElement | null>(null);
+
+  const [processingState, setProcessingState] = useState(() => {
     return {
-      previousOutput: dummyOutput,
-      previousOutputData: dummyOutputData,
-      activeOutput: dummyOutput,
-      activeOutputData: dummyOutputData,
-      withTestPattern: false,
-      activeLightSceneElement: null as React.ReactElement | null,
-      passTexelCounter: [0],
-      passComplete: true,
-      passesRemaining: 0 // initial state is just blank + complete
+      passTexelCounter: [0], // directly changed in place to avoid re-renders
+      passComplete: true, // this triggers new pass on next render
+      passesRemaining: MAX_PASSES
     };
   });
 
-  // start new processing when ready
+  // create light scene in separate render tick
   useEffect(() => {
-    const [
-      createdPreviousOutput,
-      createdPreviousOutputData
-    ] = createOutputTexture(atlasWidth, atlasHeight);
-
-    // this will be pre-filled with test pattern if needed on start of pass
-    const [createdActiveOutput, createdActiveOutputData] = createOutputTexture(
-      atlasWidth,
-      atlasHeight
-    );
-
     // @todo for some reason the scene does not render unless created inside the timeout
     // (even though the atlas is already initialized/etc by now anyway)
     setTimeout(() => {
-      setProcessingState({
-        previousOutput: createdPreviousOutput,
-        previousOutputData: createdPreviousOutputData,
-        activeOutput: createdActiveOutput,
-        activeOutputData: createdActiveOutputData,
-
-        withTestPattern: factorNameRef.current === null, // only base factor gets pattern
-
-        activeLightSceneElement: getLightProbeSceneElement(
+      setLightSceneElement(
+        getLightProbeSceneElement(
           atlas,
-          createdPreviousOutput,
+          previousOutput,
           factorNameRef.current,
           animationTimeRef.current
-        ),
-
-        passTexelCounter: [0],
-        passComplete: true, // this triggers new pass on next render
-        passesRemaining: MAX_PASSES
-      });
+        )
+      );
     }, 0);
-  }, [atlas]);
+
+    // running last in case there are errors
+    onStartRef.current(activeOutput);
+  }, [atlas, previousOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {
+    const { passComplete, passesRemaining } = processingState;
+
     // check if we need to set up new pass
     if (!passComplete || passesRemaining === 0) {
       return;
@@ -521,8 +507,6 @@ export function useIrradianceRenderer(
 
     setProcessingState((prev) => {
       return {
-        ...prev,
-
         passTexelCounter: [0],
         passComplete: false,
         passesRemaining: prev.passesRemaining - 1
@@ -530,8 +514,7 @@ export function useIrradianceRenderer(
     });
   }, [
     withTestPattern,
-    passComplete,
-    passesRemaining,
+    processingState,
     previousOutput,
     previousOutputData,
     activeOutput,
@@ -541,146 +524,164 @@ export function useIrradianceRenderer(
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
 
-  const outputIsComplete = passesRemaining === 0 && passComplete;
+  const outputIsComplete =
+    processingState.passesRemaining === 0 && processingState.passComplete;
 
   useWorkManager(
-    outputIsComplete ? null : activeLightSceneElement,
-    (gl, lightScene) => {
-      if (!atlasMapItems) {
-        return;
-      }
+    outputIsComplete
+      ? null
+      : (gl) => {
+          const lightScene = lightSceneRef.current;
+          if (!lightScene) {
+            return; // nothing to do yet
+          }
 
-      const totalTexelCount = atlasWidth * atlasHeight;
+          const { passTexelCounter } = processingState;
 
-      // allow for skipping a certain amount of empty texels
-      const maxCounter = Math.min(totalTexelCount, passTexelCounter[0] + 100);
+          const atlasMap = atlasMapRef.current;
+          const totalTexelCount = atlasWidth * atlasHeight;
 
-      // keep trying texels until non-empty one is found
-      while (passTexelCounter[0] < maxCounter) {
-        const texelIndex = passTexelCounter[0];
-
-        // always update texel count
-        // and mark state as completed once all texels are done
-        passTexelCounter[0] = texelIndex + 1;
-
-        if (passTexelCounter[0] >= totalTexelCount) {
-          setProcessingState((prev) => {
-            return {
-              ...prev,
-              passComplete: true
-            };
-          });
-        }
-
-        // get current atlas face we are filling up
-        const texelInfoBase = texelIndex * 4;
-        const texelPosU = atlasMapData[texelInfoBase];
-        const texelPosV = atlasMapData[texelInfoBase + 1];
-        const texelFaceEnc = atlasMapData[texelInfoBase + 2];
-
-        // skip computation if this texel is empty
-        if (texelFaceEnc === 0) {
-          continue;
-        }
-
-        // otherwise, proceed with computation and exit
-        const texelFaceIndexCombo = Math.round(texelFaceEnc - 1);
-        const texelFaceIndex = texelFaceIndexCombo % MAX_ITEM_FACES;
-        const texelItemIndex =
-          (texelFaceIndexCombo - texelFaceIndex) / MAX_ITEM_FACES;
-
-        if (texelItemIndex < 0 || texelItemIndex >= atlasMapItems.length) {
-          throw new Error(
-            `incorrect atlas map item data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
+          // allow for skipping a certain amount of empty texels
+          const maxCounter = Math.min(
+            totalTexelCount,
+            passTexelCounter[0] + 100
           );
-        }
 
-        const atlasItem = atlasMapItems[texelItemIndex];
+          // keep trying texels until non-empty one is found
+          while (passTexelCounter[0] < maxCounter) {
+            const texelIndex = passTexelCounter[0];
 
-        if (texelFaceIndex < 0 || texelFaceIndex >= atlasItem.faceCount) {
-          throw new Error(
-            `incorrect atlas map face data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
-          );
-        }
+            // always update texel count
+            // and mark state as completed once all texels are done
+            passTexelCounter[0] = texelIndex + 1;
 
-        // render the probe viewports and collect pixel aggregate
-        let r = 0,
-          g = 0,
-          b = 0,
-          totalDivider = 0;
-
-        renderLightProbe(
-          gl,
-          atlasItem,
-          texelFaceIndex,
-          texelPosU,
-          texelPosV,
-          lightScene,
-          (probeData, pixelStart, pixelCount) => {
-            const dataMax = (pixelStart + pixelCount) * 4;
-
-            for (let i = pixelStart * 4; i < dataMax; i += 4) {
-              // compute offset from center (with a bias for target pixel size)
-              const px = i / 4;
-              const pdx = (px % probeTargetSize) + 0.5;
-              const pyx = Math.floor(px / probeTargetSize) + 0.5;
-              const dx = Math.abs(pdx / probeTargetSize - 0.5);
-              const dy = Math.abs(pyx / probeTargetSize - 0.5);
-
-              // compute multiplier as affected by inclination of corresponding ray
-              const span = Math.hypot(dx * 2, dy * 2);
-              const hypo = Math.hypot(span, 1);
-              const area = 1 / hypo;
-
-              r += area * probeData[i];
-              g += area * probeData[i + 1];
-              b += area * probeData[i + 2];
-
-              totalDivider += area;
+            if (passTexelCounter[0] >= totalTexelCount) {
+              setProcessingState((prev) => {
+                return {
+                  ...prev,
+                  passComplete: true
+                };
+              });
             }
-          }
-        );
 
-        const rgba = [r / totalDivider, g / totalDivider, b / totalDivider, 1];
+            // get current atlas face we are filling up
+            const texelInfoBase = texelIndex * 4;
+            const texelPosU = atlasMap.data[texelInfoBase];
+            const texelPosV = atlasMap.data[texelInfoBase + 1];
+            const texelFaceEnc = atlasMap.data[texelInfoBase + 2];
 
-        // store computed illumination value
-        activeOutputData.set(rgba, texelIndex * 4);
+            // skip computation if this texel is empty
+            if (texelFaceEnc === 0) {
+              continue;
+            }
 
-        // propagate value to 3x3 brush area
-        const texelX = texelIndex % atlasWidth;
-        const texelRowStart = texelIndex - texelX;
+            // otherwise, proceed with computation and exit
+            const texelFaceIndexCombo = Math.round(texelFaceEnc - 1);
+            const texelFaceIndex = texelFaceIndexCombo % MAX_ITEM_FACES;
+            const texelItemIndex =
+              (texelFaceIndexCombo - texelFaceIndex) / MAX_ITEM_FACES;
 
-        for (let offDir = 0; offDir < 8; offDir += 1) {
-          const offX = offDirX[offDir];
-          const offY = offDirY[offDir];
+            if (texelItemIndex < 0 || texelItemIndex >= atlasMap.items.length) {
+              throw new Error(
+                `incorrect atlas map item data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
+              );
+            }
 
-          const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
-          const offRowStart =
-            (totalTexelCount + texelRowStart + offY * atlasWidth) %
-            totalTexelCount;
-          const offTexelBase = (offRowStart + offRowX) * 4;
+            const atlasItem = atlasMap.items[texelItemIndex];
 
-          // fill texel if it will not/did not receive real computed data otherwise;
-          // also ensure strong neighbour values (not diagonal) take precedence
-          const offTexelFaceEnc = atlasMapData[offTexelBase + 2];
-          const isStrongNeighbour = offX === 0 || offY === 0;
-          const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
+            if (texelFaceIndex < 0 || texelFaceIndex >= atlasItem.faceCount) {
+              throw new Error(
+                `incorrect atlas map face data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
+              );
+            }
 
-          if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
-            activeOutputData.set(rgba, offTexelBase);
+            // render the probe viewports and collect pixel aggregate
+            let r = 0,
+              g = 0,
+              b = 0,
+              totalDivider = 0;
+
+            renderLightProbe(
+              gl,
+              atlasItem,
+              texelFaceIndex,
+              texelPosU,
+              texelPosV,
+              lightScene,
+              (probeData, pixelStart, pixelCount) => {
+                const dataMax = (pixelStart + pixelCount) * 4;
+
+                for (let i = pixelStart * 4; i < dataMax; i += 4) {
+                  // compute offset from center (with a bias for target pixel size)
+                  const px = i / 4;
+                  const pdx = (px % probeTargetSize) + 0.5;
+                  const pyx = Math.floor(px / probeTargetSize) + 0.5;
+                  const dx = Math.abs(pdx / probeTargetSize - 0.5);
+                  const dy = Math.abs(pyx / probeTargetSize - 0.5);
+
+                  // compute multiplier as affected by inclination of corresponding ray
+                  const span = Math.hypot(dx * 2, dy * 2);
+                  const hypo = Math.hypot(span, 1);
+                  const area = 1 / hypo;
+
+                  r += area * probeData[i];
+                  g += area * probeData[i + 1];
+                  b += area * probeData[i + 2];
+
+                  totalDivider += area;
+                }
+              }
+            );
+
+            const rgba = [
+              r / totalDivider,
+              g / totalDivider,
+              b / totalDivider,
+              1
+            ];
+
+            // store computed illumination value
+            activeOutputData.set(rgba, texelIndex * 4);
+
+            // propagate value to 3x3 brush area
+            const texelX = texelIndex % atlasWidth;
+            const texelRowStart = texelIndex - texelX;
+
+            for (let offDir = 0; offDir < 8; offDir += 1) {
+              const offX = offDirX[offDir];
+              const offY = offDirY[offDir];
+
+              const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
+              const offRowStart =
+                (totalTexelCount + texelRowStart + offY * atlasWidth) %
+                totalTexelCount;
+              const offTexelBase = (offRowStart + offRowX) * 4;
+
+              // fill texel if it will not/did not receive real computed data otherwise;
+              // also ensure strong neighbour values (not diagonal) take precedence
+              const offTexelFaceEnc = atlasMap.data[offTexelBase + 2];
+              const isStrongNeighbour = offX === 0 || offY === 0;
+              const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
+
+              if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
+                activeOutputData.set(rgba, offTexelBase);
+              }
+            }
+
+            activeOutput.needsUpdate = true;
+
+            // some computation happened, do not iterate further
+            break;
           }
         }
-
-        activeOutput.needsUpdate = true;
-
-        // some computation happened, do not iterate further
-        break;
-      }
-    }
   );
 
-  return {
-    outputIsComplete,
-    outputTexture: activeOutput
-  };
-}
+  return outputIsComplete
+    ? null
+    : lightSceneElement &&
+        React.cloneElement(lightSceneElement, {
+          ref: lightSceneRef
+        });
+};
+
+export default IrradianceRenderer;

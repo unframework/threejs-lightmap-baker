@@ -3,16 +3,14 @@ import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import IrradianceSurfaceManager, {
-  IrradianceTextureContext
-} from './IrradianceSurfaceManager';
+import IrradianceSurfaceManager from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
-import { useIrradianceAtlasMapper } from './IrradianceAtlasMapper';
-import { useIrradianceRenderer } from './IrradianceRenderer';
+import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
+import IrradianceRenderer from './IrradianceRenderer';
 import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
-import { useIrradianceCompositor } from './IrradianceCompositor';
+import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
@@ -98,22 +96,14 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const {
-    atlasMapTexture,
-    atlasMapData,
-    atlasMapItems,
-    mapperSceneElement
-  } = useIrradianceAtlasMapper();
-
-  const { outputTexture: baseLightTexture } = useIrradianceRenderer(
-    atlasMapData,
-    atlasMapItems,
-    null
-  );
-
-  const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
+  const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
+  const [
     baseLightTexture,
-    {}
+    setBaseLightTexture
+  ] = useState<THREE.Texture | null>(null);
+
+  const [outputTexture, setOutputTexture] = useState<THREE.Texture | null>(
+    null
   );
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
@@ -149,19 +139,37 @@ const Scene: React.FC<{
 
   return (
     <>
-      <scene ref={debugSceneRef}>
-        <mesh position={[85, 85, 0]}>
-          <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <DebugMaterial attach="material" map={outputTexture} />
-        </mesh>
+      <IrradianceAtlasMapper onComplete={setAtlasMap} />
 
-        <mesh position={[85, 64, 0]}>
-          <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <DebugMaterial attach="material" map={atlasMapTexture} />
-        </mesh>
+      {atlasMap && (
+        <IrradianceRenderer
+          atlasMap={atlasMap}
+          factorName={null}
+          onStart={setBaseLightTexture}
+        />
+      )}
+
+      <scene ref={debugSceneRef}>
+        {outputTexture && (
+          <mesh position={[85, 85, 0]}>
+            <planeBufferGeometry attach="geometry" args={[20, 20]} />
+            <DebugMaterial attach="material" map={outputTexture} />
+          </mesh>
+        )}
+
+        {atlasMap && (
+          <mesh position={[85, 64, 0]}>
+            <planeBufferGeometry attach="geometry" args={[20, 20]} />
+            <DebugMaterial attach="material" map={atlasMap.texture} />
+          </mesh>
+        )}
       </scene>
 
-      <IrradianceTextureContext.Provider value={outputTexture}>
+      <IrradianceCompositor
+        baseOutput={baseLightTexture}
+        factorOutputs={{}}
+        onStart={setOutputTexture}
+      >
         <scene ref={mainSceneRef}>
           <mesh position={[0, 0, -5]}>
             <planeBufferGeometry attach="geometry" args={[200, 200]} />
@@ -186,10 +194,7 @@ const Scene: React.FC<{
             <primitive object={coverMesh} dispose={null} />
           </IrradianceSurface>
         </scene>
-      </IrradianceTextureContext.Provider>
-
-      {mapperSceneElement}
-      {compositorSceneElement}
+      </IrradianceCompositor>
     </>
   );
 });

@@ -1,14 +1,14 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useEffect, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { atlasWidth, atlasHeight } from './IrradianceAtlasMapper';
+import { IrradianceTextureContext } from './IrradianceSurfaceManager';
 
 const CompositorLayerMaterial: React.FC<{
-  attach?: string;
   map: THREE.Texture;
   materialRef: React.MutableRefObject<THREE.ShaderMaterial | null>;
-}> = ({ attach, map, materialRef }) => {
+}> = ({ map, materialRef }) => {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -46,20 +46,32 @@ const CompositorLayerMaterial: React.FC<{
   return (
     <primitive
       object={material}
-      attach={attach}
+      attach="material"
       uniforms-map-value={map}
       ref={materialRef}
     />
   );
 };
 
-export function useIrradianceCompositor<
-  FactorMap extends { [name: string]: THREE.Texture }
->(baseOutput: THREE.Texture, factorOutputs: FactorMap) {
+export default function IrradianceCompositor<
+  FactorMap extends { [name: string]: THREE.Texture | null }
+>({
+  baseOutput,
+  factorOutputs,
+  factorValues,
+  onStart,
+  children
+}: React.PropsWithChildren<{
+  baseOutput: THREE.Texture | null;
+  factorOutputs: FactorMap;
+  factorValues?: { [name in keyof FactorMap]: number | undefined };
+  onStart: (outputTexture: THREE.Texture) => void;
+}>): React.ReactElement {
+  // wrap in ref to avoid re-triggering effect
+  const onStartRef = useRef(onStart);
+  onStartRef.current = onStart;
+
   const orthoSceneRef = useRef<THREE.Scene>();
-  const factorValues = useRef<
-    { [name in keyof FactorMap]: number | undefined }
-  >({}).current;
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
@@ -83,6 +95,19 @@ export function useIrradianceCompositor<
     });
   }, []);
 
+  useEffect(
+    () => () => {
+      // clean up on unmount
+      orthoTarget.dispose();
+    },
+    [orthoTarget]
+  );
+
+  useEffect(() => {
+    // notify separately in case of errors
+    onStartRef.current(orthoTarget.texture);
+  }, [orthoTarget]);
+
   const orthoCamera = useMemo(() => {
     return new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
   }, []);
@@ -102,7 +127,7 @@ export function useIrradianceCompositor<
 
     for (const factorName in factorOutputs) {
       const factorMaterialRef = factorMaterialRefMap[factorName];
-      const multiplier = factorValues[factorName];
+      const multiplier = factorValues && factorValues[factorName];
 
       if (factorMaterialRef.current && multiplier) {
         factorMaterialRef.current.uniforms.multiplier.value = multiplier;
@@ -115,31 +140,40 @@ export function useIrradianceCompositor<
     gl.setRenderTarget(null);
   }, 10);
 
-  return {
-    factorValues,
-    outputTexture: orthoTarget.texture,
-    compositorSceneElement: (
+  return (
+    <>
       <scene ref={orthoSceneRef}>
-        <mesh>
-          <planeBufferGeometry attach="geometry" args={[2, 2]} />
-          <CompositorLayerMaterial
-            attach="material"
-            map={baseOutput}
-            materialRef={baseMaterialRef}
-          />
-        </mesh>
-
-        {Object.keys(factorOutputs).map((factorName) => (
-          <mesh key={factorName}>
+        {baseOutput && (
+          <mesh>
             <planeBufferGeometry attach="geometry" args={[2, 2]} />
             <CompositorLayerMaterial
               attach="material"
-              map={factorOutputs[factorName]}
-              materialRef={factorMaterialRefMap[factorName]}
+              map={baseOutput}
+              materialRef={baseMaterialRef}
             />
           </mesh>
-        ))}
+        )}
+
+        {Object.keys(factorOutputs).map((factorName) => {
+          const factorOutput = factorOutputs[factorName];
+          return (
+            factorOutput && (
+              <mesh key={factorName}>
+                <planeBufferGeometry attach="geometry" args={[2, 2]} />
+                <CompositorLayerMaterial
+                  attach="material"
+                  map={factorOutput}
+                  materialRef={factorMaterialRefMap[factorName]}
+                />
+              </mesh>
+            )
+          );
+        })}
       </scene>
-    )
-  };
+
+      <IrradianceTextureContext.Provider value={orthoTarget.texture}>
+        {children}
+      </IrradianceTextureContext.Provider>
+    </>
+  );
 }

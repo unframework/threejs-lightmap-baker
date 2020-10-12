@@ -5,31 +5,26 @@ import React, {
   useCallback,
   useRef
 } from 'react';
-import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
+import { useFrame } from 'react-three-fiber';
 
 const WORK_PER_FRAME = 5;
 
-type WorkCallback = (gl: THREE.WebGLRenderer, lightScene: THREE.Scene) => void;
-type WorkManagerHook = (
-  scene: React.ReactElement | null,
-  callback: WorkCallback
-) => void;
+type WorkCallback = (gl: THREE.WebGLRenderer) => void;
+type WorkManagerHook = (callback: WorkCallback | null) => void;
 export const WorkManagerContext = React.createContext<WorkManagerHook | null>(
   null
 );
 
 interface RendererJobInfo {
   id: number;
-  lightSceneElement: React.ReactElement | null;
-  callbackRef: React.MutableRefObject<WorkCallback>;
+  callbackRef: React.MutableRefObject<WorkCallback | null>;
 }
 
 // this runs inside the renderer hook instance
 function useJobInstance(
   jobCountRef: React.MutableRefObject<number>,
   setJobs: React.Dispatch<React.SetStateAction<RendererJobInfo[]>>,
-  lightSceneElement: React.ReactElement | null,
-  callback: WorkCallback
+  callback: WorkCallback | null
 ) {
   // unique job ID
   const jobId = useMemo<number>(() => {
@@ -46,7 +41,6 @@ function useJobInstance(
   useEffect(() => {
     const jobInfo = {
       id: jobId,
-      lightSceneElement,
       callbackRef
     };
 
@@ -62,7 +56,7 @@ function useJobInstance(
 
       return newJobs;
     });
-  }, [jobId, lightSceneElement]);
+  }, [jobId]);
 
   // clean up on unmount
   useEffect(() => {
@@ -77,33 +71,30 @@ const WorkManager: React.FC = ({ children }) => {
   const jobCountRef = useRef(0);
   const [jobs, setJobs] = useState<RendererJobInfo[]>([]);
 
-  const hook = useCallback<WorkManagerHook>((lightSceneElement, callback) => {
-    useJobInstance(jobCountRef, setJobs, lightSceneElement, callback); // eslint-disable-line react-hooks/rules-of-hooks
+  const hook = useCallback<WorkManagerHook>((callback) => {
+    useJobInstance(jobCountRef, setJobs, callback); // eslint-disable-line react-hooks/rules-of-hooks
   }, []);
-
-  // get light scene for active job, if any, and add our own ref
-  const activeJob = jobs.find((item) => item.lightSceneElement !== null);
-
-  const lightSceneRef = useRef<THREE.Scene>();
-  const lightSceneElement =
-    activeJob &&
-    activeJob.lightSceneElement &&
-    React.cloneElement(activeJob.lightSceneElement, {
-      ref: lightSceneRef
-    });
 
   // actual per-frame work invocation
   useFrame(({ gl }) => {
+    // get active job, if any
+    const activeJob = jobs.find((job) => !!job.callbackRef.current);
+
     // check if there is nothing to do
-    if (!activeJob || !lightSceneRef.current) {
+    if (!activeJob) {
       return;
     }
 
     // invoke work callback
-    const lightScene = lightSceneRef.current; // local var for type safety
-
     for (let i = 0; i < WORK_PER_FRAME; i += 1) {
-      activeJob.callbackRef.current(gl, lightScene);
+      // check if callback is still around (might go away mid-batch)
+      const callback = activeJob.callbackRef.current;
+
+      if (!callback) {
+        return;
+      }
+
+      callback(gl);
     }
   }, 10);
 
@@ -112,10 +103,6 @@ const WorkManager: React.FC = ({ children }) => {
       <WorkManagerContext.Provider value={hook}>
         {children}
       </WorkManagerContext.Provider>
-
-      <React.Fragment key={`work-manager-${activeJob && activeJob.id}`}>
-        {lightSceneElement}
-      </React.Fragment>
     </>
   );
 };
