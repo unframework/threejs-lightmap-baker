@@ -31,7 +31,7 @@ const tmpLookAt = new THREE.Vector3();
 
 const tmpProbeBox = new THREE.Vector4();
 
-const PROBE_BATCH_COUNT = 4;
+export const PROBE_BATCH_COUNT = 8;
 
 export type ProbeDataHandler = (
   rgbaData: Float32Array,

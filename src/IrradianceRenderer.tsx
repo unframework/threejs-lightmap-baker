@@ -558,7 +558,7 @@ const IrradianceRenderer: React.FC<{
       (renderBatchItem) => {
         queueTexel(
           atlasMap,
-          atlasWidth * 18 + 24 + batchCount,
+          atlasWidth * 18 + 21 + batchCount,
           renderBatchItem
         );
         batchCount += 1;
