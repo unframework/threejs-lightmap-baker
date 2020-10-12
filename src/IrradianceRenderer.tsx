@@ -6,7 +6,12 @@ import React, {
   useContext,
   useRef
 } from 'react';
-import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
+import {
+  useThree,
+  useFrame,
+  createPortal,
+  PointerEvent
+} from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useIrradianceAtlasContext, Atlas } from './IrradianceSurfaceManager';
@@ -18,6 +23,7 @@ import {
   AtlasMap,
   AtlasMapItem
 } from './IrradianceAtlasMapper';
+import { DebugMaterial } from './DebugMaterial';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
@@ -28,6 +34,8 @@ const tmpV = new THREE.Vector3();
 
 const tmpNormal = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
+
+const tmpRgba = [0, 0, 0, 0];
 
 export interface IrradianceStagingTimelineMesh {
   uuid: string;
@@ -272,11 +280,16 @@ type ProbeRenderer = (
   handleProbeData: ProbeDataHandler
 ) => void;
 
-function useLightProbe(probeTargetSize: number): ProbeRenderer {
+function useLightProbe(
+  probeTargetSize: number
+): { renderLightProbe: ProbeRenderer; debugLightProbeTexture: THREE.Texture } {
   const probePixelCount = probeTargetSize * probeTargetSize;
   const probeTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
-      type: THREE.FloatType
+      type: THREE.FloatType,
+      magFilter: THREE.NearestFilter, // pixelate for debug display
+      minFilter: THREE.NearestFilter,
+      generateMipmaps: false
     });
   }, [probeTargetSize]);
 
@@ -301,7 +314,7 @@ function useLightProbe(probeTargetSize: number): ProbeRenderer {
   }, [probeTargetSize]);
 
   // @todo ensure there is biasing to be in middle of texel physical square
-  return function renderLightProbe(
+  const renderLightProbe: ProbeRenderer = function renderLightProbe(
     gl,
     atlasMapItem,
     faceIndex,
@@ -425,6 +438,11 @@ function useLightProbe(probeTargetSize: number): ProbeRenderer {
 
     gl.setRenderTarget(null);
   };
+
+  return {
+    renderLightProbe,
+    debugLightProbeTexture: probeTarget.texture
+  };
 }
 
 function processTexel(
@@ -521,6 +539,7 @@ const IrradianceRenderer: React.FC<{
   atlasMap: AtlasMap;
   factorName: string | null;
   time?: number;
+  debugMesh?: THREE.Mesh;
   onStart: (lightMap: THREE.Texture) => void;
 }> = (props) => {
   // get the work manager hook
@@ -639,13 +658,10 @@ const IrradianceRenderer: React.FC<{
   ]);
 
   const probeTargetSize = 16;
-  const renderLightProbe = useLightProbe(probeTargetSize);
+  const { renderLightProbe } = useLightProbe(probeTargetSize);
 
   const outputIsComplete =
     processingState.passesRemaining === 0 && processingState.passComplete;
-
-  // used during processing
-  const rgba = [0, 0, 0, 0];
 
   useWorkManager(
     outputIsComplete
@@ -691,14 +707,14 @@ const IrradianceRenderer: React.FC<{
                 texelIndex,
                 lightScene,
                 renderLightProbe,
-                rgba
+                tmpRgba
               )
             ) {
               continue;
             }
 
             // store computed illumination value
-            activeOutputData.set(rgba, texelIndex * 4);
+            activeOutputData.set(tmpRgba, texelIndex * 4);
 
             // propagate value to 3x3 brush area
             const texelX = texelIndex % atlasWidth;
@@ -721,7 +737,7 @@ const IrradianceRenderer: React.FC<{
               const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
 
               if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
-                activeOutputData.set(rgba, offTexelBase);
+                activeOutputData.set(tmpRgba, offTexelBase);
               }
             }
 
@@ -733,12 +749,45 @@ const IrradianceRenderer: React.FC<{
         }
   );
 
-  return outputIsComplete
-    ? null
-    : lightSceneElement &&
-        React.cloneElement(lightSceneElement, {
-          ref: lightSceneRef
-        });
+  // debug probe
+  const {
+    renderLightProbe: debugProbe,
+    debugLightProbeTexture
+  } = useLightProbe(probeTargetSize);
+  useFrame(({ gl }) => {
+    const lightScene = lightSceneRef.current;
+    if (!lightScene) {
+      return; // nothing to do yet
+    }
+
+    const atlasMap = atlasMapRef.current;
+
+    processTexel(
+      gl,
+      atlasMap,
+      atlasWidth * 16 + 8,
+      lightScene,
+      debugProbe,
+      tmpRgba
+    );
+  }, 10);
+
+  return (
+    <>
+      {outputIsComplete
+        ? null
+        : lightSceneElement &&
+          React.cloneElement(lightSceneElement, {
+            ref: lightSceneRef
+          })}
+
+      {props.debugMesh &&
+        createPortal(
+          <DebugMaterial attach="material" map={debugLightProbeTexture} />,
+          props.debugMesh
+        )}
+    </>
+  );
 };
 
 export default IrradianceRenderer;
