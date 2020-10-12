@@ -3,9 +3,7 @@ import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import IrradianceSurfaceManager, {
-  IrradianceTextureContext
-} from './IrradianceSurfaceManager';
+import IrradianceSurfaceManager from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
@@ -104,23 +102,9 @@ const Scene: React.FC<{
     setBaseLightTexture
   ] = useState<THREE.Texture | null>(null);
 
-  const [outputTexture, setOutputTexture] = useState<THREE.Texture>(() => {
-    const data = new Uint8Array(4);
-
-    const texture = new THREE.DataTexture(
-      data,
-      1,
-      1,
-      THREE.RGBAFormat,
-      THREE.UnsignedByteType
-    );
-
-    texture.magFilter = THREE.NearestFilter;
-    texture.minFilter = THREE.NearestFilter;
-    texture.generateMipmaps = false;
-
-    return texture;
-  });
+  const [outputTexture, setOutputTexture] = useState<THREE.Texture | null>(
+    null
+  );
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
   const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
@@ -165,19 +149,13 @@ const Scene: React.FC<{
         />
       )}
 
-      {baseLightTexture && (
-        <IrradianceCompositor
-          baseOutput={baseLightTexture}
-          factorOutputs={{}}
-          onStart={setOutputTexture}
-        />
-      )}
-
       <scene ref={debugSceneRef}>
-        <mesh position={[85, 85, 0]}>
-          <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <DebugMaterial attach="material" map={outputTexture} />
-        </mesh>
+        {outputTexture && (
+          <mesh position={[85, 85, 0]}>
+            <planeBufferGeometry attach="geometry" args={[20, 20]} />
+            <DebugMaterial attach="material" map={outputTexture} />
+          </mesh>
+        )}
 
         {atlasMap && (
           <mesh position={[85, 64, 0]}>
@@ -187,7 +165,11 @@ const Scene: React.FC<{
         )}
       </scene>
 
-      <IrradianceTextureContext.Provider value={outputTexture}>
+      <IrradianceCompositor
+        baseOutput={baseLightTexture}
+        factorOutputs={{}}
+        onStart={setOutputTexture}
+      >
         <scene ref={mainSceneRef}>
           <mesh position={[0, 0, -5]}>
             <planeBufferGeometry attach="geometry" args={[200, 200]} />
@@ -212,7 +194,7 @@ const Scene: React.FC<{
             <primitive object={coverMesh} dispose={null} />
           </IrradianceSurface>
         </scene>
-      </IrradianceTextureContext.Provider>
+      </IrradianceCompositor>
     </>
   );
 });

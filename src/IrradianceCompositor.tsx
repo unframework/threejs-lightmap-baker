@@ -3,12 +3,12 @@ import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { atlasWidth, atlasHeight } from './IrradianceAtlasMapper';
+import { IrradianceTextureContext } from './IrradianceSurfaceManager';
 
 const CompositorLayerMaterial: React.FC<{
-  attach?: string;
   map: THREE.Texture;
   materialRef: React.MutableRefObject<THREE.ShaderMaterial | null>;
-}> = ({ attach, map, materialRef }) => {
+}> = ({ map, materialRef }) => {
   const material = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -46,7 +46,7 @@ const CompositorLayerMaterial: React.FC<{
   return (
     <primitive
       object={material}
-      attach={attach}
+      attach="material"
       uniforms-map-value={map}
       ref={materialRef}
     />
@@ -54,14 +54,15 @@ const CompositorLayerMaterial: React.FC<{
 };
 
 export default function IrradianceCompositor<
-  FactorMap extends { [name: string]: THREE.Texture }
+  FactorMap extends { [name: string]: THREE.Texture | null }
 >({
   baseOutput,
   factorOutputs,
   factorValues,
-  onStart
+  onStart,
+  children
 }: React.PropsWithChildren<{
-  baseOutput: THREE.Texture;
+  baseOutput: THREE.Texture | null;
   factorOutputs: FactorMap;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
   onStart: (outputTexture: THREE.Texture) => void;
@@ -140,26 +141,39 @@ export default function IrradianceCompositor<
   }, 10);
 
   return (
-    <scene ref={orthoSceneRef}>
-      <mesh>
-        <planeBufferGeometry attach="geometry" args={[2, 2]} />
-        <CompositorLayerMaterial
-          attach="material"
-          map={baseOutput}
-          materialRef={baseMaterialRef}
-        />
-      </mesh>
+    <>
+      <scene ref={orthoSceneRef}>
+        {baseOutput && (
+          <mesh>
+            <planeBufferGeometry attach="geometry" args={[2, 2]} />
+            <CompositorLayerMaterial
+              attach="material"
+              map={baseOutput}
+              materialRef={baseMaterialRef}
+            />
+          </mesh>
+        )}
 
-      {Object.keys(factorOutputs).map((factorName) => (
-        <mesh key={factorName}>
-          <planeBufferGeometry attach="geometry" args={[2, 2]} />
-          <CompositorLayerMaterial
-            attach="material"
-            map={factorOutputs[factorName]}
-            materialRef={factorMaterialRefMap[factorName]}
-          />
-        </mesh>
-      ))}
-    </scene>
+        {Object.keys(factorOutputs).map((factorName) => {
+          const factorOutput = factorOutputs[factorName];
+          return (
+            factorOutput && (
+              <mesh key={factorName}>
+                <planeBufferGeometry attach="geometry" args={[2, 2]} />
+                <CompositorLayerMaterial
+                  attach="material"
+                  map={factorOutput}
+                  materialRef={factorMaterialRefMap[factorName]}
+                />
+              </mesh>
+            )
+          );
+        })}
+      </scene>
+
+      <IrradianceTextureContext.Provider value={orthoTarget.texture}>
+        {children}
+      </IrradianceTextureContext.Provider>
+    </>
   );
 }
