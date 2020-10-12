@@ -16,6 +16,7 @@ export function useIrradianceKeyframeRenderer(
   const textureList = [];
 
   for (const time of timesRef.current) {
+    // @todo fix
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const { outputTexture, outputIsComplete } = useIrradianceRenderer(
       factorName,

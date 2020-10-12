@@ -2,12 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import {
-  useIrradianceAtlasContext,
-  AtlasQuad,
-  atlasWidth,
-  atlasHeight
-} from './IrradianceSurfaceManager';
+import { useIrradianceAtlasContext } from './IrradianceSurfaceManager';
 
 export interface AtlasMapItem {
   faceCount: number;
@@ -16,7 +11,15 @@ export interface AtlasMapItem {
   originalBuffer: THREE.BufferGeometry;
 }
 
+export const atlasWidth = 64;
+export const atlasHeight = 64;
+
 export const MAX_ITEM_FACES = 1000; // used for encoding item+face index in texture
+
+// temp objects for computation
+const tmpNormal = new THREE.Vector3();
+const tmpU = new THREE.Vector3();
+const tmpV = new THREE.Vector3();
 
 // write out original face geometry info into the atlas map
 // each texel corresponds to: (quadX, quadY, quadIndex)
@@ -26,41 +29,7 @@ export const MAX_ITEM_FACES = 1000; // used for encoding item+face index in text
 // (quad index is int stored as float, but precision should be good enough)
 // @todo consider stencil buffer, or just 8bit texture
 // @todo consider rounding to account for texel size
-const AtlasItemMaterial: React.FC = () => {
-  const material = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        side: THREE.DoubleSide, // UVs might have arbitrary winding
-        vertexShader: `
-          varying vec3 vFacePos;
-
-          void main() {
-            vFacePos = position;
-
-            gl_Position = projectionMatrix * vec4(
-              uv, // UV is the actual position on map
-              0,
-              1.0
-            );
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vFacePos;
-
-          void main() {
-            // encode the face information in map
-            gl_FragColor = vec4(vFacePos.xy, vFacePos.z + 1.0, 1.0);
-          }
-        `
-      }),
-    []
-  );
-
-  return <primitive attach="material" object={material} />;
-};
-
-// @todo provide output via context (esp once quad-based autolayout is removed/separated from main surface manager)
-// @todo dispose of render target, etc
+// @todo provide output via context
 export function useIrradianceAtlasMapper(): {
   atlasMapTexture: THREE.Texture;
   atlasMapData: Float32Array;
@@ -77,6 +46,7 @@ export function useIrradianceAtlasMapper(): {
 
   const atlas = useIrradianceAtlasContext();
 
+  // disposed during scene unmount
   const geoms = useMemo<AtlasMapItem[] | null>(
     () =>
       isLoaded
@@ -128,21 +98,56 @@ export function useIrradianceAtlasMapper(): {
                 faceVertexIndex < faceVertexCount;
                 faceVertexIndex += 1
               ) {
+                const faceMod = faceVertexIndex % 3;
+
                 atlasUVAttr.copyAt(
                   faceVertexIndex,
                   uv2Attr,
                   indexData[faceVertexIndex]
                 );
 
-                // source data should specify normals correctly (since winding order is unknown)
-                atlasNormalAttr.copyAt(
-                  faceVertexIndex,
-                  normalAttr,
-                  indexData[faceVertexIndex]
-                );
+                // store normal and compute cardinal directions for later
+                if (faceMod === 0) {
+                  // source data should specify normals correctly (since winding order is unknown)
+                  atlasNormalAttr.copyAt(
+                    faceVertexIndex,
+                    normalAttr,
+                    indexData[faceVertexIndex]
+                  );
+
+                  tmpNormal.fromArray(
+                    atlasNormalAttr.array,
+                    faceVertexIndex * 3
+                  );
+
+                  // use consistent "left" and "up" directions based on just the normal
+                  if (tmpNormal.x === 0 && tmpNormal.y === 0) {
+                    tmpU.set(1, 0, 0);
+                  } else {
+                    tmpU.set(0, 0, 1);
+                  }
+
+                  tmpV.crossVectors(tmpNormal, tmpU);
+                  tmpV.normalize();
+
+                  tmpU.crossVectors(tmpNormal, tmpV);
+                  tmpU.normalize();
+
+                  atlasNormalAttr.setXYZ(
+                    faceVertexIndex + 1,
+                    tmpU.x,
+                    tmpU.y,
+                    tmpU.z
+                  );
+                  atlasNormalAttr.setXYZ(
+                    faceVertexIndex + 2,
+                    tmpV.x,
+                    tmpV.y,
+                    tmpV.z
+                  );
+                }
 
                 // positioning in face
-                const faceMod = faceVertexIndex % 3;
                 const facePosX = faceMod & 1;
                 const facePosY = (faceMod & 2) >> 1;
 
@@ -183,6 +188,14 @@ export function useIrradianceAtlasMapper(): {
     });
   }, []);
 
+  useEffect(
+    () => () => {
+      // clean up on unmount
+      orthoTarget.dispose();
+    },
+    [orthoTarget]
+  );
+
   const orthoCamera = useMemo(() => {
     return new THREE.OrthographicCamera(0, 1, 1, 0, 0, 1);
   }, []);
@@ -190,6 +203,36 @@ export function useIrradianceAtlasMapper(): {
   const orthoData = useMemo(() => {
     return new Float32Array(atlasWidth * atlasHeight * 4);
   }, []);
+
+  // disposed during scene unmount
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        side: THREE.DoubleSide, // UVs might have arbitrary winding
+        vertexShader: `
+          varying vec3 vFacePos;
+
+          void main() {
+            vFacePos = position;
+
+            gl_Position = projectionMatrix * vec4(
+              uv, // UV is the actual position on map
+              0,
+              1.0
+            );
+          }
+        `,
+        fragmentShader: `
+          varying vec3 vFacePos;
+
+          void main() {
+            // encode the face information in map
+            gl_FragColor = vec4(vFacePos.xy, vFacePos.z + 1.0, 1.0);
+          }
+        `
+      }),
+    []
+  );
 
   useFrame(({ gl }) => {
     // ensure render scene has been instantiated
@@ -227,7 +270,7 @@ export function useIrradianceAtlasMapper(): {
           return (
             <mesh key={geomIndex}>
               <primitive attach="geometry" object={geom.faceBuffer} />
-              <AtlasItemMaterial />
+              <primitive attach="material" object={material} />
             </mesh>
           );
         })}

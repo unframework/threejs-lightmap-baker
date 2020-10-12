@@ -1,5 +1,5 @@
 import React, {
-  useLayoutEffect,
+  useEffect,
   useState,
   useMemo,
   useCallback,
@@ -9,15 +9,14 @@ import React, {
 import { useThree, useFrame, PointerEvent } from 'react-three-fiber';
 import * as THREE from 'three';
 
+import { useIrradianceAtlasContext, Atlas } from './IrradianceSurfaceManager';
+import { WorkManagerContext } from './WorkManager';
 import {
   atlasWidth,
   atlasHeight,
-  useIrradianceAtlasContext,
-  Atlas,
-  AtlasQuad
-} from './IrradianceSurfaceManager';
-import { WorkManagerContext } from './WorkManager';
-import { MAX_ITEM_FACES, AtlasMapItem } from './IrradianceAtlasMapper';
+  MAX_ITEM_FACES,
+  AtlasMapItem
+} from './IrradianceAtlasMapper';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
@@ -40,6 +39,7 @@ export interface IrradianceStagingTimeline {
   meshes: IrradianceStagingTimelineMesh[];
 }
 
+// @todo move into surface manager?
 function getLightProbeSceneElement(
   atlas: Atlas,
   lastTexture: THREE.Texture,
@@ -155,33 +155,12 @@ function getLightProbeSceneElement(
 }
 
 // alpha channel stays at zero if not filled out yet
-function createAtlasTexture(
+function createOutputTexture(
   atlasWidth: number,
-  atlasHeight: number,
-  fillWithPattern?: boolean
+  atlasHeight: number
 ): [THREE.Texture, Float32Array] {
   const atlasSize = atlasWidth * atlasHeight;
   const data = new Float32Array(4 * atlasSize);
-
-  if (fillWithPattern) {
-    // pre-fill with a test pattern
-    for (let i = 0; i < atlasSize; i++) {
-      const x = i % atlasWidth;
-      const y = Math.floor(i / atlasWidth);
-
-      const stride = i * 4;
-
-      const tileX = Math.floor(x / 4);
-      const tileY = Math.floor(y / 4);
-
-      const on = tileX % 2 === tileY % 2;
-
-      data[stride] = on ? 0.2 : 0.8;
-      data[stride + 1] = 0.5;
-      data[stride + 2] = on ? 0.8 : 0.2;
-      data[stride + 3] = 0;
-    }
-  }
 
   const texture = new THREE.DataTexture(
     data,
@@ -196,6 +175,37 @@ function createAtlasTexture(
   texture.generateMipmaps = false;
 
   return [texture, data];
+}
+
+function clearOutputTexture(
+  atlasWidth: number,
+  atlasHeight: number,
+  data: Float32Array,
+  withTestPattern?: boolean
+) {
+  const atlasSize = atlasWidth * atlasHeight;
+
+  if (!withTestPattern) {
+    data.fill(0);
+  }
+
+  // pre-fill with a test pattern
+  for (let i = 0; i < atlasSize; i++) {
+    const x = i % atlasWidth;
+    const y = Math.floor(i / atlasWidth);
+
+    const stride = i * 4;
+
+    const tileX = Math.floor(x / 4);
+    const tileY = Math.floor(y / 4);
+
+    const on = tileX % 2 === tileY % 2;
+
+    data[stride] = on ? 0.2 : 0.8;
+    data[stride + 1] = 0.5;
+    data[stride + 2] = on ? 0.8 : 0.2;
+    data[stride + 3] = 0;
+  }
 }
 
 function setUpProbeUp(
@@ -250,7 +260,15 @@ function useLightProbe(probeTargetSize: number) {
     return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
       type: THREE.FloatType
     });
-  }, []);
+  }, [probeTargetSize]);
+
+  useEffect(
+    () => () => {
+      // clean up on unmount
+      probeTarget.dispose();
+    },
+    [probeTarget]
+  );
 
   const probeCam = useMemo(() => {
     const rtFov = 90; // view cone must be quarter of the hemisphere
@@ -262,7 +280,7 @@ function useLightProbe(probeTargetSize: number) {
 
   const probeData = useMemo(() => {
     return new Float32Array(probeTargetSize * probeTargetSize * 4);
-  }, []);
+  }, [probeTargetSize]);
 
   // @todo ensure there is biasing to be in middle of texel physical square
   function renderLightProbe(
@@ -304,21 +322,10 @@ function useLightProbe(probeTargetSize: number) {
     tmpOrigin.addScaledVector(tmpU, pU);
     tmpOrigin.addScaledVector(tmpV, pV);
 
+    // get precomputed normal and cardinal directions
     tmpNormal.fromArray(normalArray, faceVertexBase * 3);
-
-    // use consistent "left" and "up" directions based on just the normal
-    // @todo move into atlas map logic
-    if (tmpNormal.x === 0 && tmpNormal.y === 0) {
-      tmpU.set(1, 0, 0);
-    } else {
-      tmpU.set(0, 0, 1);
-    }
-
-    tmpV.crossVectors(tmpNormal, tmpU);
-    tmpV.normalize();
-
-    tmpU.crossVectors(tmpNormal, tmpV);
-    tmpU.normalize();
+    tmpU.fromArray(normalArray, (faceVertexBase + 1) * 3);
+    tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
 
     gl.setRenderTarget(probeTarget);
 
@@ -407,89 +414,137 @@ export function useIrradianceRenderer(
     throw new Error('expected work manager');
   }
 
-  const animationTimeRef = useRef(time || 0); // remember the initial animation time
+  // wrap params in ref to avoid unintended re-triggering
+  const factorNameRef = useRef(factorName);
+  factorNameRef.current = factorName;
+  const animationTimeRef = useRef(time || 0);
+  animationTimeRef.current = time || 0;
+
   const atlas = useIrradianceAtlasContext();
-
-  const createDefaultState = useCallback((activeFactorName: string | null): {
-    activeFactorName: string | null;
-    activeOutput: THREE.DataTexture;
-    activeOutputData: Float32Array;
-    activeTexelCounter: [number];
-    lightSceneElement: React.ReactElement | null;
-    passComplete: boolean;
-    passes: number;
-  } => {
-    const [initialTexture, initialData] = createAtlasTexture(
-      atlasWidth,
-      atlasHeight,
-      false // always blank so that test colours do not reflect on surface
-    );
-
-    return {
-      activeFactorName,
-      activeOutput: initialTexture,
-      activeOutputData: initialData,
-      activeTexelCounter: [0], // directly changed in place to avoid re-renders
-      lightSceneElement: null,
-      passComplete: true, // trigger first pass
-      passes: 0
-    };
-  }, []);
 
   const [
     {
+      // output of the previous baking pass (applied to the light probe scene)
+      previousOutput,
+      previousOutputData,
+
+      // currently produced output
       activeOutput,
       activeOutputData,
-      activeTexelCounter,
-      lightSceneElement,
+      withTestPattern,
+
+      activeLightSceneElement, // light scene used for actual light probes
+
+      passTexelCounter, // directly changed in place to avoid re-renders
       passComplete,
-      passes
+      passesRemaining
     },
     setProcessingState
-  ] = useState(() => createDefaultState(factorName));
+  ] = useState(() => {
+    // placeholder textures for the empty state
+    const [dummyOutput, dummyOutputData] = createOutputTexture(
+      atlasWidth,
+      atlasHeight
+    );
 
-  // automatically kick off new processing when ready
-  useLayoutEffect(() => {
+    return {
+      previousOutput: dummyOutput,
+      previousOutputData: dummyOutputData,
+      activeOutput: dummyOutput,
+      activeOutputData: dummyOutputData,
+      withTestPattern: false,
+      activeLightSceneElement: null as React.ReactElement | null,
+      passTexelCounter: [0],
+      passComplete: true,
+      passesRemaining: 0 // initial state is just blank + complete
+    };
+  });
+
+  // start new processing when ready
+  useEffect(() => {
+    const [
+      createdPreviousOutput,
+      createdPreviousOutputData
+    ] = createOutputTexture(atlasWidth, atlasHeight);
+
+    // this will be pre-filled with test pattern if needed on start of pass
+    const [createdActiveOutput, createdActiveOutputData] = createOutputTexture(
+      atlasWidth,
+      atlasHeight
+    );
+
+    // @todo for some reason the scene does not render unless created inside the timeout
+    // (even though the atlas is already initialized/etc by now anyway)
+    setTimeout(() => {
+      setProcessingState({
+        previousOutput: createdPreviousOutput,
+        previousOutputData: createdPreviousOutputData,
+        activeOutput: createdActiveOutput,
+        activeOutputData: createdActiveOutputData,
+
+        withTestPattern: factorNameRef.current === null, // only base factor gets pattern
+
+        activeLightSceneElement: getLightProbeSceneElement(
+          atlas,
+          createdPreviousOutput,
+          factorNameRef.current,
+          animationTimeRef.current
+        ),
+
+        passTexelCounter: [0],
+        passComplete: true, // this triggers new pass on next render
+        passesRemaining: MAX_PASSES
+      });
+    }, 0);
+  }, [atlas]);
+
+  // kick off new pass when current one is complete
+  useEffect(() => {
     // check if we need to set up new pass
-    if (!passComplete || passes >= MAX_PASSES) {
+    if (!passComplete || passesRemaining === 0) {
       return;
     }
 
-    // wait for scene to populate @todo fix this
-    setTimeout(() => {
-      setProcessingState((prev) => {
-        const [nextTexture, nextData] = createAtlasTexture(
-          atlasWidth,
-          atlasHeight,
-          prev.activeFactorName === null // test pattern only on base
-        );
+    // copy completed data
+    previousOutputData.set(activeOutputData);
+    previousOutput.needsUpdate = true;
 
-        return {
-          activeFactorName: prev.activeFactorName,
-          activeOutput: nextTexture,
-          activeOutputData: nextData,
-          activeTexelCounter: [0],
-          // @todo create once and just copy texture data
-          lightSceneElement: getLightProbeSceneElement(
-            atlas,
-            prev.activeOutput,
-            prev.activeFactorName,
-            animationTimeRef.current
-          ),
-          passComplete: false,
-          passes: prev.passes + 1
-        };
-      });
-    }, 0);
-  }, [atlas, passComplete, passes]);
+    // reset output (re-create test pattern only on base)
+    // @todo do this only when needing to show debug output?
+    clearOutputTexture(
+      atlasWidth,
+      atlasHeight,
+      activeOutputData,
+      withTestPattern
+    );
+    activeOutput.needsUpdate = true;
+
+    setProcessingState((prev) => {
+      return {
+        ...prev,
+
+        passTexelCounter: [0],
+        passComplete: false,
+        passesRemaining: prev.passesRemaining - 1
+      };
+    });
+  }, [
+    withTestPattern,
+    passComplete,
+    passesRemaining,
+    previousOutput,
+    previousOutputData,
+    activeOutput,
+    activeOutputData
+  ]);
 
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
 
-  const outputIsComplete = passes >= MAX_PASSES && passComplete;
+  const outputIsComplete = passesRemaining === 0 && passComplete;
 
   useWorkManager(
-    outputIsComplete ? null : lightSceneElement,
+    outputIsComplete ? null : activeLightSceneElement,
     (gl, lightScene) => {
       if (!atlasMapItems) {
         return;
@@ -498,17 +553,17 @@ export function useIrradianceRenderer(
       const totalTexelCount = atlasWidth * atlasHeight;
 
       // allow for skipping a certain amount of empty texels
-      const maxCounter = Math.min(totalTexelCount, activeTexelCounter[0] + 100);
+      const maxCounter = Math.min(totalTexelCount, passTexelCounter[0] + 100);
 
       // keep trying texels until non-empty one is found
-      while (activeTexelCounter[0] < maxCounter) {
-        const texelIndex = activeTexelCounter[0];
+      while (passTexelCounter[0] < maxCounter) {
+        const texelIndex = passTexelCounter[0];
 
         // always update texel count
         // and mark state as completed once all texels are done
-        activeTexelCounter[0] = texelIndex + 1;
+        passTexelCounter[0] = texelIndex + 1;
 
-        if (activeTexelCounter[0] >= totalTexelCount) {
+        if (passTexelCounter[0] >= totalTexelCount) {
           setProcessingState((prev) => {
             return {
               ...prev,
@@ -592,7 +647,6 @@ export function useIrradianceRenderer(
         activeOutputData.set(rgba, texelIndex * 4);
 
         // propagate value to 3x3 brush area
-        // @todo track already-written texels
         const texelX = texelIndex % atlasWidth;
         const texelRowStart = texelIndex - texelX;
 
