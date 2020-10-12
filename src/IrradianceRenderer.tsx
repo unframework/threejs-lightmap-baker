@@ -431,10 +431,11 @@ export function useIrradianceRenderer(
       // currently produced output
       activeOutput,
       activeOutputData,
+      withTestPattern,
 
       activeLightSceneElement, // light scene used for actual light probes
-      activeTexelCounter, // directly changed in place to avoid re-renders
-      withTestPattern,
+
+      passTexelCounter, // directly changed in place to avoid re-renders
       passComplete,
       passesRemaining
     },
@@ -451,10 +452,9 @@ export function useIrradianceRenderer(
       previousOutputData: dummyOutputData,
       activeOutput: dummyOutput,
       activeOutputData: dummyOutputData,
-
-      activeLightSceneElement: null as React.ReactElement | null,
-      activeTexelCounter: [0],
       withTestPattern: false,
+      activeLightSceneElement: null as React.ReactElement | null,
+      passTexelCounter: [0],
       passComplete: true,
       passesRemaining: 0 // initial state is just blank + complete
     };
@@ -482,14 +482,16 @@ export function useIrradianceRenderer(
         activeOutput: createdActiveOutput,
         activeOutputData: createdActiveOutputData,
 
+        withTestPattern: factorNameRef.current === null, // only base factor gets pattern
+
         activeLightSceneElement: getLightProbeSceneElement(
           atlas,
           createdPreviousOutput,
           factorNameRef.current,
           animationTimeRef.current
         ),
-        activeTexelCounter: [0],
-        withTestPattern: factorNameRef.current === null, // only base factor gets pattern
+
+        passTexelCounter: [0],
         passComplete: true, // this triggers new pass on next render
         passesRemaining: MAX_PASSES
       });
@@ -521,7 +523,7 @@ export function useIrradianceRenderer(
       return {
         ...prev,
 
-        activeTexelCounter: [0],
+        passTexelCounter: [0],
         passComplete: false,
         passesRemaining: prev.passesRemaining - 1
       };
@@ -551,17 +553,17 @@ export function useIrradianceRenderer(
       const totalTexelCount = atlasWidth * atlasHeight;
 
       // allow for skipping a certain amount of empty texels
-      const maxCounter = Math.min(totalTexelCount, activeTexelCounter[0] + 100);
+      const maxCounter = Math.min(totalTexelCount, passTexelCounter[0] + 100);
 
       // keep trying texels until non-empty one is found
-      while (activeTexelCounter[0] < maxCounter) {
-        const texelIndex = activeTexelCounter[0];
+      while (passTexelCounter[0] < maxCounter) {
+        const texelIndex = passTexelCounter[0];
 
         // always update texel count
         // and mark state as completed once all texels are done
-        activeTexelCounter[0] = texelIndex + 1;
+        passTexelCounter[0] = texelIndex + 1;
 
-        if (activeTexelCounter[0] >= totalTexelCount) {
+        if (passTexelCounter[0] >= totalTexelCount) {
           setProcessingState((prev) => {
             return {
               ...prev,
