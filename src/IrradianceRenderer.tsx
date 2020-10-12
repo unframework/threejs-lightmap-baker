@@ -259,12 +259,12 @@ function queueTexel(
   return true;
 }
 
+// collect and combine pixel aggregate from rendered probe viewports
 function readTexel(
   rgba: number[],
   readLightProbe: ProbeBatchReader,
   probePixelAreaLookup: number[]
 ) {
-  // render the probe viewports and collect pixel aggregate
   let r = 0,
     g = 0,
     b = 0,

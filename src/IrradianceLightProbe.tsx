@@ -319,8 +319,8 @@ export function useLightProbe(
       probeTarget,
       0,
       0,
-      probeTargetSize * 4,
-      probeTargetSize * 2,
+      targetWidth,
+      targetHeight,
       probeData
     );
 
