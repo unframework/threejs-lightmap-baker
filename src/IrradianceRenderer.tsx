@@ -424,6 +424,7 @@ const IrradianceRenderer: React.FC<{
 
   const [
     {
+      // @todo move this out into memo
       // output of the previous baking pass (applied to the light probe scene)
       previousOutput,
       previousOutputData,
@@ -460,6 +461,21 @@ const IrradianceRenderer: React.FC<{
       passesRemaining: 0 // initial state is just blank + complete
     };
   });
+
+  // texture cleanup
+  useEffect(
+    () => () => {
+      previousOutput.dispose();
+    },
+    [previousOutput]
+  );
+
+  useEffect(
+    () => () => {
+      activeOutput.dispose();
+    },
+    [activeOutput]
+  );
 
   // start new processing when ready
   useEffect(() => {
