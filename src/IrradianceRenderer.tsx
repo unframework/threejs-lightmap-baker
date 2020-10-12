@@ -455,10 +455,7 @@ const IrradianceRenderer: React.FC<{
     setLightSceneElement
   ] = useState<React.ReactElement | null>(null);
 
-  const [
-    { passTexelCounter, passComplete, passesRemaining },
-    setProcessingState
-  ] = useState(() => {
+  const [processingState, setProcessingState] = useState(() => {
     return {
       passTexelCounter: [0], // directly changed in place to avoid re-renders
       passComplete: true, // this triggers new pass on next render
@@ -487,6 +484,8 @@ const IrradianceRenderer: React.FC<{
 
   // kick off new pass when current one is complete
   useEffect(() => {
+    const { passComplete, passesRemaining } = processingState;
+
     // check if we need to set up new pass
     if (!passComplete || passesRemaining === 0) {
       return;
@@ -515,8 +514,7 @@ const IrradianceRenderer: React.FC<{
     });
   }, [
     withTestPattern,
-    passComplete,
-    passesRemaining,
+    processingState,
     previousOutput,
     previousOutputData,
     activeOutput,
@@ -526,9 +524,9 @@ const IrradianceRenderer: React.FC<{
   const probeTargetSize = 16;
   const renderLightProbe = useLightProbe(probeTargetSize);
 
-  const outputIsComplete = passesRemaining === 0 && passComplete;
+  const outputIsComplete =
+    processingState.passesRemaining === 0 && processingState.passComplete;
 
-  // @todo do not rely on WorkManager for scene rendering
   useWorkManager(
     outputIsComplete
       ? null
@@ -537,6 +535,8 @@ const IrradianceRenderer: React.FC<{
           if (!lightScene) {
             return; // nothing to do yet
           }
+
+          const { passTexelCounter } = processingState;
 
           const atlasMap = atlasMapRef.current;
           const totalTexelCount = atlasWidth * atlasHeight;
