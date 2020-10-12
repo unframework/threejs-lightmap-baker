@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useFrame } from 'react-three-fiber';
+import { useFrame, useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useIrradianceAtlasContext } from './IrradianceSurfaceManager';
@@ -9,6 +9,12 @@ export interface AtlasMapItem {
   faceBuffer: THREE.BufferGeometry;
   originalMesh: THREE.Mesh;
   originalBuffer: THREE.BufferGeometry;
+}
+
+export interface AtlasMap {
+  items: AtlasMapItem[];
+  data: Float32Array;
+  texture: THREE.Texture;
 }
 
 export const atlasWidth = 64;
@@ -31,152 +37,137 @@ const tmpV = new THREE.Vector3();
 // @todo consider rounding to account for texel size
 // @todo provide output via context
 export function useIrradianceAtlasMapper(): {
-  atlasMapTexture: THREE.Texture;
-  atlasMapData: Float32Array;
-  atlasMapItems: AtlasMapItem[] | null;
+  atlasMap: AtlasMap | null;
   mapperSceneElement: React.ReactElement | null;
 } {
-  const orthoSceneRef = useRef<THREE.Scene>();
-  const renderComplete = useRef(false);
-
-  const [isLoaded, setIsLoaded] = useState(false);
-  useEffect(() => {
-    setIsLoaded(true);
-  }, []);
-
   const atlas = useIrradianceAtlasContext();
 
-  // disposed during scene unmount
-  const geoms = useMemo<AtlasMapItem[] | null>(
-    () =>
-      isLoaded
-        ? atlas.lightSceneItems
-            .filter((item) => !!item.albedoMap)
-            .map((item, itemIndex) => {
-              const { mesh, buffer } = item;
+  const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
 
-              if (!(buffer instanceof THREE.BufferGeometry)) {
-                throw new Error('expected buffer geometry');
-              }
+  // queue up data to render into atlas texture
+  useEffect(() => {
+    // disposed during scene unmount
+    setInputItems(
+      atlas.lightSceneItems
+        .filter((item) => !!item.albedoMap)
+        .map((item, itemIndex) => {
+          const { mesh, buffer } = item;
 
-              const indexAttr = buffer.index;
-              if (!indexAttr) {
-                throw new Error('expected face index array');
-              }
+          if (!(buffer instanceof THREE.BufferGeometry)) {
+            throw new Error('expected buffer geometry');
+          }
 
-              const faceVertexCount = indexAttr.count;
-              const uv2Attr = buffer.attributes.uv2;
-              const normalAttr = buffer.attributes.normal;
+          const indexAttr = buffer.index;
+          if (!indexAttr) {
+            throw new Error('expected face index array');
+          }
 
-              if (!uv2Attr || !(uv2Attr instanceof THREE.BufferAttribute)) {
-                throw new Error('expected uv2 attribute');
-              }
+          const faceVertexCount = indexAttr.count;
+          const uv2Attr = buffer.attributes.uv2;
+          const normalAttr = buffer.attributes.normal;
 
-              if (
-                !normalAttr ||
-                !(normalAttr instanceof THREE.BufferAttribute)
-              ) {
-                throw new Error('expected normal attribute');
-              }
+          if (!uv2Attr || !(uv2Attr instanceof THREE.BufferAttribute)) {
+            throw new Error('expected uv2 attribute');
+          }
 
-              const atlasUVAttr = new THREE.Float32BufferAttribute(
-                faceVertexCount * 2,
-                2
+          if (!normalAttr || !(normalAttr instanceof THREE.BufferAttribute)) {
+            throw new Error('expected normal attribute');
+          }
+
+          const atlasUVAttr = new THREE.Float32BufferAttribute(
+            faceVertexCount * 2,
+            2
+          );
+          const atlasNormalAttr = new THREE.Float32BufferAttribute(
+            faceVertexCount * 3,
+            3
+          );
+          const atlasFacePosAttr = new THREE.Float32BufferAttribute(
+            faceVertexCount * 3,
+            3
+          );
+
+          const indexData = indexAttr.array;
+          for (
+            let faceVertexIndex = 0;
+            faceVertexIndex < faceVertexCount;
+            faceVertexIndex += 1
+          ) {
+            const faceMod = faceVertexIndex % 3;
+
+            atlasUVAttr.copyAt(
+              faceVertexIndex,
+              uv2Attr,
+              indexData[faceVertexIndex]
+            );
+
+            // store normal and compute cardinal directions for later
+            if (faceMod === 0) {
+              // source data should specify normals correctly (since winding order is unknown)
+              atlasNormalAttr.copyAt(
+                faceVertexIndex,
+                normalAttr,
+                indexData[faceVertexIndex]
               );
-              const atlasNormalAttr = new THREE.Float32BufferAttribute(
-                faceVertexCount * 3,
-                3
-              );
-              const atlasFacePosAttr = new THREE.Float32BufferAttribute(
-                faceVertexCount * 3,
-                3
-              );
 
-              const indexData = indexAttr.array;
-              for (
-                let faceVertexIndex = 0;
-                faceVertexIndex < faceVertexCount;
-                faceVertexIndex += 1
-              ) {
-                const faceMod = faceVertexIndex % 3;
+              tmpNormal.fromArray(atlasNormalAttr.array, faceVertexIndex * 3);
 
-                atlasUVAttr.copyAt(
-                  faceVertexIndex,
-                  uv2Attr,
-                  indexData[faceVertexIndex]
-                );
-
-                // store normal and compute cardinal directions for later
-                if (faceMod === 0) {
-                  // source data should specify normals correctly (since winding order is unknown)
-                  atlasNormalAttr.copyAt(
-                    faceVertexIndex,
-                    normalAttr,
-                    indexData[faceVertexIndex]
-                  );
-
-                  tmpNormal.fromArray(
-                    atlasNormalAttr.array,
-                    faceVertexIndex * 3
-                  );
-
-                  // use consistent "left" and "up" directions based on just the normal
-                  if (tmpNormal.x === 0 && tmpNormal.y === 0) {
-                    tmpU.set(1, 0, 0);
-                  } else {
-                    tmpU.set(0, 0, 1);
-                  }
-
-                  tmpV.crossVectors(tmpNormal, tmpU);
-                  tmpV.normalize();
-
-                  tmpU.crossVectors(tmpNormal, tmpV);
-                  tmpU.normalize();
-
-                  atlasNormalAttr.setXYZ(
-                    faceVertexIndex + 1,
-                    tmpU.x,
-                    tmpU.y,
-                    tmpU.z
-                  );
-                  atlasNormalAttr.setXYZ(
-                    faceVertexIndex + 2,
-                    tmpV.x,
-                    tmpV.y,
-                    tmpV.z
-                  );
-                }
-
-                // positioning in face
-                const facePosX = faceMod & 1;
-                const facePosY = (faceMod & 2) >> 1;
-
-                // mesh index + face index combined into one
-                const faceIndex = (faceVertexIndex - faceMod) / 3;
-
-                atlasFacePosAttr.setXYZ(
-                  faceVertexIndex,
-                  facePosX,
-                  facePosY,
-                  itemIndex * MAX_ITEM_FACES + faceIndex // @todo put +1 here instead of shader (Threejs somehow fails to set it though?)
-                );
+              // use consistent "left" and "up" directions based on just the normal
+              if (tmpNormal.x === 0 && tmpNormal.y === 0) {
+                tmpU.set(1, 0, 0);
+              } else {
+                tmpU.set(0, 0, 1);
               }
 
-              const atlasBuffer = new THREE.BufferGeometry();
-              atlasBuffer.setAttribute('position', atlasFacePosAttr);
-              atlasBuffer.setAttribute('uv', atlasUVAttr);
-              atlasBuffer.setAttribute('normal', atlasNormalAttr);
+              tmpV.crossVectors(tmpNormal, tmpU);
+              tmpV.normalize();
 
-              return {
-                faceCount: faceVertexCount / 3,
-                faceBuffer: atlasBuffer,
-                originalMesh: mesh,
-                originalBuffer: buffer
-              };
-            })
-        : null,
-    [atlas.lightSceneItems, isLoaded]
-  );
+              tmpU.crossVectors(tmpNormal, tmpV);
+              tmpU.normalize();
+
+              atlasNormalAttr.setXYZ(
+                faceVertexIndex + 1,
+                tmpU.x,
+                tmpU.y,
+                tmpU.z
+              );
+              atlasNormalAttr.setXYZ(
+                faceVertexIndex + 2,
+                tmpV.x,
+                tmpV.y,
+                tmpV.z
+              );
+            }
+
+            // positioning in face
+            const facePosX = faceMod & 1;
+            const facePosY = (faceMod & 2) >> 1;
+
+            // mesh index + face index combined into one
+            const faceIndex = (faceVertexIndex - faceMod) / 3;
+
+            atlasFacePosAttr.setXYZ(
+              faceVertexIndex,
+              facePosX,
+              facePosY,
+              itemIndex * MAX_ITEM_FACES + faceIndex // @todo put +1 here instead of shader (Threejs somehow fails to set it though?)
+            );
+          }
+
+          const atlasBuffer = new THREE.BufferGeometry();
+          atlasBuffer.setAttribute('position', atlasFacePosAttr);
+          atlasBuffer.setAttribute('uv', atlasUVAttr);
+          atlasBuffer.setAttribute('normal', atlasNormalAttr);
+
+          return {
+            faceCount: faceVertexCount / 3,
+            faceBuffer: atlasBuffer,
+            originalMesh: mesh,
+            originalBuffer: buffer
+          };
+        })
+    );
+  }, [atlas]);
 
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
@@ -202,7 +193,7 @@ export function useIrradianceAtlasMapper(): {
 
   const orthoData = useMemo(() => {
     return new Float32Array(atlasWidth * atlasHeight * 4);
-  }, []);
+  }, [orthoTarget]);
 
   // disposed during scene unmount
   const material = useMemo(
@@ -234,39 +225,49 @@ export function useIrradianceAtlasMapper(): {
     []
   );
 
-  useFrame(({ gl }) => {
-    // ensure render scene has been instantiated
-    if (!orthoSceneRef.current || renderComplete.current) {
-      return;
-    }
+  // render the output as needed
+  const [output, setOutput] = useState<AtlasMap | null>(null);
 
-    renderComplete.current = true; // prevent further renders
+  const { gl } = useThree();
+  const orthoSceneRef = useUpdate<THREE.Scene>(
+    (orthoScene) => {
+      // nothing to do
+      if (!inputItems) {
+        return;
+      }
 
-    const orthoScene = orthoSceneRef.current; // local var for type safety
+      // produce the output
+      gl.autoClear = true;
+      gl.setRenderTarget(orthoTarget);
+      gl.render(orthoScene, orthoCamera);
+      gl.setRenderTarget(null);
 
-    // produce the output
-    gl.autoClear = true;
-    gl.setRenderTarget(orthoTarget);
-    gl.render(orthoScene, orthoCamera);
-    gl.setRenderTarget(null);
+      gl.readRenderTargetPixels(
+        orthoTarget,
+        0,
+        0,
+        atlasWidth,
+        atlasHeight,
+        orthoData
+      );
 
-    gl.readRenderTargetPixels(
-      orthoTarget,
-      0,
-      0,
-      atlasWidth,
-      atlasHeight,
-      orthoData
-    );
-  }, 10);
+      setOutput({
+        texture: orthoTarget.texture,
+        data: orthoData,
+        items: inputItems
+      });
+    },
+    [inputItems]
+  );
 
   return {
-    atlasMapTexture: orthoTarget.texture, // @todo suppress until render is complete
-    atlasMapData: orthoData,
-    atlasMapItems: geoms,
-    mapperSceneElement: geoms && (
+    // expose current output unless it is stale
+    atlasMap: output && output.items === inputItems ? output : null,
+
+    // scene to instantiate for rendering
+    mapperSceneElement: inputItems && (
       <scene ref={orthoSceneRef}>
-        {geoms.map((geom, geomIndex) => {
+        {inputItems.map((geom, geomIndex) => {
           return (
             <mesh key={geomIndex}>
               <primitive attach="geometry" object={geom.faceBuffer} />

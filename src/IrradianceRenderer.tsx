@@ -15,6 +15,7 @@ import {
   atlasWidth,
   atlasHeight,
   MAX_ITEM_FACES,
+  AtlasMap,
   AtlasMapItem
 } from './IrradianceAtlasMapper';
 
@@ -400,8 +401,7 @@ const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
 export function useIrradianceRenderer(
-  atlasMapData: Float32Array,
-  atlasMapItems: AtlasMapItem[] | null,
+  atlasMap: AtlasMap | null,
   factorName: string | null,
   time?: number
 ): {
@@ -546,7 +546,7 @@ export function useIrradianceRenderer(
   useWorkManager(
     outputIsComplete ? null : activeLightSceneElement,
     (gl, lightScene) => {
-      if (!atlasMapItems) {
+      if (!atlasMap) {
         return;
       }
 
@@ -574,9 +574,9 @@ export function useIrradianceRenderer(
 
         // get current atlas face we are filling up
         const texelInfoBase = texelIndex * 4;
-        const texelPosU = atlasMapData[texelInfoBase];
-        const texelPosV = atlasMapData[texelInfoBase + 1];
-        const texelFaceEnc = atlasMapData[texelInfoBase + 2];
+        const texelPosU = atlasMap.data[texelInfoBase];
+        const texelPosV = atlasMap.data[texelInfoBase + 1];
+        const texelFaceEnc = atlasMap.data[texelInfoBase + 2];
 
         // skip computation if this texel is empty
         if (texelFaceEnc === 0) {
@@ -589,13 +589,13 @@ export function useIrradianceRenderer(
         const texelItemIndex =
           (texelFaceIndexCombo - texelFaceIndex) / MAX_ITEM_FACES;
 
-        if (texelItemIndex < 0 || texelItemIndex >= atlasMapItems.length) {
+        if (texelItemIndex < 0 || texelItemIndex >= atlasMap.items.length) {
           throw new Error(
             `incorrect atlas map item data: ${texelPosU}, ${texelPosV}, ${texelFaceEnc}`
           );
         }
 
-        const atlasItem = atlasMapItems[texelItemIndex];
+        const atlasItem = atlasMap.items[texelItemIndex];
 
         if (texelFaceIndex < 0 || texelFaceIndex >= atlasItem.faceCount) {
           throw new Error(
@@ -662,7 +662,7 @@ export function useIrradianceRenderer(
 
           // fill texel if it will not/did not receive real computed data otherwise;
           // also ensure strong neighbour values (not diagonal) take precedence
-          const offTexelFaceEnc = atlasMapData[offTexelBase + 2];
+          const offTexelFaceEnc = atlasMap.data[offTexelBase + 2];
           const isStrongNeighbour = offX === 0 || offY === 0;
           const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
 

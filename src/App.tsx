@@ -98,16 +98,10 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const {
-    atlasMapTexture,
-    atlasMapData,
-    atlasMapItems,
-    mapperSceneElement
-  } = useIrradianceAtlasMapper();
+  const { atlasMap, mapperSceneElement } = useIrradianceAtlasMapper();
 
   const { outputTexture: baseLightTexture } = useIrradianceRenderer(
-    atlasMapData,
-    atlasMapItems,
+    atlasMap,
     null
   );
 
@@ -155,10 +149,12 @@ const Scene: React.FC<{
           <DebugMaterial attach="material" map={outputTexture} />
         </mesh>
 
-        <mesh position={[85, 64, 0]}>
-          <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <DebugMaterial attach="material" map={atlasMapTexture} />
-        </mesh>
+        {atlasMap && (
+          <mesh position={[85, 64, 0]}>
+            <planeBufferGeometry attach="geometry" args={[20, 20]} />
+            <DebugMaterial attach="material" map={atlasMap.texture} />
+          </mesh>
+        )}
       </scene>
 
       <IrradianceTextureContext.Provider value={outputTexture}>
