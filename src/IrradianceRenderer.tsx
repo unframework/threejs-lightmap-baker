@@ -285,12 +285,16 @@ function useLightProbe(
 ): { renderLightProbe: ProbeRenderer; debugLightProbeTexture: THREE.Texture } {
   const probePixelCount = probeTargetSize * probeTargetSize;
   const probeTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(probeTargetSize, probeTargetSize, {
-      type: THREE.FloatType,
-      magFilter: THREE.NearestFilter, // pixelate for debug display
-      minFilter: THREE.NearestFilter,
-      generateMipmaps: false
-    });
+    return new THREE.WebGLRenderTarget(
+      probeTargetSize * 4,
+      probeTargetSize * 2,
+      {
+        type: THREE.FloatType,
+        magFilter: THREE.NearestFilter, // pixelate for debug display
+        minFilter: THREE.NearestFilter,
+        generateMipmaps: false
+      }
+    );
   }, [probeTargetSize]);
 
   useEffect(
@@ -355,8 +359,22 @@ function useLightProbe(
     tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
 
     gl.setRenderTarget(probeTarget);
+    gl.autoClear = false;
+    gl.clearDepth();
 
     setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
+    probeTarget.viewport.set(
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeTargetSize
+    );
+    probeTarget.scissor.set(
+      0,
+      probeTargetSize,
+      probeTargetSize,
+      probeTargetSize
+    );
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -369,6 +387,8 @@ function useLightProbe(
     handleProbeData(probeData, 0, probePixelCount, probeTargetSize);
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
+    probeTarget.viewport.set(0, 0, probeTargetSize, probeTargetSize);
+    probeTarget.scissor.set(0, 0, probeTargetSize, probeTargetSize);
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -386,6 +406,18 @@ function useLightProbe(
     );
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
+    probeTarget.viewport.set(
+      probeTargetSize,
+      0,
+      probeTargetSize,
+      probeTargetSize
+    );
+    probeTarget.scissor.set(
+      probeTargetSize,
+      0,
+      probeTargetSize,
+      probeTargetSize
+    );
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -403,6 +435,18 @@ function useLightProbe(
     );
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, 1);
+    probeTarget.viewport.set(
+      probeTargetSize * 2,
+      0,
+      probeTargetSize,
+      probeTargetSize
+    );
+    probeTarget.scissor.set(
+      probeTargetSize * 2,
+      0,
+      probeTargetSize,
+      probeTargetSize
+    );
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -420,6 +464,18 @@ function useLightProbe(
     );
 
     setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, -1);
+    probeTarget.viewport.set(
+      probeTargetSize * 3,
+      0,
+      probeTargetSize,
+      probeTargetSize
+    );
+    probeTarget.scissor.set(
+      probeTargetSize * 3,
+      0,
+      probeTargetSize,
+      probeTargetSize
+    );
     gl.render(lightScene, probeCam);
     gl.readRenderTargetPixels(
       probeTarget,
@@ -436,6 +492,7 @@ function useLightProbe(
       probeTargetSize
     );
 
+    gl.autoClear = true;
     gl.setRenderTarget(null);
   };
 
@@ -765,7 +822,7 @@ const IrradianceRenderer: React.FC<{
     processTexel(
       gl,
       atlasMap,
-      atlasWidth * 16 + 8,
+      atlasWidth * 18 + 28,
       lightScene,
       debugProbe,
       tmpRgba
