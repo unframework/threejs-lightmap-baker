@@ -400,14 +400,12 @@ function useLightProbe(probeTargetSize: number) {
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
-export function useIrradianceRenderer(
-  atlasMap: AtlasMap | null,
-  factorName: string | null,
-  time?: number
-): {
-  outputIsComplete: boolean;
-  outputTexture: THREE.Texture;
-} {
+const IrradianceRenderer: React.FC<{
+  atlasMap: AtlasMap;
+  factorName: string | null;
+  time?: number;
+  onStart: (lightMap: THREE.Texture) => void;
+}> = (props) => {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
   if (useWorkManager === null) {
@@ -415,10 +413,12 @@ export function useIrradianceRenderer(
   }
 
   // wrap params in ref to avoid unintended re-triggering
-  const factorNameRef = useRef(factorName);
-  factorNameRef.current = factorName;
-  const animationTimeRef = useRef(time || 0);
-  animationTimeRef.current = time || 0;
+  const atlasMapRef = useRef(props.atlasMap); // read once
+  const factorNameRef = useRef(props.factorName); // read once
+  const animationTimeRef = useRef(props.time || 0); // read once
+
+  const onStartRef = useRef(props.onStart);
+  onStartRef.current = props.onStart; // keep latest
 
   const atlas = useIrradianceAtlasContext();
 
@@ -442,6 +442,7 @@ export function useIrradianceRenderer(
     setProcessingState
   ] = useState(() => {
     // placeholder textures for the empty state
+    // @todo remove this?
     const [dummyOutput, dummyOutputData] = createOutputTexture(
       atlasWidth,
       atlasHeight
@@ -496,6 +497,8 @@ export function useIrradianceRenderer(
         passesRemaining: MAX_PASSES
       });
     }, 0);
+
+    onStartRef.current(createdActiveOutput);
   }, [atlas]);
 
   // kick off new pass when current one is complete
@@ -546,10 +549,7 @@ export function useIrradianceRenderer(
   useWorkManager(
     outputIsComplete ? null : activeLightSceneElement,
     (gl, lightScene) => {
-      if (!atlasMap) {
-        return;
-      }
-
+      const atlasMap = atlasMapRef.current;
       const totalTexelCount = atlasWidth * atlasHeight;
 
       // allow for skipping a certain amount of empty texels
@@ -679,8 +679,7 @@ export function useIrradianceRenderer(
     }
   );
 
-  return {
-    outputIsComplete,
-    outputTexture: activeOutput
-  };
-}
+  return null;
+};
+
+export default IrradianceRenderer;

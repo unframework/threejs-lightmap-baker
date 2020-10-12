@@ -10,7 +10,7 @@ import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
-import { useIrradianceRenderer } from './IrradianceRenderer';
+import IrradianceRenderer from './IrradianceRenderer';
 import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import { useIrradianceCompositor } from './IrradianceCompositor';
 import SceneControls from './SceneControls';
@@ -99,10 +99,24 @@ const Scene: React.FC<{
   }, [loadedData]);
 
   const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
+  const [baseLightTexture, setBaseLightTexture] = useState<THREE.Texture>(
+    () => {
+      const data = new Uint8Array(4);
 
-  const { outputTexture: baseLightTexture } = useIrradianceRenderer(
-    atlasMap,
-    null
+      const texture = new THREE.DataTexture(
+        data,
+        1,
+        1,
+        THREE.RGBAFormat,
+        THREE.UnsignedByteType
+      );
+
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.NearestFilter;
+      texture.generateMipmaps = false;
+
+      return texture;
+    }
   );
 
   const { outputTexture, compositorSceneElement } = useIrradianceCompositor(
@@ -144,6 +158,14 @@ const Scene: React.FC<{
   return (
     <>
       <IrradianceAtlasMapper onComplete={setAtlasMap} />
+
+      {atlasMap && (
+        <IrradianceRenderer
+          atlasMap={atlasMap}
+          factorName={null}
+          onStart={setBaseLightTexture}
+        />
+      )}
 
       <scene ref={debugSceneRef}>
         <mesh position={[85, 85, 0]}>
