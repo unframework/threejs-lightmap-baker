@@ -3,7 +3,9 @@ import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import IrradianceSurfaceManager from './IrradianceSurfaceManager';
+import IrradianceSurfaceManager, {
+  IrradianceTextureContext
+} from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
@@ -103,9 +105,9 @@ const Scene: React.FC<{
     [THREE.Texture]
   >();
 
-  const [outputTexture, setOutputTexture] = useState<THREE.Texture | null>(
-    null
-  );
+  const [outputTextureSink, outputTexture] = useRenderProp<
+    [THREE.Texture | null]
+  >();
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
   const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
@@ -183,8 +185,11 @@ const Scene: React.FC<{
       <IrradianceCompositor
         baseOutput={baseLightTexture || null}
         factorOutputs={{}}
-        onStart={setOutputTexture}
       >
+        <IrradianceTextureContext.Consumer>
+          {outputTextureSink}
+        </IrradianceTextureContext.Consumer>
+
         <scene ref={mainSceneRef}>
           <mesh position={[0, 0, -5]}>
             <planeBufferGeometry attach="geometry" args={[200, 200]} />

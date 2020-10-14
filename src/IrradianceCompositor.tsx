@@ -59,18 +59,12 @@ export default function IrradianceCompositor<
   baseOutput,
   factorOutputs,
   factorValues,
-  onStart,
   children
 }: React.PropsWithChildren<{
   baseOutput: THREE.Texture | null;
   factorOutputs: FactorMap;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
-  onStart: (outputTexture: THREE.Texture) => void;
 }>): React.ReactElement {
-  // wrap in ref to avoid re-triggering effect
-  const onStartRef = useRef(onStart);
-  onStartRef.current = onStart;
-
   const orthoSceneRef = useRef<THREE.Scene>();
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
@@ -102,11 +96,6 @@ export default function IrradianceCompositor<
     },
     [orthoTarget]
   );
-
-  useEffect(() => {
-    // notify separately in case of errors
-    onStartRef.current(orthoTarget.texture);
-  }, [orthoTarget]);
 
   const orthoCamera = useMemo(() => {
     return new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
