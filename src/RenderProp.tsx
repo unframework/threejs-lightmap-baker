@@ -6,6 +6,8 @@ import React, {
   SetStateAction
 } from 'react';
 
+// render-prop callback (always returns an element, which happens to be
+// our collector instance)
 export type PropCallback<Args extends unknown[]> = (
   ...renderPropArgs: Args
 ) => React.ReactElement;
@@ -17,6 +19,12 @@ export type PropReturn<Args> = Args extends [infer A]
   ? [PropCallback<Args>, A?, B?]
   : Args extends [infer A, infer B, infer C]
   ? [PropCallback<Args>, A?, B?, C?]
+  : Args extends [infer A, infer B, infer C, infer D]
+  ? [PropCallback<Args>, A?, B?, C?, D?]
+  : Args extends [infer A, infer B, infer C, infer D, infer E]
+  ? [PropCallback<Args>, A?, B?, C?, D?, E?]
+  : Args extends [infer A, infer B, infer C, infer D, infer E, infer F]
+  ? [PropCallback<Args>, A?, B?, C?, D?, E?, F?]
   : never;
 
 function ArgsCollector<Args extends unknown[]>({
@@ -38,7 +46,7 @@ function ArgsCollector<Args extends unknown[]>({
     };
   }, [setter]);
 
-  // nothing to display here @todo use fragment?
+  // nothing to return from collector instance
   return null;
 }
 
