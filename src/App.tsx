@@ -99,10 +99,9 @@ const Scene: React.FC<{
   }, [loadedData]);
 
   const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
-  const [
-    baseLightTexture,
-    setBaseLightTexture
-  ] = useState<THREE.Texture | null>(null);
+  const [baseLightTextureSink, baseLightTexture] = useRenderProp<
+    [THREE.Texture]
+  >();
 
   const [outputTexture, setOutputTexture] = useState<THREE.Texture | null>(
     null
@@ -149,9 +148,10 @@ const Scene: React.FC<{
         <IrradianceRenderer
           atlasMap={atlasMap}
           factorName={null}
-          onStart={setBaseLightTexture}
           debugMesh={probeDebugMesh}
-        />
+        >
+          {baseLightTextureSink}
+        </IrradianceRenderer>
       )}
 
       <scene ref={debugSceneRef}>
@@ -181,7 +181,7 @@ const Scene: React.FC<{
       </scene>
 
       <IrradianceCompositor
-        baseOutput={baseLightTexture}
+        baseOutput={baseLightTexture || null}
         factorOutputs={{}}
         onStart={setOutputTexture}
       >
