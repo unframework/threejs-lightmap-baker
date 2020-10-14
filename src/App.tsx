@@ -182,10 +182,8 @@ const Scene: React.FC<{
         </mesh>
       </scene>
 
-      <IrradianceCompositor
-        baseOutput={baseLightTexture || null}
-        factorOutputs={{}}
-      >
+      <IrradianceCompositor baseOutput={baseLightTexture} factorOutputs={{}}>
+        {/* collect output for debug display */}
         <IrradianceTextureContext.Consumer>
           {outputTextureSink}
         </IrradianceTextureContext.Consumer>

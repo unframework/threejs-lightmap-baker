@@ -54,14 +54,14 @@ const CompositorLayerMaterial: React.FC<{
 };
 
 export default function IrradianceCompositor<
-  FactorMap extends { [name: string]: THREE.Texture | null }
+  FactorMap extends { [name: string]: THREE.Texture | null | undefined }
 >({
   baseOutput,
   factorOutputs,
   factorValues,
   children
 }: React.PropsWithChildren<{
-  baseOutput: THREE.Texture | null;
+  baseOutput: THREE.Texture | null | undefined;
   factorOutputs: FactorMap;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
 }>): React.ReactElement {
@@ -136,7 +136,6 @@ export default function IrradianceCompositor<
           <mesh>
             <planeBufferGeometry attach="geometry" args={[2, 2]} />
             <CompositorLayerMaterial
-              attach="material"
               map={baseOutput}
               materialRef={baseMaterialRef}
             />
@@ -150,7 +149,6 @@ export default function IrradianceCompositor<
               <mesh key={factorName}>
                 <planeBufferGeometry attach="geometry" args={[2, 2]} />
                 <CompositorLayerMaterial
-                  attach="material"
                   map={factorOutput}
                   materialRef={factorMaterialRefMap[factorName]}
                 />
