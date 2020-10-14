@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState, useRef } from 'react';
 import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
+import { useAsync } from 'react-async-hook';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
@@ -97,11 +98,17 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
-  const [
-    baseLightTexture,
-    setBaseLightTexture
-  ] = useState<THREE.Texture | null>(null);
+  const [atlasMapperRef, atlasMapper] = useResource<
+    React.ElementRef<typeof IrradianceAtlasMapper>
+  >();
+  const { result: atlasMap } = useAsync(
+    () => atlasMapper && atlasMapper.outputPromise,
+    [atlasMapper]
+  );
+
+  const [baseRendererRef, baseRenderer] = useResource<
+    React.ElementRef<typeof IrradianceRenderer>
+  >();
 
   const [outputTexture, setOutputTexture] = useState<THREE.Texture | null>(
     null
@@ -142,14 +149,14 @@ const Scene: React.FC<{
 
   return (
     <>
-      <IrradianceAtlasMapper onComplete={setAtlasMap} />
+      <IrradianceAtlasMapper ref={atlasMapperRef} />
 
       {atlasMap && (
         <IrradianceRenderer
           atlasMap={atlasMap}
           factorName={null}
-          onStart={setBaseLightTexture}
           debugMesh={probeDebugMesh}
+          ref={baseRendererRef}
         />
       )}
 
@@ -180,7 +187,7 @@ const Scene: React.FC<{
       </scene>
 
       <IrradianceCompositor
-        baseOutput={baseLightTexture}
+        baseOutput={baseRenderer && baseRenderer.lightMap}
         factorOutputs={{}}
         onStart={setOutputTexture}
       >

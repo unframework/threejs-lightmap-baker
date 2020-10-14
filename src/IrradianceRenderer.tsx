@@ -4,6 +4,7 @@ import React, {
   useMemo,
   useCallback,
   useContext,
+  useImperativeHandle,
   useRef
 } from 'react';
 import {
@@ -311,13 +312,15 @@ function readTexel(
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
-const IrradianceRenderer: React.FC<{
-  atlasMap: AtlasMap;
-  factorName: string | null;
-  time?: number;
-  debugMesh?: THREE.Mesh;
-  onStart: (lightMap: THREE.Texture) => void;
-}> = (props) => {
+const IrradianceRendererBody: React.ForwardRefRenderFunction<
+  { lightMap: THREE.Texture },
+  {
+    atlasMap: AtlasMap;
+    factorName: string | null;
+    time?: number;
+    debugMesh?: THREE.Mesh;
+  }
+> = (props, ref) => {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
   if (useWorkManager === null) {
@@ -328,9 +331,6 @@ const IrradianceRenderer: React.FC<{
   const atlasMapRef = useRef(props.atlasMap); // read once
   const factorNameRef = useRef(props.factorName); // read once
   const animationTimeRef = useRef(props.time || 0); // read once
-
-  const onStartRef = useRef(props.onStart);
-  onStartRef.current = props.onStart; // keep latest
 
   const atlas = useIrradianceAtlasContext();
 
@@ -389,9 +389,6 @@ const IrradianceRenderer: React.FC<{
         )
       );
     }, 0);
-
-    // running last in case there are errors
-    onStartRef.current(activeOutput);
   }, [atlas, previousOutput]);
 
   // kick off new pass when current one is complete
@@ -569,6 +566,15 @@ const IrradianceRenderer: React.FC<{
     );
   }, 10);
 
+  // expose the instance with output texture
+  const instance = useMemo(
+    () => ({
+      lightMap: activeOutput
+    }),
+    []
+  );
+  useImperativeHandle(ref, () => instance);
+
   return (
     <>
       {outputIsComplete
@@ -587,4 +593,4 @@ const IrradianceRenderer: React.FC<{
   );
 };
 
-export default IrradianceRenderer;
+export default React.memo(React.forwardRef(IrradianceRendererBody));

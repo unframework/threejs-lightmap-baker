@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useImperativeHandle
+} from 'react';
 import { useFrame, useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -36,10 +42,18 @@ const tmpV = new THREE.Vector3();
 // @todo consider stencil buffer, or just 8bit texture
 // @todo consider rounding to account for texel size
 // @todo provide output via context
-const IrradianceAtlasMapper: React.FC<{
-  onComplete: (atlasMap: AtlasMap) => void;
-}> = ({ onComplete }) => {
+const IrradianceAtlasMapperBody: React.ForwardRefRenderFunction<
+  {
+    outputPromise: Promise<AtlasMap>;
+  },
+  {}
+> = (props, ref) => {
   const atlas = useIrradianceAtlasContext();
+
+  // output promise resolver
+  const outputPromiseResolverRef = useRef<((value: AtlasMap) => void) | null>(
+    null
+  );
 
   // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
@@ -250,14 +264,28 @@ const IrradianceAtlasMapper: React.FC<{
         orthoData
       );
 
-      onComplete({
-        texture: orthoTarget.texture,
-        data: orthoData,
-        items: inputItems
-      });
+      if (outputPromiseResolverRef.current) {
+        outputPromiseResolverRef.current({
+          texture: orthoTarget.texture,
+          data: orthoData,
+          items: inputItems
+        });
+      }
     },
     [inputItems]
   );
+
+  // expose the output (needs to be memoized first)
+  const instance = useMemo(
+    () => ({
+      outputPromise: new Promise<AtlasMap>((resolve) => {
+        // store the resolver for this promise for later use
+        outputPromiseResolverRef.current = resolve;
+      })
+    }),
+    []
+  );
+  useImperativeHandle(ref, () => instance);
 
   return (
     inputItems && (
@@ -275,4 +303,4 @@ const IrradianceAtlasMapper: React.FC<{
   );
 };
 
-export default IrradianceAtlasMapper;
+export default React.memo(React.forwardRef(IrradianceAtlasMapperBody));
