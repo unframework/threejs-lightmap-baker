@@ -15,6 +15,7 @@ import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
+import { useRenderProp } from './RenderProp';
 
 import sceneUrl from './tile-game-room6.glb';
 
@@ -97,7 +98,7 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
+  const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
   const [
     baseLightTexture,
     setBaseLightTexture
@@ -142,7 +143,7 @@ const Scene: React.FC<{
 
   return (
     <>
-      <IrradianceAtlasMapper onComplete={setAtlasMap} />
+      <IrradianceAtlasMapper>{atlasMapSink}</IrradianceAtlasMapper>
 
       {atlasMap && (
         <IrradianceRenderer
