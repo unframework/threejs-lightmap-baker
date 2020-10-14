@@ -17,7 +17,7 @@ import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
-import { useRenderProp } from './RenderProp';
+import { useRenderProp } from 'react-render-prop';
 
 import sceneUrl from './tile-game-room6.glb';
 

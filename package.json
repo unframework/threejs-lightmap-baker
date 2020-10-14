@@ -12,6 +12,7 @@
     "@types/react-dom": "^16.9.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
+    "react-render-prop": "^0.0.1",
     "react-scripts": "3.4.1",
     "react-three-fiber": "^4.1.2",
     "three": "^0.116.0",
