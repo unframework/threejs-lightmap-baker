@@ -54,23 +54,17 @@ const CompositorLayerMaterial: React.FC<{
 };
 
 export default function IrradianceCompositor<
-  FactorMap extends { [name: string]: THREE.Texture | null }
+  FactorMap extends { [name: string]: THREE.Texture | null | undefined }
 >({
   baseOutput,
   factorOutputs,
   factorValues,
-  onStart,
   children
 }: React.PropsWithChildren<{
-  baseOutput: THREE.Texture | null;
+  baseOutput: THREE.Texture | null | undefined;
   factorOutputs: FactorMap;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
-  onStart: (outputTexture: THREE.Texture) => void;
 }>): React.ReactElement {
-  // wrap in ref to avoid re-triggering effect
-  const onStartRef = useRef(onStart);
-  onStartRef.current = onStart;
-
   const orthoSceneRef = useRef<THREE.Scene>();
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
@@ -102,11 +96,6 @@ export default function IrradianceCompositor<
     },
     [orthoTarget]
   );
-
-  useEffect(() => {
-    // notify separately in case of errors
-    onStartRef.current(orthoTarget.texture);
-  }, [orthoTarget]);
 
   const orthoCamera = useMemo(() => {
     return new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
@@ -147,7 +136,6 @@ export default function IrradianceCompositor<
           <mesh>
             <planeBufferGeometry attach="geometry" args={[2, 2]} />
             <CompositorLayerMaterial
-              attach="material"
               map={baseOutput}
               materialRef={baseMaterialRef}
             />
@@ -161,7 +149,6 @@ export default function IrradianceCompositor<
               <mesh key={factorName}>
                 <planeBufferGeometry attach="geometry" args={[2, 2]} />
                 <CompositorLayerMaterial
-                  attach="material"
                   map={factorOutput}
                   materialRef={factorMaterialRefMap[factorName]}
                 />

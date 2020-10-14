@@ -3,7 +3,9 @@ import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import IrradianceSurfaceManager from './IrradianceSurfaceManager';
+import IrradianceSurfaceManager, {
+  IrradianceTextureContext
+} from './IrradianceSurfaceManager';
 import IrradianceSurface from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
@@ -15,6 +17,7 @@ import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
+import { useRenderProp } from './RenderProp';
 
 import sceneUrl from './tile-game-room6.glb';
 
@@ -97,15 +100,14 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
-  const [
-    baseLightTexture,
-    setBaseLightTexture
-  ] = useState<THREE.Texture | null>(null);
+  const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
+  const [baseLightTextureSink, baseLightTexture] = useRenderProp<
+    [THREE.Texture]
+  >();
 
-  const [outputTexture, setOutputTexture] = useState<THREE.Texture | null>(
-    null
-  );
+  const [outputTextureSink, outputTexture] = useRenderProp<
+    [THREE.Texture | null]
+  >();
 
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
   const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
@@ -142,15 +144,16 @@ const Scene: React.FC<{
 
   return (
     <>
-      <IrradianceAtlasMapper onComplete={setAtlasMap} />
+      <IrradianceAtlasMapper>{atlasMapSink}</IrradianceAtlasMapper>
 
       {atlasMap && (
         <IrradianceRenderer
           atlasMap={atlasMap}
           factorName={null}
-          onStart={setBaseLightTexture}
           debugMesh={probeDebugMesh}
-        />
+        >
+          {baseLightTextureSink}
+        </IrradianceRenderer>
       )}
 
       <scene ref={debugSceneRef}>
@@ -179,11 +182,12 @@ const Scene: React.FC<{
         </mesh>
       </scene>
 
-      <IrradianceCompositor
-        baseOutput={baseLightTexture}
-        factorOutputs={{}}
-        onStart={setOutputTexture}
-      >
+      <IrradianceCompositor baseOutput={baseLightTexture} factorOutputs={{}}>
+        {/* collect output for debug display */}
+        <IrradianceTextureContext.Consumer>
+          {outputTextureSink}
+        </IrradianceTextureContext.Consumer>
+
         <scene ref={mainSceneRef}>
           <mesh position={[0, 0, -5]}>
             <planeBufferGeometry attach="geometry" args={[200, 200]} />

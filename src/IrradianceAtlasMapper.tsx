@@ -37,12 +37,15 @@ const tmpV = new THREE.Vector3();
 // @todo consider rounding to account for texel size
 // @todo provide output via context
 const IrradianceAtlasMapper: React.FC<{
-  onComplete: (atlasMap: AtlasMap) => void;
-}> = ({ onComplete }) => {
+  children: (atlasMap: AtlasMap | null) => React.ReactElement | null;
+}> = ({ children }) => {
   const atlas = useIrradianceAtlasContext();
 
   // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
+
+  // set when render is complete
+  const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
 
   useEffect(() => {
     // disposed during scene unmount
@@ -250,7 +253,7 @@ const IrradianceAtlasMapper: React.FC<{
         orthoData
       );
 
-      onComplete({
+      setAtlasMap({
         texture: orthoTarget.texture,
         data: orthoData,
         items: inputItems
@@ -260,18 +263,22 @@ const IrradianceAtlasMapper: React.FC<{
   );
 
   return (
-    inputItems && (
-      <scene ref={orthoSceneRef}>
-        {inputItems.map((geom, geomIndex) => {
-          return (
-            <mesh key={geomIndex}>
-              <primitive attach="geometry" object={geom.faceBuffer} />
-              <primitive attach="material" object={material} />
-            </mesh>
-          );
-        })}
-      </scene>
-    )
+    <>
+      {children(atlasMap)}
+
+      {inputItems && (
+        <scene ref={orthoSceneRef}>
+          {inputItems.map((geom, geomIndex) => {
+            return (
+              <mesh key={geomIndex}>
+                <primitive attach="geometry" object={geom.faceBuffer} />
+                <primitive attach="material" object={material} />
+              </mesh>
+            );
+          })}
+        </scene>
+      )}
+    </>
   );
 };
 
