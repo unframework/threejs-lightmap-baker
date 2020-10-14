@@ -9,6 +9,7 @@ import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
 import IrradianceRenderer from './IrradianceRenderer';
+import { PROBE_BATCH_COUNT } from './IrradianceLightProbe';
 import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
@@ -167,8 +168,14 @@ const Scene: React.FC<{
           </mesh>
         )}
 
-        <mesh position={[15, 90, 0]} ref={probeDebugMeshRef}>
-          <planeBufferGeometry attach="geometry" args={[20, 10]} />
+        <mesh
+          position={[10, 95 - (5 * PROBE_BATCH_COUNT) / 2, 0]}
+          ref={probeDebugMeshRef}
+        >
+          <planeBufferGeometry
+            attach="geometry"
+            args={[10, 5 * PROBE_BATCH_COUNT]}
+          />
         </mesh>
       </scene>
 

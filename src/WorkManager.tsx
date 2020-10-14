@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { useFrame } from 'react-three-fiber';
 
-const WORK_PER_FRAME = 5;
+const WORK_PER_FRAME = 2;
 
 type WorkCallback = (gl: THREE.WebGLRenderer) => void;
 type WorkManagerHook = (callback: WorkCallback | null) => void;
