@@ -50,6 +50,9 @@ function ArgsCollector<Args extends unknown[]>({
   return null;
 }
 
+// the arg values are returned in same array as callback ([callback, ...args] instead of [callback, args])
+// in order to simplify the spread expression that consumes this hook's return value
+// (args starts out as undefined, and undefined cannot be spread)
 export function useRenderProp<Args extends unknown[]>(): PropReturn<Args> {
   const [currentArgs, setCurrentArgs] = useState<Args | undefined>(undefined);
 
