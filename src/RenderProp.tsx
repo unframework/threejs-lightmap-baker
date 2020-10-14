@@ -10,14 +10,13 @@ export type PropCallback<Args extends unknown[]> = (
   ...renderPropArgs: Args
 ) => React.ReactElement;
 
-type ArgConcat<Args extends unknown[]> = (
-  head: PropCallback<Args>,
-  ...args: Args
-) => void;
-export type PropReturn<Args extends unknown[]> = ArgConcat<Args> extends (
-  ...args: infer ConcatArgs
-) => void
-  ? ConcatArgs
+// @todo figure out a cleaner way
+export type PropReturn<Args> = Args extends [infer A]
+  ? [PropCallback<Args>, A?]
+  : Args extends [infer A, infer B]
+  ? [PropCallback<Args>, A?, B?]
+  : Args extends [infer A, infer B, infer C]
+  ? [PropCallback<Args>, A?, B?, C?]
   : never;
 
 function ArgsCollector<Args extends unknown[]>({
@@ -51,5 +50,10 @@ export function useRenderProp<Args extends unknown[]>(): PropReturn<Args> {
     []
   );
 
-  return [propCallback, ...currentArgs];
+  if (currentArgs === undefined) {
+    return [propCallback] as PropReturn<Args>;
+  }
+
+  // @todo consider how to add more type safety
+  return [propCallback, ...currentArgs] as PropReturn<Args>;
 }
