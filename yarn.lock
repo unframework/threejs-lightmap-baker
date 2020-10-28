@@ -8583,6 +8583,11 @@ react-reconciler@0.25.1:
     prop-types "^15.6.2"
     scheduler "^0.19.1"
 
+react-render-prop@^0.0.1:
+  version "0.0.1"
+  resolved "https://registry.yarnpkg.com/react-render-prop/-/react-render-prop-0.0.1.tgz#abb7ba891d7a2fd495e71652d787cdaff11e4da4"
+  integrity sha512-v9A0GT2mvN/SSGoUfmSCIx6i4tuWxcrKNOx5EkksHmWijoWw3x0cjipMzsnqWJx+IQRQTkvkuNkjutQ/SDO5vQ==
+
 react-scripts@3.4.1:
   version "3.4.1"
   resolved "https://registry.yarnpkg.com/react-scripts/-/react-scripts-3.4.1.tgz#f551298b5c71985cc491b9acf3c8e8c0ae3ada0a"
