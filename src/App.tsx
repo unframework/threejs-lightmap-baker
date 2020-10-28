@@ -12,7 +12,6 @@ import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
 import IrradianceRenderer from './IrradianceRenderer';
 import { PROBE_BATCH_COUNT } from './IrradianceLightProbe';
-import { useIrradianceKeyframeRenderer } from './IrradianceKeyframeRenderer';
 import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
 import GridGeometry from './GridGeometry';
