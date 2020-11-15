@@ -12,8 +12,7 @@ import {
 export const IrradianceSurface: React.FC<{
   factor?: string;
   animationClip?: THREE.AnimationClip;
-  children: React.ReactElement<{}, 'mesh' | 'primitive'>;
-}> = ({ factor, animationClip, children }) => {
+}> = ({ factor, animationClip }) => {
   const irradianceMap = useContext(IrradianceTextureContext);
 
   if (!irradianceMap) {
@@ -27,8 +26,14 @@ export const IrradianceSurface: React.FC<{
 
   const materialRef = useRef<THREE.MeshLambertMaterial | undefined>(undefined);
 
-  const meshRef = useUpdate<THREE.Mesh>(
-    (mesh) => {
+  // get placeholder to attach under the target mesh
+  const groupRef = useUpdate<THREE.Group>(
+    (group) => {
+      const mesh = group.parent;
+      if (!(mesh instanceof THREE.Mesh)) {
+        throw new Error('light scene element should be a mesh');
+      }
+
       const material = mesh.material;
 
       if (Array.isArray(material)) {
@@ -63,7 +68,5 @@ export const IrradianceSurface: React.FC<{
     }
   }, [irradianceMap]);
 
-  return React.cloneElement(children, { ref: meshRef });
+  return <group ref={groupRef} />;
 };
-
-export default IrradianceSurface;

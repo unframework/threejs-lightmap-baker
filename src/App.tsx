@@ -6,7 +6,7 @@ import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import IrradianceSurfaceManager, {
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
-import IrradianceSurface from './IrradianceSurface';
+import { IrradianceSurface } from './IrradianceSurface';
 import IrradianceLight from './IrradianceLight';
 import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
@@ -202,13 +202,13 @@ const Scene: React.FC<{
             </React.Fragment>
           ))}
 
-          <IrradianceSurface>
-            <primitive object={baseMesh} dispose={null} />
-          </IrradianceSurface>
+          <primitive object={baseMesh} dispose={null}>
+            <IrradianceSurface />
+          </primitive>
 
-          <IrradianceSurface>
-            <primitive object={coverMesh} dispose={null} />
-          </IrradianceSurface>
+          <primitive object={coverMesh} dispose={null}>
+            <IrradianceSurface />
+          </primitive>
         </scene>
       </IrradianceCompositor>
     </>
