@@ -6,13 +6,14 @@ import { useLightRegister } from './IrradianceSurfaceManager';
 
 export const IrradianceLight: React.FC<{
   factor?: string;
-  children: React.ReactElement<{}, 'mesh' | 'primitive'>;
 }> = ({ factor, children }) => {
   // @todo dynamic light factor update
   const lightRegistrationHandler = useLightRegister(factor || null);
 
-  const lightRef = useUpdate<THREE.Light>(
-    (light) => {
+  const groupRef = useUpdate<THREE.Group>(
+    (group) => {
+      const light = group.parent;
+
       if (!(light instanceof THREE.DirectionalLight)) {
         throw new Error('only directional lights are supported');
       }
@@ -22,7 +23,5 @@ export const IrradianceLight: React.FC<{
     [lightRegistrationHandler]
   );
 
-  return React.cloneElement(children, { ref: lightRef });
+  return <group ref={groupRef} />;
 };
-
-export default IrradianceLight;

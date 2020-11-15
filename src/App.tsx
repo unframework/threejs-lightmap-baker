@@ -7,7 +7,7 @@ import IrradianceSurfaceManager, {
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 import { IrradianceSurface } from './IrradianceSurface';
-import IrradianceLight from './IrradianceLight';
+import { IrradianceLight } from './IrradianceLight';
 import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
 import IrradianceRenderer from './IrradianceRenderer';
@@ -194,9 +194,9 @@ const Scene: React.FC<{
 
           {loadedLightList.map((light) => (
             <React.Fragment key={light.uuid}>
-              <IrradianceLight>
-                <primitive object={light} dispose={null} />
-              </IrradianceLight>
+              <primitive object={light} dispose={null}>
+                <IrradianceLight />
+              </primitive>
 
               <primitive object={light.target} dispose={null} />
             </React.Fragment>
