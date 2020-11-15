@@ -1,4 +1,4 @@
-import React, { useMemo, useContext } from 'react';
+import React, { useMemo, useCallback, useContext, useRef } from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -46,55 +46,39 @@ export const IrradianceTextureContext = React.createContext<THREE.Texture | null
   null
 );
 
-// attach a mesh to be mapped in texture atlas
-export function useAtlasMeshRef(
+// allow to attach a mesh to be mapped in texture atlas
+export function useAtlasMeshRegister(
   factorName: string | null,
-  animationClip: THREE.AnimationClip | null,
-  withMesh?: (mesh: THREE.Mesh) => void
+  animationClip: THREE.AnimationClip | null
 ) {
   const atlas = useIrradianceAtlasContext();
   const { lightSceneItems } = atlas;
 
-  const meshRef = useUpdate<THREE.Mesh>((mesh) => {
-    const meshBuffer = mesh.geometry;
-    const material = mesh.material;
+  // wrap in refs to keep only initial value
+  const animationClipRef = useRef(animationClip);
+  const factorNameRef = useRef(factorName);
 
-    if (Array.isArray(material)) {
-      throw new Error('material array not supported');
-    }
+  const meshRegistrationHandler = useCallback(
+    (mesh: THREE.Mesh, material: THREE.MeshLambertMaterial) => {
+      const meshBuffer = mesh.geometry;
 
-    if (!(material instanceof THREE.MeshLambertMaterial)) {
-      throw new Error('only Lambert materials are supported');
-    }
+      // register display item
+      lightSceneItems.push({
+        mesh,
+        buffer: meshBuffer,
+        albedo: material.color,
+        albedoMap: material.map || undefined,
+        emissive: material.emissive,
+        emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default
+        emissiveMap: material.emissiveMap || undefined,
+        factorName: factorNameRef.current,
+        animationClip: animationClipRef.current
+      });
+    },
+    [lightSceneItems]
+  );
 
-    // register display item
-    lightSceneItems.push({
-      mesh,
-      buffer: meshBuffer,
-      albedo: material.color,
-      albedoMap: material.map || undefined,
-      emissive: material.emissive,
-      emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default
-      emissiveMap: material.emissiveMap || undefined,
-      factorName,
-      animationClip
-    });
-
-    if (!(meshBuffer instanceof THREE.BufferGeometry)) {
-      throw new Error('expected buffer geometry');
-    }
-
-    if (!meshBuffer.index) {
-      throw new Error('expecting indexed mesh buffer');
-    }
-
-    // allow upstream code to run
-    if (withMesh) {
-      withMesh(mesh);
-    }
-  }, []);
-
-  return meshRef;
+  return meshRegistrationHandler;
 }
 
 export function useLightRef(factorName: string | null) {

@@ -1,11 +1,14 @@
 import React, { useContext, useEffect, useRef } from 'react';
+import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import {
-  useAtlasMeshRef,
+  useAtlasMeshRegister,
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 
+// tracks given geometry as part of light scene and attaches resulting lightmap to its material
+// @todo separate the two?
 export const IrradianceSurface: React.FC<{
   factor?: string;
   animationClip?: THREE.AnimationClip;
@@ -17,21 +20,32 @@ export const IrradianceSurface: React.FC<{
     throw new Error('no texture provided');
   }
 
-  const materialRef = useRef<THREE.MeshLambertMaterial | undefined>(undefined);
-  const meshRef = useAtlasMeshRef(
+  const meshRegistrationHandler = useAtlasMeshRegister(
     factor || null,
-    animationClip || null,
+    animationClip || null
+  );
+
+  const materialRef = useRef<THREE.MeshLambertMaterial | undefined>(undefined);
+
+  const meshRef = useUpdate<THREE.Mesh>(
     (mesh) => {
-      if (Array.isArray(mesh.material)) {
+      const material = mesh.material;
+
+      if (Array.isArray(material)) {
         throw new Error('material array not supported');
       }
 
-      if (!(mesh.material instanceof THREE.MeshLambertMaterial)) {
+      if (!(material instanceof THREE.MeshLambertMaterial)) {
         throw new Error('only Lambert materials are supported');
       }
 
-      materialRef.current = mesh.material;
-    }
+      // stash reference for an attachment check later
+      materialRef.current = material;
+
+      // add to atlas
+      meshRegistrationHandler(mesh, material);
+    },
+    [meshRegistrationHandler]
   );
 
   // override lightmap with our own
