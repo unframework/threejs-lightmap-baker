@@ -6,8 +6,7 @@ import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import IrradianceSurfaceManager, {
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
-import { IrradianceSurface } from './IrradianceSurface';
-import { IrradianceLight } from './IrradianceLight';
+import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
 import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
 import IrradianceRenderer from './IrradianceRenderer';

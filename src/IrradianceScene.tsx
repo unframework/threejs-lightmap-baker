@@ -4,6 +4,7 @@ import * as THREE from 'three';
 
 import {
   useAtlasMeshRegister,
+  useLightRegister,
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 
@@ -67,6 +68,28 @@ export const IrradianceSurface: React.FC<{
       material.lightMap = irradianceMap;
     }
   }, [irradianceMap]);
+
+  return <group ref={groupRef} />;
+};
+
+export const IrradianceLight: React.FC<{
+  factor?: string;
+}> = ({ factor, children }) => {
+  // @todo dynamic light factor update
+  const lightRegistrationHandler = useLightRegister(factor || null);
+
+  const groupRef = useUpdate<THREE.Group>(
+    (group) => {
+      const light = group.parent;
+
+      if (!(light instanceof THREE.DirectionalLight)) {
+        throw new Error('only directional lights are supported');
+      }
+
+      lightRegistrationHandler(light);
+    },
+    [lightRegistrationHandler]
+  );
 
   return <group ref={groupRef} />;
 };
