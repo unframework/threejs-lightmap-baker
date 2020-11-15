@@ -1,26 +1,7 @@
-import React, {
-  useEffect,
-  useState,
-  useMemo,
-  useCallback,
-  useContext,
-  useRef
-} from 'react';
-import {
-  useThree,
-  useFrame,
-  createPortal,
-  PointerEvent
-} from 'react-three-fiber';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
-import {
-  atlasWidth,
-  atlasHeight,
-  MAX_ITEM_FACES,
-  AtlasMap,
-  AtlasMapItem
-} from './IrradianceAtlasMapper';
+import { AtlasMapItem } from './IrradianceAtlasMapper';
 
 const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
@@ -151,7 +132,7 @@ export function useLightProbe(
     }
 
     return lookup;
-  }, [probePixelCount]);
+  }, [probePixelCount, probeTargetSize]);
 
   useEffect(
     () => () => {

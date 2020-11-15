@@ -31,7 +31,7 @@ function useJobInstance(
     // generate new job ID on mount
     jobCountRef.current += 1;
     return jobCountRef.current;
-  }, []);
+  }, [jobCountRef]);
 
   // wrap latest callback in stable ref
   const callbackRef = useRef(callback);
@@ -56,7 +56,7 @@ function useJobInstance(
 
       return newJobs;
     });
-  }, [jobId]);
+  }, [jobId, setJobs]);
 
   // clean up on unmount
   useEffect(() => {
@@ -64,7 +64,7 @@ function useJobInstance(
       // keep all jobs that do not have our ID
       setJobs((prev) => prev.filter((info) => info.id !== jobId));
     };
-  }, [jobId]);
+  }, [jobId, setJobs]);
 }
 
 const WorkManager: React.FC = ({ children }) => {

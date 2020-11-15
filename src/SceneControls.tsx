@@ -1,18 +1,7 @@
 import React, { useRef } from 'react';
-import { useFrame, useThree, extend, ReactThreeFiber } from 'react-three-fiber';
+import { useFrame, useThree, extend } from 'react-three-fiber';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      orbitControls: ReactThreeFiber.Object3DNode<
-        OrbitControls,
-        typeof OrbitControls
-      >;
-    }
-  }
-}
 
 extend({ OrbitControls });
 

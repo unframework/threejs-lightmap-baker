@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useState, useRef } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
@@ -14,7 +14,6 @@ import IrradianceRenderer from './IrradianceRenderer';
 import { PROBE_BATCH_COUNT } from './IrradianceLightProbe';
 import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
-import GridGeometry from './GridGeometry';
 import { DebugMaterial } from './DebugMaterial';
 import { useRenderProp } from 'react-render-prop';
 

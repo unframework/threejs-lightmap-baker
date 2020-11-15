@@ -1,17 +1,5 @@
-import React, {
-  useEffect,
-  useState,
-  useMemo,
-  useCallback,
-  useContext,
-  useRef
-} from 'react';
-import {
-  useThree,
-  useFrame,
-  createPortal,
-  PointerEvent
-} from 'react-three-fiber';
+import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
+import { useFrame, createPortal } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useIrradianceAtlasContext, Atlas } from './IrradianceSurfaceManager';
@@ -20,11 +8,9 @@ import {
   atlasWidth,
   atlasHeight,
   MAX_ITEM_FACES,
-  AtlasMap,
-  AtlasMapItem
+  AtlasMap
 } from './IrradianceAtlasMapper';
 import {
-  ProbeBatcher,
   ProbeBatchRenderer,
   ProbeBatchReader,
   useLightProbe
@@ -272,7 +258,6 @@ function readTexel(
 
   readLightProbe((probeData, rowPixelStride, box, originX, originY) => {
     const probeTargetSize = box.z; // assuming width is always full
-    const probePixelBias = 0.5 / probeTargetSize;
 
     const rowStride = rowPixelStride * 4;
     let rowStart = box.y * rowStride + box.x * 4;

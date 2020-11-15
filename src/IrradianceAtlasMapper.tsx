@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useFrame, useUpdate, useThree } from 'react-three-fiber';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useIrradianceAtlasContext } from './IrradianceSurfaceManager';
@@ -195,7 +195,7 @@ const IrradianceAtlasMapper: React.FC<{
 
   const orthoData = useMemo(() => {
     return new Float32Array(atlasWidth * atlasHeight * 4);
-  }, [orthoTarget]);
+  }, []);
 
   // disposed during scene unmount
   const material = useMemo(
@@ -228,8 +228,6 @@ const IrradianceAtlasMapper: React.FC<{
   );
 
   // render the output as needed
-  const [output, setOutput] = useState<AtlasMap | null>(null);
-
   const { gl } = useThree();
   const orthoSceneRef = useUpdate<THREE.Scene>(
     (orthoScene) => {
