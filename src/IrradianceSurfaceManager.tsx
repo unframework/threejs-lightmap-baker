@@ -1,5 +1,4 @@
 import React, { useMemo, useCallback, useContext, useRef } from 'react';
-import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
 export interface AtlasSceneItem {
@@ -81,22 +80,23 @@ export function useAtlasMeshRegister(
   return meshRegistrationHandler;
 }
 
-export function useLightRef(factorName: string | null) {
+export function useLightRegister(factorName: string | null) {
   const { lightSceneLights } = useIrradianceAtlasContext();
 
-  const lightRef = useUpdate<THREE.Light>((light) => {
-    if (!(light instanceof THREE.DirectionalLight)) {
-      throw new Error('only directional lights are supported');
-    }
+  const factorNameRef = useRef(factorName);
 
-    // register display item
-    lightSceneLights.push({
-      dirLight: light,
-      factorName
-    });
-  }, []);
+  const lightRegistrationHandler = useCallback(
+    (light: THREE.DirectionalLight) => {
+      // register display item
+      lightSceneLights.push({
+        dirLight: light,
+        factorName: factorNameRef.current
+      });
+    },
+    [lightSceneLights]
+  );
 
-  return lightRef;
+  return lightRegistrationHandler;
 }
 
 const IrradianceSurfaceManager: React.FC = ({ children }) => {
