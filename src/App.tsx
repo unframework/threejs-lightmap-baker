@@ -6,8 +6,7 @@ import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import IrradianceSurfaceManager, {
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
-import IrradianceSurface from './IrradianceSurface';
-import IrradianceLight from './IrradianceLight';
+import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
 import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
 import IrradianceRenderer from './IrradianceRenderer';
@@ -194,21 +193,21 @@ const Scene: React.FC<{
 
           {loadedLightList.map((light) => (
             <React.Fragment key={light.uuid}>
-              <IrradianceLight>
-                <primitive object={light} dispose={null} />
-              </IrradianceLight>
+              <primitive object={light} dispose={null}>
+                <IrradianceLight />
+              </primitive>
 
               <primitive object={light.target} dispose={null} />
             </React.Fragment>
           ))}
 
-          <IrradianceSurface>
-            <primitive object={baseMesh} dispose={null} />
-          </IrradianceSurface>
+          <primitive object={baseMesh} dispose={null}>
+            <IrradianceSurface />
+          </primitive>
 
-          <IrradianceSurface>
-            <primitive object={coverMesh} dispose={null} />
-          </IrradianceSurface>
+          <primitive object={coverMesh} dispose={null}>
+            <IrradianceSurface />
+          </primitive>
         </scene>
       </IrradianceCompositor>
     </>
