@@ -87,7 +87,6 @@ function getLightProbeSceneElement(
       {lightSceneItems.map((item, itemIndex) => {
         const {
           mesh,
-          buffer,
           albedo,
           albedoMap,
           emissive,
@@ -98,7 +97,7 @@ function getLightProbeSceneElement(
         } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
-        const cloneMesh = new THREE.Mesh(buffer);
+        const cloneMesh = new THREE.Mesh(mesh.geometry);
 
         if (animationClip) {
           // source parameters from animation, if given

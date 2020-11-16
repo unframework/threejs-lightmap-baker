@@ -3,7 +3,6 @@ import * as THREE from 'three';
 
 export interface AtlasSceneItem {
   mesh: THREE.Mesh;
-  buffer: THREE.Geometry | THREE.BufferGeometry; // either is fine
   albedo: THREE.Color;
   albedoMap?: THREE.Texture;
   emissive: THREE.Color;
@@ -59,12 +58,9 @@ export function useAtlasMeshRegister(
 
   const meshRegistrationHandler = useCallback(
     (mesh: THREE.Mesh, material: THREE.MeshLambertMaterial) => {
-      const meshBuffer = mesh.geometry;
-
       // register display item
       lightSceneItems.push({
         mesh,
-        buffer: meshBuffer,
         albedo: material.color,
         albedoMap: material.map || undefined,
         emissive: material.emissive,

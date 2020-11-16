@@ -53,7 +53,8 @@ const IrradianceAtlasMapper: React.FC<{
       atlas.lightSceneItems
         .filter((item) => !!item.albedoMap)
         .map((item, itemIndex) => {
-          const { mesh, buffer } = item;
+          const { mesh } = item;
+          const buffer = mesh.geometry;
 
           if (!(buffer instanceof THREE.BufferGeometry)) {
             throw new Error('expected buffer geometry');
