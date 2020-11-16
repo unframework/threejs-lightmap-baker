@@ -44,7 +44,7 @@ function getLightProbeSceneElement(
 
   return (
     <scene
-      key={`light-scene-${Math.random()}`} // ensure scene is fully re-created
+      key={`light-scene-${Math.random()}`} // ensure scene is fully re-created @todo why?
     >
       {lightSceneLights.map(({ dirLight, factorName }) => {
         if (factorName !== activeFactorName) {
