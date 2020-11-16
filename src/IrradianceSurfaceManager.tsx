@@ -46,7 +46,7 @@ function useWorkbenchStagingContext() {
   return workbenchStage;
 }
 
-// @todo wrap in provider helper
+// @todo move and wrap in provider helper
 export const IrradianceTextureContext = React.createContext<THREE.Texture | null>(
   null
 );

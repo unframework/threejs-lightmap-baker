@@ -1,0 +1,130 @@
+import React, { useMemo, useContext } from 'react';
+import { useResource, useFrame } from 'react-three-fiber';
+import * as THREE from 'three';
+import { GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
+
+import { IrradianceTextureContext } from './IrradianceSurfaceManager';
+import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
+
+export const MainScene: React.FC<{
+  loadedData: GLTF;
+}> = React.memo(({ loadedData }) => {
+  const { loadedMeshList, loadedLightList } = useMemo(() => {
+    const meshes: THREE.Mesh[] = [];
+    const lights: THREE.DirectionalLight[] = [];
+
+    loadedData.scene.traverse((object) => {
+      // glTF import is still not great with lights, so we improvise
+      if (object.name.includes('Light')) {
+        const light = new THREE.DirectionalLight();
+        light.intensity = object.scale.z;
+
+        light.castShadow = true;
+        light.shadow.camera.left = -object.scale.x;
+        light.shadow.camera.right = object.scale.x;
+        light.shadow.camera.top = object.scale.y;
+        light.shadow.camera.bottom = -object.scale.y;
+
+        light.position.copy(object.position);
+
+        const target = new THREE.Object3D();
+        target.position.set(0, 0, -1);
+        target.position.applyEuler(object.rotation);
+        target.position.add(light.position);
+
+        light.target = target;
+
+        lights.push(light);
+        return;
+      }
+
+      if (!(object instanceof THREE.Mesh)) {
+        return;
+      }
+
+      // process the material
+      if (object.material) {
+        const stdMat = object.material as THREE.MeshStandardMaterial;
+
+        if (stdMat.map) {
+          stdMat.map.magFilter = THREE.NearestFilter;
+        }
+
+        if (stdMat.emissiveMap) {
+          stdMat.emissiveMap.magFilter = THREE.NearestFilter;
+        }
+
+        object.material = new THREE.MeshLambertMaterial({
+          color: stdMat.color,
+          map: stdMat.map,
+          emissive: stdMat.emissive,
+          emissiveMap: stdMat.emissiveMap,
+          emissiveIntensity: stdMat.emissiveIntensity
+        });
+
+        // always cast shadow, but only albedo materials receive it
+        object.castShadow = true;
+
+        if (stdMat.map) {
+          object.receiveShadow = true;
+        }
+
+        // special case for outer sunlight cover
+        if (object.name === 'Cover') {
+          object.material.depthWrite = false;
+          object.material.colorWrite = false;
+        }
+      }
+
+      meshes.push(object);
+    });
+
+    return {
+      loadedMeshList: meshes,
+      loadedLightList: lights
+    };
+  }, [loadedData]);
+
+  const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
+  const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
+
+  if (!baseMesh || !coverMesh) {
+    throw new Error('objects not found');
+  }
+
+  const lightMap = useContext(IrradianceTextureContext);
+
+  // main scene rendering
+  const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
+
+  useFrame(({ gl, camera }) => {
+    gl.render(mainScene, camera);
+  }, 20);
+
+  return (
+    <scene ref={mainSceneRef}>
+      <mesh position={[0, 0, -5]}>
+        <planeBufferGeometry attach="geometry" args={[200, 200]} />
+        <meshBasicMaterial attach="material" color="#171717" />
+      </mesh>
+
+      {loadedLightList.map((light) => (
+        <React.Fragment key={light.uuid}>
+          <primitive object={light} dispose={null}>
+            <IrradianceLight />
+          </primitive>
+
+          <primitive object={light.target} dispose={null} />
+        </React.Fragment>
+      ))}
+
+      <primitive object={baseMesh} material-lightMap={lightMap} dispose={null}>
+        <IrradianceSurface />
+      </primitive>
+
+      <primitive object={coverMesh} dispose={null}>
+        <IrradianceSurface />
+      </primitive>
+    </scene>
+  );
+});
