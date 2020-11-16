@@ -185,30 +185,38 @@ const Scene: React.FC<{
           {outputTextureSink}
         </IrradianceTextureContext.Consumer>
 
-        <scene ref={mainSceneRef}>
-          <mesh position={[0, 0, -5]}>
-            <planeBufferGeometry attach="geometry" args={[200, 200]} />
-            <meshBasicMaterial attach="material" color="#171717" />
-          </mesh>
+        <IrradianceTextureContext.Consumer>
+          {(lightMap) => (
+            <scene ref={mainSceneRef}>
+              <mesh position={[0, 0, -5]}>
+                <planeBufferGeometry attach="geometry" args={[200, 200]} />
+                <meshBasicMaterial attach="material" color="#171717" />
+              </mesh>
 
-          {loadedLightList.map((light) => (
-            <React.Fragment key={light.uuid}>
-              <primitive object={light} dispose={null}>
-                <IrradianceLight />
+              {loadedLightList.map((light) => (
+                <React.Fragment key={light.uuid}>
+                  <primitive object={light} dispose={null}>
+                    <IrradianceLight />
+                  </primitive>
+
+                  <primitive object={light.target} dispose={null} />
+                </React.Fragment>
+              ))}
+
+              <primitive
+                object={baseMesh}
+                material-lightMap={lightMap}
+                dispose={null}
+              >
+                <IrradianceSurface />
               </primitive>
 
-              <primitive object={light.target} dispose={null} />
-            </React.Fragment>
-          ))}
-
-          <primitive object={baseMesh} dispose={null}>
-            <IrradianceSurface />
-          </primitive>
-
-          <primitive object={coverMesh} dispose={null}>
-            <IrradianceSurface />
-          </primitive>
-        </scene>
+              <primitive object={coverMesh} dispose={null}>
+                <IrradianceSurface />
+              </primitive>
+            </scene>
+          )}
+        </IrradianceTextureContext.Consumer>
       </IrradianceCompositor>
     </>
   );

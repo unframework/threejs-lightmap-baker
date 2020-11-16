@@ -1,31 +1,21 @@
-import React, { useContext, useEffect, useRef } from 'react';
+import React from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import {
   useAtlasMeshRegister,
-  useLightRegister,
-  IrradianceTextureContext
+  useLightRegister
 } from './IrradianceSurfaceManager';
 
-// tracks given geometry as part of light scene and attaches resulting lightmap to its material
-// @todo separate the two?
+// add as a child of a mesh to track it as a contributor of the light scene
 export const IrradianceSurface: React.FC<{
   factor?: string;
   animationClip?: THREE.AnimationClip;
 }> = ({ factor, animationClip }) => {
-  const irradianceMap = useContext(IrradianceTextureContext);
-
-  if (!irradianceMap) {
-    throw new Error('no texture provided');
-  }
-
   const meshRegistrationHandler = useAtlasMeshRegister(
     factor || null,
     animationClip || null
   );
-
-  const materialRef = useRef<THREE.MeshLambertMaterial | undefined>(undefined);
 
   // get placeholder to attach under the target mesh
   const groupRef = useUpdate<THREE.Group>(
@@ -45,33 +35,16 @@ export const IrradianceSurface: React.FC<{
         throw new Error('only Lambert materials are supported');
       }
 
-      // stash reference for an attachment check later
-      materialRef.current = material;
-
       // add to atlas
       meshRegistrationHandler(mesh, material);
     },
     [meshRegistrationHandler]
   );
 
-  // override lightmap with our own
-  useEffect(() => {
-    const material = materialRef.current;
-
-    if (!material) {
-      return;
-    }
-
-    // only use lightmap if this has an atlas entry
-    // @todo better signaling
-    if (material.map) {
-      material.lightMap = irradianceMap;
-    }
-  }, [irradianceMap]);
-
   return <group ref={groupRef} />;
 };
 
+// add as a child of a light object to track it as a contributor of the light scene
 export const IrradianceLight: React.FC<{
   factor?: string;
 }> = ({ factor, children }) => {
