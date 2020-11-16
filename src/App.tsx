@@ -1,6 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
-import { Canvas, useResource, useFrame, useThree } from 'react-three-fiber';
+import { Canvas, useResource, useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
+import { useRenderProp } from 'react-render-prop';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
@@ -11,11 +12,9 @@ import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
 import WorkManager from './WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
 import IrradianceRenderer from './IrradianceRenderer';
-import { PROBE_BATCH_COUNT } from './IrradianceLightProbe';
 import IrradianceCompositor from './IrradianceCompositor';
 import SceneControls from './SceneControls';
-import { DebugMaterial } from './DebugMaterial';
-import { useRenderProp } from 'react-render-prop';
+import { DebugOverlayScene } from './DebugOverlayScene';
 
 import sceneUrl from './tile-game-room6.glb';
 
@@ -100,15 +99,6 @@ const Scene: React.FC<{
     };
   }, [loadedData]);
 
-  const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
-  const [baseLightTextureSink, baseLightTexture] = useRenderProp<
-    [THREE.Texture]
-  >();
-
-  const [outputTextureSink, outputTexture] = useRenderProp<
-    [THREE.Texture | null]
-  >();
-
   const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
   const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
 
@@ -116,31 +106,22 @@ const Scene: React.FC<{
     throw new Error('objects not found');
   }
 
-  // debug output texture
-  // const outputTexture = Object.values(factorOutputs)[0] || baseOutput;
+  // plumbing between baker components
+  const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
+  const [baseRendererSink, baseLightTexture, probeTexture] = useRenderProp<
+    [THREE.Texture, THREE.Texture]
+  >();
 
+  const [outputTextureSink, outputTexture] = useRenderProp<
+    [THREE.Texture | null]
+  >();
+
+  // main scene rendering
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
-  const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
-
-  const [probeDebugMeshRef, probeDebugMesh] = useResource<THREE.Mesh>();
-
-  const { size } = useThree();
-  const debugCamera = useMemo(() => {
-    // top-left corner is (0, 100), top-right is (100, 100)
-    const aspect = size.height / size.width;
-    return new THREE.OrthographicCamera(0, 100, 100, 100 * (1 - aspect), -1, 1);
-  }, [size]);
 
   useFrame(({ gl, camera }) => {
     gl.render(mainScene, camera);
   }, 20);
-
-  useFrame(({ gl }) => {
-    gl.autoClear = false;
-    gl.clearDepth();
-    gl.render(debugScene, debugCamera);
-    gl.autoClear = true;
-  }, 30);
 
   return (
     <>
@@ -155,37 +136,16 @@ const Scene: React.FC<{
           workbench={workbench}
           atlasMap={atlasMap}
           factorName={null}
-          debugMesh={probeDebugMesh}
         >
-          {baseLightTextureSink}
+          {baseRendererSink}
         </IrradianceRenderer>
       )}
 
-      <scene ref={debugSceneRef}>
-        {outputTexture && (
-          <mesh position={[85, 85, 0]}>
-            <planeBufferGeometry attach="geometry" args={[20, 20]} />
-            <DebugMaterial attach="material" map={outputTexture} />
-          </mesh>
-        )}
-
-        {atlasMap && (
-          <mesh position={[85, 64, 0]}>
-            <planeBufferGeometry attach="geometry" args={[20, 20]} />
-            <DebugMaterial attach="material" map={atlasMap.texture} />
-          </mesh>
-        )}
-
-        <mesh
-          position={[10, 95 - (5 * PROBE_BATCH_COUNT) / 2, 0]}
-          ref={probeDebugMeshRef}
-        >
-          <planeBufferGeometry
-            attach="geometry"
-            args={[10, 5 * PROBE_BATCH_COUNT]}
-          />
-        </mesh>
-      </scene>
+      <DebugOverlayScene
+        atlasTexture={atlasMap && atlasMap.texture}
+        outputTexture={outputTexture}
+        probeTexture={probeTexture}
+      />
 
       <IrradianceCompositor baseOutput={baseLightTexture} factorOutputs={{}}>
         {/* collect output for debug display */}

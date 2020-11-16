@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
-import { useFrame, createPortal } from 'react-three-fiber';
+import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { Workbench } from './IrradianceSurfaceManager';
@@ -15,7 +15,6 @@ import {
   ProbeBatchReader,
   useLightProbe
 } from './IrradianceLightProbe';
-import { DebugMaterial } from './DebugMaterial';
 
 const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
@@ -291,8 +290,10 @@ const IrradianceRenderer: React.FC<{
   atlasMap: AtlasMap;
   factorName: string | null;
   time?: number;
-  debugMesh?: THREE.Mesh;
-  children: (lightMap: THREE.Texture) => React.ReactElement | null;
+  children: (
+    lightMap: THREE.Texture,
+    debugLightProbeTexture: THREE.Texture
+  ) => React.ReactElement | null;
 }> = (props) => {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
@@ -540,7 +541,7 @@ const IrradianceRenderer: React.FC<{
 
   return (
     <>
-      {props.children(activeOutput)}
+      {props.children(activeOutput, debugLightProbeTexture)}
 
       {outputIsComplete
         ? null
@@ -548,12 +549,6 @@ const IrradianceRenderer: React.FC<{
           React.cloneElement(lightSceneElement, {
             ref: lightSceneRef
           })}
-
-      {props.debugMesh &&
-        createPortal(
-          <DebugMaterial attach="material" map={debugLightProbeTexture} />,
-          props.debugMesh
-        )}
     </>
   );
 };
