@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 import { useRenderProp } from 'react-render-prop';
-import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager from './IrradianceSurfaceManager';
 import WorkManager from './WorkManager';
@@ -13,39 +12,12 @@ import SceneControls from './SceneControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 import { MainScene } from './MainScene';
 
-import sceneUrl from './tile-game-room6.glb';
-
 function App() {
-  const [loadedData, setLoadedData] = useState<GLTF | null>(null);
-
-  useEffect(() => {
-    new GLTFLoader().load(sceneUrl, (data) => {
-      setLoadedData(data);
-    });
-  }, []);
-
   // plumbing between baker components
   const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
   const [baseRendererSink, baseLightTexture, probeTexture] = useRenderProp<
     [THREE.Texture, THREE.Texture]
   >();
-
-  // awkward hack to start workbench snapshot after a delay
-  const [startWorkbenchSink, startWorkbenchHandler] = useRenderProp<
-    [() => void]
-  >();
-
-  useEffect(() => {
-    if (!startWorkbenchHandler || !loadedData) {
-      return;
-    }
-
-    const timeoutId = setTimeout(startWorkbenchHandler, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [startWorkbenchHandler, loadedData]);
 
   return (
     <Canvas
@@ -62,8 +34,6 @@ function App() {
         <IrradianceSurfaceManager>
           {(workbench, startWorkbench) => (
             <>
-              {startWorkbenchSink(startWorkbench)}
-
               {workbench && (
                 <IrradianceAtlasMapper workbench={workbench}>
                   {atlasMapSink}
@@ -89,7 +59,7 @@ function App() {
                   probeTexture={probeTexture}
                 />
 
-                {loadedData ? <MainScene loadedData={loadedData} /> : null}
+                <MainScene onReady={startWorkbench} />
               </IrradianceCompositor>
             </>
           )}
