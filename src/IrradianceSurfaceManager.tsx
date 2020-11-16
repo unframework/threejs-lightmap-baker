@@ -46,11 +46,6 @@ function useWorkbenchStagingContext() {
   return workbenchStage;
 }
 
-// @todo move and wrap in provider helper
-export const IrradianceTextureContext = React.createContext<THREE.Texture | null>(
-  null
-);
-
 // allow to attach a mesh to be mapped in texture atlas
 export function useMeshRegister(
   mesh: THREE.Mesh | null,

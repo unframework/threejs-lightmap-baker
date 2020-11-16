@@ -1,9 +1,22 @@
-import React, { useMemo, useEffect, useRef } from 'react';
+import React, { useMemo, useEffect, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { atlasWidth, atlasHeight } from './IrradianceAtlasMapper';
-import { IrradianceTextureContext } from './IrradianceSurfaceManager';
+
+const IrradianceTextureContext = React.createContext<THREE.Texture | null>(
+  null
+);
+
+export function useIrradianceTexture(): THREE.Texture {
+  const texture = useContext(IrradianceTextureContext);
+
+  if (!texture) {
+    throw new Error('must be placed under irradiance texture compositor');
+  }
+
+  return texture;
+}
 
 const CompositorLayerMaterial: React.FC<{
   map: THREE.Texture;

@@ -1,14 +1,17 @@
-import React, { useMemo, useContext } from 'react';
+import React, { useMemo } from 'react';
 import { useResource, useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import { IrradianceTextureContext } from './IrradianceSurfaceManager';
 import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
+import { useIrradianceTexture } from './IrradianceCompositor';
 
 export const MainScene: React.FC<{
   loadedData: GLTF;
 }> = React.memo(({ loadedData }) => {
+  // resulting lightmap texture produced by the baking process
+  const lightMap = useIrradianceTexture();
+
   const { loadedMeshList, loadedLightList } = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
     const lights: THREE.DirectionalLight[] = [];
@@ -91,8 +94,6 @@ export const MainScene: React.FC<{
   if (!baseMesh || !coverMesh) {
     throw new Error('objects not found');
   }
-
-  const lightMap = useContext(IrradianceTextureContext);
 
   // main scene rendering
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();

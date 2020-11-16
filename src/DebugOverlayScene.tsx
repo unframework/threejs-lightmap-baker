@@ -1,8 +1,8 @@
-import React, { useMemo, useContext } from 'react';
+import React, { useMemo } from 'react';
 import { useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { IrradianceTextureContext } from './IrradianceSurfaceManager';
+import { useIrradianceTexture } from './IrradianceCompositor';
 import { PROBE_BATCH_COUNT } from './IrradianceLightProbe';
 import { DebugMaterial } from './DebugMaterial';
 
@@ -10,7 +10,7 @@ export const DebugOverlayScene: React.FC<{
   atlasTexture?: THREE.Texture | null;
   probeTexture?: THREE.Texture | null;
 }> = React.memo(({ atlasTexture, probeTexture }) => {
-  const outputTexture = useContext(IrradianceTextureContext);
+  const outputTexture = useIrradianceTexture();
 
   const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
 
