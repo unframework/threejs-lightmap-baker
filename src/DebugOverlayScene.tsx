@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 import { useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useIrradianceTexture } from './IrradianceCompositor';
-import { PROBE_BATCH_COUNT } from './IrradianceLightProbe';
+import { useIrradianceTexture } from './core/IrradianceCompositor';
+import { PROBE_BATCH_COUNT } from './core/IrradianceLightProbe';
 import { DebugMaterial } from './DebugMaterial';
 
 export const DebugOverlayScene: React.FC<{

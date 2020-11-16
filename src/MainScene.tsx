@@ -3,8 +3,8 @@ import { useResource, useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
-import { useIrradianceTexture } from './IrradianceCompositor';
+import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
+import { useIrradianceTexture } from './core/IrradianceCompositor';
 
 import sceneUrl from './tile-game-room6.glb';
 
