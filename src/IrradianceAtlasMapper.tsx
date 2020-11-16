@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useIrradianceAtlasContext } from './IrradianceSurfaceManager';
+import { Workbench } from './IrradianceSurfaceManager';
 
 export interface AtlasMapItem {
   faceCount: number;
@@ -37,9 +37,11 @@ const tmpV = new THREE.Vector3();
 // @todo consider rounding to account for texel size
 // @todo provide output via context
 const IrradianceAtlasMapper: React.FC<{
+  workbench: Workbench;
   children: (atlasMap: AtlasMap | null) => React.ReactElement | null;
-}> = ({ children }) => {
-  const atlas = useIrradianceAtlasContext();
+}> = ({ workbench, children }) => {
+  // read value only on first render
+  const workbenchRef = useRef(workbench);
 
   // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
@@ -50,10 +52,11 @@ const IrradianceAtlasMapper: React.FC<{
   useEffect(() => {
     // disposed during scene unmount
     setInputItems(
-      atlas.lightSceneItems
-        .filter((item) => !!item.albedoMap)
+      workbenchRef.current.lightSceneItems
+        .filter(({ hasUV2 }) => hasUV2)
         .map((item, itemIndex) => {
-          const { mesh, buffer } = item;
+          const { mesh } = item;
+          const buffer = mesh.geometry;
 
           if (!(buffer instanceof THREE.BufferGeometry)) {
             throw new Error('expected buffer geometry');
@@ -169,7 +172,7 @@ const IrradianceAtlasMapper: React.FC<{
           };
         })
     );
-  }, [atlas]);
+  }, []);
 
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
@@ -264,7 +267,7 @@ const IrradianceAtlasMapper: React.FC<{
     <>
       {children(atlasMap)}
 
-      {inputItems && (
+      {inputItems && !atlasMap && (
         <scene ref={orthoSceneRef}>
           {inputItems.map((geom, geomIndex) => {
             return (

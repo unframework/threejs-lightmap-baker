@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
+  Workbench,
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
@@ -18,9 +19,11 @@ import { useRenderProp } from 'react-render-prop';
 
 import sceneUrl from './tile-game-room6.glb';
 
+// @todo split up debug scene and core baking state from this
 const Scene: React.FC<{
+  workbench: Workbench | null;
   loadedData: GLTF;
-}> = React.memo(({ loadedData }) => {
+}> = React.memo(({ workbench, loadedData }) => {
   const { loadedMeshList, loadedLightList } = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
     const lights: THREE.DirectionalLight[] = [];
@@ -141,10 +144,15 @@ const Scene: React.FC<{
 
   return (
     <>
-      <IrradianceAtlasMapper>{atlasMapSink}</IrradianceAtlasMapper>
+      {workbench && (
+        <IrradianceAtlasMapper workbench={workbench}>
+          {atlasMapSink}
+        </IrradianceAtlasMapper>
+      )}
 
-      {atlasMap && (
+      {workbench && atlasMap && (
         <IrradianceRenderer
+          workbench={workbench}
           atlasMap={atlasMap}
           factorName={null}
           debugMesh={probeDebugMesh}
@@ -185,30 +193,38 @@ const Scene: React.FC<{
           {outputTextureSink}
         </IrradianceTextureContext.Consumer>
 
-        <scene ref={mainSceneRef}>
-          <mesh position={[0, 0, -5]}>
-            <planeBufferGeometry attach="geometry" args={[200, 200]} />
-            <meshBasicMaterial attach="material" color="#171717" />
-          </mesh>
+        <IrradianceTextureContext.Consumer>
+          {(lightMap) => (
+            <scene ref={mainSceneRef}>
+              <mesh position={[0, 0, -5]}>
+                <planeBufferGeometry attach="geometry" args={[200, 200]} />
+                <meshBasicMaterial attach="material" color="#171717" />
+              </mesh>
 
-          {loadedLightList.map((light) => (
-            <React.Fragment key={light.uuid}>
-              <primitive object={light} dispose={null}>
-                <IrradianceLight />
+              {loadedLightList.map((light) => (
+                <React.Fragment key={light.uuid}>
+                  <primitive object={light} dispose={null}>
+                    <IrradianceLight />
+                  </primitive>
+
+                  <primitive object={light.target} dispose={null} />
+                </React.Fragment>
+              ))}
+
+              <primitive
+                object={baseMesh}
+                material-lightMap={lightMap}
+                dispose={null}
+              >
+                <IrradianceSurface />
               </primitive>
 
-              <primitive object={light.target} dispose={null} />
-            </React.Fragment>
-          ))}
-
-          <primitive object={baseMesh} dispose={null}>
-            <IrradianceSurface />
-          </primitive>
-
-          <primitive object={coverMesh} dispose={null}>
-            <IrradianceSurface />
-          </primitive>
-        </scene>
+              <primitive object={coverMesh} dispose={null}>
+                <IrradianceSurface />
+              </primitive>
+            </scene>
+          )}
+        </IrradianceTextureContext.Consumer>
       </IrradianceCompositor>
     </>
   );
@@ -222,6 +238,23 @@ function App() {
       setLoadedData(data);
     });
   }, []);
+
+  // awkward hack to start workbench snapshot after a delay
+  const [startWorkbenchSink, startWorkbenchHandler] = useRenderProp<
+    [() => void]
+  >();
+
+  useEffect(() => {
+    if (!startWorkbenchHandler) {
+      return;
+    }
+
+    const timeoutId = setTimeout(startWorkbenchHandler, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [startWorkbenchHandler]);
 
   return (
     <Canvas
@@ -237,7 +270,12 @@ function App() {
       {loadedData ? (
         <WorkManager>
           <IrradianceSurfaceManager>
-            <Scene loadedData={loadedData} />
+            {(workbench, startWorkbench) => (
+              <>
+                {startWorkbenchSink(startWorkbench)}
+                <Scene workbench={workbench} loadedData={loadedData} />
+              </>
+            )}
           </IrradianceSurfaceManager>
         </WorkManager>
       ) : null}

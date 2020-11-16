@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
 import { useFrame, createPortal } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useIrradianceAtlasContext, Atlas } from './IrradianceSurfaceManager';
+import { Workbench } from './IrradianceSurfaceManager';
 import { WorkManagerContext } from './WorkManager';
 import {
   atlasWidth,
@@ -35,16 +35,16 @@ export interface IrradianceStagingTimeline {
 
 // @todo move into surface manager?
 function getLightProbeSceneElement(
-  atlas: Atlas,
+  workbench: Workbench,
   lastTexture: THREE.Texture,
   activeFactorName: string | null,
   animationTime: number
 ) {
-  const { lightSceneItems, lightSceneLights } = atlas;
+  const { lightSceneItems, lightSceneLights } = workbench;
 
   return (
     <scene
-      key={`light-scene-${Math.random()}`} // ensure scene is fully re-created
+      key={`light-scene-${Math.random()}`} // ensure scene is fully re-created @todo why?
     >
       {lightSceneLights.map(({ dirLight, factorName }) => {
         if (factorName !== activeFactorName) {
@@ -85,20 +85,10 @@ function getLightProbeSceneElement(
       })}
 
       {lightSceneItems.map((item, itemIndex) => {
-        const {
-          mesh,
-          buffer,
-          albedo,
-          albedoMap,
-          emissive,
-          emissiveIntensity,
-          emissiveMap,
-          factorName,
-          animationClip
-        } = item;
+        const { mesh, material, hasUV2, factorName, animationClip } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
-        const cloneMesh = new THREE.Mesh(buffer);
+        const cloneMesh = new THREE.Mesh(mesh.geometry);
 
         if (animationClip) {
           // source parameters from animation, if given
@@ -115,7 +105,7 @@ function getLightProbeSceneElement(
 
         // remove emissive effect if active factor does not match
         const activeEmissiveIntensity =
-          factorName === activeFactorName ? emissiveIntensity : 0;
+          factorName === activeFactorName ? material.emissiveIntensity : 0;
 
         // let the object be auto-disposed of
         // @todo properly clone shadow props
@@ -128,17 +118,17 @@ function getLightProbeSceneElement(
           >
             <meshLambertMaterial
               attach="material"
-              color={albedo}
-              map={albedoMap}
-              emissive={emissive}
-              emissiveMap={emissiveMap}
+              color={material.color}
+              map={material.map}
+              emissive={material.emissive}
+              emissiveMap={material.emissiveMap}
               emissiveIntensity={
                 // apply physics multiplier to any display emissive quantity
                 // (emission needs to be strong for bounces to work, but that would wash out colours
                 // if output directly from visible scene's shader)
                 EMISSIVE_MULTIPLIER * activeEmissiveIntensity
               }
-              lightMap={albedoMap ? lastTexture : undefined} // only light if has UV
+              lightMap={hasUV2 ? lastTexture : undefined} // only light if has UV2
               toneMapped={false} // must output in raw linear space
             />
           </primitive>
@@ -297,6 +287,7 @@ const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
 const IrradianceRenderer: React.FC<{
+  workbench: Workbench;
   atlasMap: AtlasMap;
   factorName: string | null;
   time?: number;
@@ -310,11 +301,10 @@ const IrradianceRenderer: React.FC<{
   }
 
   // wrap params in ref to avoid unintended re-triggering
+  const workbenchRef = useRef(props.workbench); // read once
   const atlasMapRef = useRef(props.atlasMap); // read once
   const factorNameRef = useRef(props.factorName); // read once
   const animationTimeRef = useRef(props.time || 0); // read once
-
-  const atlas = useIrradianceAtlasContext();
 
   // output of the previous baking pass (applied to the light probe scene)
   const [previousOutput, previousOutputData] = useMemo(
@@ -360,18 +350,18 @@ const IrradianceRenderer: React.FC<{
   // create light scene in separate render tick
   useEffect(() => {
     // @todo for some reason the scene does not render unless created inside the timeout
-    // (even though the atlas is already initialized/etc by now anyway)
+    // (even though the workbench is already initialized/etc by now anyway)
     setTimeout(() => {
       setLightSceneElement(
         getLightProbeSceneElement(
-          atlas,
+          workbenchRef.current,
           previousOutput,
           factorNameRef.current,
           animationTimeRef.current
         )
       );
     }, 0);
-  }, [atlas, previousOutput]);
+  }, [previousOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {
