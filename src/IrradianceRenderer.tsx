@@ -85,16 +85,7 @@ function getLightProbeSceneElement(
       })}
 
       {lightSceneItems.map((item, itemIndex) => {
-        const {
-          mesh,
-          albedo,
-          albedoMap,
-          emissive,
-          emissiveIntensity,
-          emissiveMap,
-          factorName,
-          animationClip
-        } = item;
+        const { mesh, material, hasUV2, factorName, animationClip } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
         const cloneMesh = new THREE.Mesh(mesh.geometry);
@@ -114,7 +105,7 @@ function getLightProbeSceneElement(
 
         // remove emissive effect if active factor does not match
         const activeEmissiveIntensity =
-          factorName === activeFactorName ? emissiveIntensity : 0;
+          factorName === activeFactorName ? material.emissiveIntensity : 0;
 
         // let the object be auto-disposed of
         // @todo properly clone shadow props
@@ -127,17 +118,17 @@ function getLightProbeSceneElement(
           >
             <meshLambertMaterial
               attach="material"
-              color={albedo}
-              map={albedoMap}
-              emissive={emissive}
-              emissiveMap={emissiveMap}
+              color={material.color}
+              map={material.map}
+              emissive={material.emissive}
+              emissiveMap={material.emissiveMap}
               emissiveIntensity={
                 // apply physics multiplier to any display emissive quantity
                 // (emission needs to be strong for bounces to work, but that would wash out colours
                 // if output directly from visible scene's shader)
                 EMISSIVE_MULTIPLIER * activeEmissiveIntensity
               }
-              lightMap={albedoMap ? lastTexture : undefined} // only light if has UV
+              lightMap={hasUV2 ? lastTexture : undefined} // only light if has UV2
               toneMapped={false} // must output in raw linear space
             />
           </primitive>

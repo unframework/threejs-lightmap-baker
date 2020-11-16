@@ -3,11 +3,8 @@ import * as THREE from 'three';
 
 export interface AtlasSceneItem {
   mesh: THREE.Mesh;
-  albedo: THREE.Color;
-  albedoMap?: THREE.Texture;
-  emissive: THREE.Color;
-  emissiveIntensity: number;
-  emissiveMap?: THREE.Texture;
+  material: THREE.MeshLambertMaterial;
+  hasUV2: boolean;
   factorName: string | null;
   animationClip: THREE.AnimationClip | null;
 }
@@ -58,14 +55,17 @@ export function useAtlasMeshRegister(
 
   const meshRegistrationHandler = useCallback(
     (mesh: THREE.Mesh, material: THREE.MeshLambertMaterial) => {
+      // determine whether this material accepts a lightmap
+      const hasUV2 =
+        mesh.geometry instanceof THREE.Geometry
+          ? mesh.geometry.faceVertexUvs.length > 1
+          : !!mesh.geometry.attributes.uv2;
+
       // register display item
       lightSceneItems.push({
         mesh,
-        albedo: material.color,
-        albedoMap: material.map || undefined,
-        emissive: material.emissive,
-        emissiveIntensity: material.emissiveIntensity, // @todo if factor contributor, zero emissive by default
-        emissiveMap: material.emissiveMap || undefined,
+        material,
+        hasUV2,
         factorName: factorNameRef.current,
         animationClip: animationClipRef.current
       });

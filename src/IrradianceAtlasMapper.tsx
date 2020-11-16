@@ -51,7 +51,7 @@ const IrradianceAtlasMapper: React.FC<{
     // disposed during scene unmount
     setInputItems(
       atlas.lightSceneItems
-        .filter((item) => !!item.albedoMap)
+        .filter(({ hasUV2 }) => hasUV2)
         .map((item, itemIndex) => {
           const { mesh } = item;
           const buffer = mesh.geometry;
