@@ -2,10 +2,7 @@ import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
 import { useFrame, createPortal } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import {
-  useIrradianceWorkbenchContext,
-  Workbench
-} from './IrradianceSurfaceManager';
+import { Workbench } from './IrradianceSurfaceManager';
 import { WorkManagerContext } from './WorkManager';
 import {
   atlasWidth,
@@ -290,6 +287,7 @@ const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
 const IrradianceRenderer: React.FC<{
+  workbench: Workbench;
   atlasMap: AtlasMap;
   factorName: string | null;
   time?: number;
@@ -303,11 +301,10 @@ const IrradianceRenderer: React.FC<{
   }
 
   // wrap params in ref to avoid unintended re-triggering
+  const workbenchRef = useRef(props.workbench); // read once
   const atlasMapRef = useRef(props.atlasMap); // read once
   const factorNameRef = useRef(props.factorName); // read once
   const animationTimeRef = useRef(props.time || 0); // read once
-
-  const workbench = useIrradianceWorkbenchContext();
 
   // output of the previous baking pass (applied to the light probe scene)
   const [previousOutput, previousOutputData] = useMemo(
@@ -357,14 +354,14 @@ const IrradianceRenderer: React.FC<{
     setTimeout(() => {
       setLightSceneElement(
         getLightProbeSceneElement(
-          workbench,
+          workbenchRef.current,
           previousOutput,
           factorNameRef.current,
           animationTimeRef.current
         )
       );
     }, 0);
-  }, [workbench, previousOutput]);
+  }, [previousOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {

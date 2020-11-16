@@ -94,7 +94,9 @@ export function useLightRegister(factorName: string | null) {
   return lightRegistrationHandler;
 }
 
-const IrradianceSurfaceManager: React.FC = ({ children }) => {
+const IrradianceSurfaceManager: React.FC<{
+  children: (workbench: Workbench | null) => React.ReactElement;
+}> = ({ children }) => {
   const workbench: Workbench = useMemo(
     () => ({
       lightSceneItems: [],
@@ -105,7 +107,7 @@ const IrradianceSurfaceManager: React.FC = ({ children }) => {
 
   return (
     <IrradianceWorkbenchContext.Provider value={workbench}>
-      {children}
+      {children(workbench)}
     </IrradianceWorkbenchContext.Provider>
   );
 };

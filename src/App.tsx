@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager, {
+  Workbench,
   IrradianceTextureContext
 } from './IrradianceSurfaceManager';
 import { IrradianceSurface, IrradianceLight } from './IrradianceScene';
@@ -19,8 +20,9 @@ import { useRenderProp } from 'react-render-prop';
 import sceneUrl from './tile-game-room6.glb';
 
 const Scene: React.FC<{
+  workbench: Workbench | null;
   loadedData: GLTF;
-}> = React.memo(({ loadedData }) => {
+}> = React.memo(({ workbench, loadedData }) => {
   const { loadedMeshList, loadedLightList } = useMemo(() => {
     const meshes: THREE.Mesh[] = [];
     const lights: THREE.DirectionalLight[] = [];
@@ -141,10 +143,15 @@ const Scene: React.FC<{
 
   return (
     <>
-      <IrradianceAtlasMapper>{atlasMapSink}</IrradianceAtlasMapper>
+      {workbench && (
+        <IrradianceAtlasMapper workbench={workbench}>
+          {atlasMapSink}
+        </IrradianceAtlasMapper>
+      )}
 
-      {atlasMap && (
+      {workbench && atlasMap && (
         <IrradianceRenderer
+          workbench={workbench}
           atlasMap={atlasMap}
           factorName={null}
           debugMesh={probeDebugMesh}
@@ -245,7 +252,9 @@ function App() {
       {loadedData ? (
         <WorkManager>
           <IrradianceSurfaceManager>
-            <Scene loadedData={loadedData} />
+            {(workbench) => (
+              <Scene workbench={workbench} loadedData={loadedData} />
+            )}
           </IrradianceSurfaceManager>
         </WorkManager>
       ) : null}

@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useIrradianceWorkbenchContext } from './IrradianceSurfaceManager';
+import { Workbench } from './IrradianceSurfaceManager';
 
 export interface AtlasMapItem {
   faceCount: number;
@@ -37,9 +37,11 @@ const tmpV = new THREE.Vector3();
 // @todo consider rounding to account for texel size
 // @todo provide output via context
 const IrradianceAtlasMapper: React.FC<{
+  workbench: Workbench;
   children: (atlasMap: AtlasMap | null) => React.ReactElement | null;
-}> = ({ children }) => {
-  const workbench = useIrradianceWorkbenchContext();
+}> = ({ workbench, children }) => {
+  // read value only on first render
+  const workbenchRef = useRef(workbench);
 
   // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
@@ -50,7 +52,7 @@ const IrradianceAtlasMapper: React.FC<{
   useEffect(() => {
     // disposed during scene unmount
     setInputItems(
-      workbench.lightSceneItems
+      workbenchRef.current.lightSceneItems
         .filter(({ hasUV2 }) => hasUV2)
         .map((item, itemIndex) => {
           const { mesh } = item;
@@ -170,7 +172,7 @@ const IrradianceAtlasMapper: React.FC<{
           };
         })
     );
-  }, [workbench]);
+  }, []);
 
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
@@ -265,7 +267,7 @@ const IrradianceAtlasMapper: React.FC<{
     <>
       {children(atlasMap)}
 
-      {inputItems && (
+      {inputItems && !atlasMap && (
         <scene ref={orthoSceneRef}>
           {inputItems.map((geom, geomIndex) => {
             return (
