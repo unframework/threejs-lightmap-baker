@@ -1,4 +1,11 @@
-import React, { useMemo, useCallback, useContext, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useContext,
+  useRef
+} from 'react';
 import * as THREE from 'three';
 
 export interface WorkbenchSceneItem {
@@ -43,6 +50,8 @@ export const IrradianceTextureContext = React.createContext<THREE.Texture | null
 
 // allow to attach a mesh to be mapped in texture atlas
 export function useMeshRegister(
+  mesh: THREE.Mesh | null,
+  material: THREE.MeshLambertMaterial | null,
   factorName: string | null,
   animationClip: THREE.AnimationClip | null
 ) {
@@ -52,52 +61,79 @@ export function useMeshRegister(
   const animationClipRef = useRef(animationClip);
   const factorNameRef = useRef(factorName);
 
-  const meshRegistrationHandler = useCallback(
-    (mesh: THREE.Mesh, material: THREE.MeshLambertMaterial) => {
-      // determine whether this material accepts a lightmap
-      const hasUV2 =
-        mesh.geometry instanceof THREE.Geometry
-          ? mesh.geometry.faceVertexUvs.length > 1
-          : !!mesh.geometry.attributes.uv2;
+  useEffect(() => {
+    if (!mesh || !material) {
+      return;
+    }
 
-      // register display item
-      lightSceneItems.push({
-        mesh,
-        material,
-        hasUV2,
-        factorName: factorNameRef.current,
-        animationClip: animationClipRef.current
+    // determine whether this material accepts a lightmap
+    const hasUV2 =
+      mesh.geometry instanceof THREE.Geometry
+        ? mesh.geometry.faceVertexUvs.length > 1
+        : !!mesh.geometry.attributes.uv2;
+
+    // register display item
+    lightSceneItems.push({
+      mesh,
+      material,
+      hasUV2,
+      factorName: factorNameRef.current,
+      animationClip: animationClipRef.current
+    });
+
+    // on unmount, clean up
+    return () => {
+      const index = lightSceneItems.findIndex((item) => {
+        return item.mesh === mesh;
       });
-    },
-    [lightSceneItems]
-  );
 
-  return meshRegistrationHandler;
+      if (index !== -1) {
+        lightSceneItems.splice(index, 1);
+      }
+    };
+  }, [lightSceneItems, mesh, material]);
 }
 
-export function useLightRegister(factorName: string | null) {
+export function useLightRegister(
+  light: THREE.DirectionalLight | null,
+  factorName: string | null
+) {
   const { lightSceneLights } = useIrradianceWorkbenchContext();
 
   const factorNameRef = useRef(factorName);
 
-  const lightRegistrationHandler = useCallback(
-    (light: THREE.DirectionalLight) => {
-      // register display item
-      lightSceneLights.push({
-        dirLight: light,
-        factorName: factorNameRef.current
-      });
-    },
-    [lightSceneLights]
-  );
+  useEffect(() => {
+    if (!light) {
+      return;
+    }
 
-  return lightRegistrationHandler;
+    // register display item
+    lightSceneLights.push({
+      dirLight: light,
+      factorName: factorNameRef.current
+    });
+
+    // on unmount, clean up
+    return () => {
+      const index = lightSceneLights.findIndex((item) => {
+        return item.dirLight === light;
+      });
+
+      if (index !== -1) {
+        lightSceneLights.splice(index, 1);
+      }
+    };
+  }, [lightSceneLights, light]);
 }
 
 const IrradianceSurfaceManager: React.FC<{
-  children: (workbench: Workbench | null) => React.ReactElement;
+  children: (
+    workbench: Workbench | null,
+    startWorkbench: () => void
+  ) => React.ReactElement;
 }> = ({ children }) => {
-  const workbench: Workbench = useMemo(
+  // collect current available meshes/lights
+  const stagingWorkbench: Workbench = useMemo(
     () => ({
       lightSceneItems: [],
       lightSceneLights: []
@@ -105,9 +141,20 @@ const IrradianceSurfaceManager: React.FC<{
     []
   );
 
+  // snapshot triggered by start handler
+  const [workbench, setWorkbench] = useState<Workbench | null>(null);
+
+  const startHandler = useCallback(() => {
+    // save a snapshot copy of staging data
+    setWorkbench({
+      lightSceneItems: [...stagingWorkbench.lightSceneItems],
+      lightSceneLights: [...stagingWorkbench.lightSceneLights]
+    });
+  }, [stagingWorkbench]);
+
   return (
-    <IrradianceWorkbenchContext.Provider value={workbench}>
-      {children(workbench)}
+    <IrradianceWorkbenchContext.Provider value={stagingWorkbench}>
+      {children(workbench, startHandler)}
     </IrradianceWorkbenchContext.Provider>
   );
 };

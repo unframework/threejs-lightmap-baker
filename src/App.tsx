@@ -238,6 +238,23 @@ function App() {
     });
   }, []);
 
+  // awkward hack to start workbench snapshot after a delay
+  const [startWorkbenchSink, startWorkbenchHandler] = useRenderProp<
+    [() => void]
+  >();
+
+  useEffect(() => {
+    if (!startWorkbenchHandler) {
+      return;
+    }
+
+    const timeoutId = setTimeout(startWorkbenchHandler, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [startWorkbenchHandler]);
+
   return (
     <Canvas
       camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
@@ -252,8 +269,11 @@ function App() {
       {loadedData ? (
         <WorkManager>
           <IrradianceSurfaceManager>
-            {(workbench) => (
-              <Scene workbench={workbench} loadedData={loadedData} />
+            {(workbench, startWorkbench) => (
+              <>
+                {startWorkbenchSink(startWorkbench)}
+                <Scene workbench={workbench} loadedData={loadedData} />
+              </>
             )}
           </IrradianceSurfaceManager>
         </WorkManager>

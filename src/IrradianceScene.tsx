@@ -1,5 +1,5 @@
 import React from 'react';
-import { useUpdate } from 'react-three-fiber';
+import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useMeshRegister, useLightRegister } from './IrradianceSurfaceManager';
@@ -9,35 +9,35 @@ export const IrradianceSurface: React.FC<{
   factor?: string;
   animationClip?: THREE.AnimationClip;
 }> = ({ factor, animationClip }) => {
-  const meshRegistrationHandler = useMeshRegister(
+  const [groupRef, group] = useResource<THREE.Group>();
+
+  const mesh = group && group.parent;
+
+  // extra error checks
+  if (mesh) {
+    if (!(mesh instanceof THREE.Mesh)) {
+      throw new Error('light scene element should be a mesh');
+    }
+
+    if (Array.isArray(mesh.material)) {
+      throw new Error('material array not supported');
+    }
+
+    if (!(mesh.material instanceof THREE.MeshLambertMaterial)) {
+      throw new Error('only Lambert materials are supported');
+    }
+  }
+
+  useMeshRegister(
+    mesh,
+    mesh && mesh.material instanceof THREE.MeshLambertMaterial
+      ? mesh.material
+      : null,
     factor || null,
     animationClip || null
   );
 
-  // get placeholder to attach under the target mesh
-  const groupRef = useUpdate<THREE.Group>(
-    (group) => {
-      const mesh = group.parent;
-      if (!(mesh instanceof THREE.Mesh)) {
-        throw new Error('light scene element should be a mesh');
-      }
-
-      const material = mesh.material;
-
-      if (Array.isArray(material)) {
-        throw new Error('material array not supported');
-      }
-
-      if (!(material instanceof THREE.MeshLambertMaterial)) {
-        throw new Error('only Lambert materials are supported');
-      }
-
-      // add to light scene
-      meshRegistrationHandler(mesh, material);
-    },
-    [meshRegistrationHandler]
-  );
-
+  // placeholder to attach under the target mesh
   return <group ref={groupRef} />;
 };
 
@@ -45,21 +45,16 @@ export const IrradianceSurface: React.FC<{
 export const IrradianceLight: React.FC<{
   factor?: string;
 }> = ({ factor, children }) => {
+  const [groupRef, group] = useResource<THREE.Group>();
+
+  const light = group && group.parent;
+
+  if (light && !(light instanceof THREE.DirectionalLight)) {
+    throw new Error('only directional lights are supported');
+  }
+
   // @todo dynamic light factor update
-  const lightRegistrationHandler = useLightRegister(factor || null);
-
-  const groupRef = useUpdate<THREE.Group>(
-    (group) => {
-      const light = group.parent;
-
-      if (!(light instanceof THREE.DirectionalLight)) {
-        throw new Error('only directional lights are supported');
-      }
-
-      lightRegistrationHandler(light);
-    },
-    [lightRegistrationHandler]
-  );
+  useLightRegister(light, factor || null);
 
   return <group ref={groupRef} />;
 };
