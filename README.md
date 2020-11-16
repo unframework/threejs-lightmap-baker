@@ -17,12 +17,14 @@ yarn start
 
 The developer defines a scene the same way they normally would, but adds IrradianceSurface and IrradianceLight markers under the meshes and lights that should be participating in the lighting process. The lightmap that is produced by the baker can then simply be attached to scene materials via the `lightMap` prop, as usual.
 
-The following is a brief overview of the renderer architecture
+The following is a brief overview of the renderer architecture.
+
+The data flows as follows:
 
 ```
-mesh/light in scene
-  -> marker
-      -> surface manager -> atlas mapper -v
+mesh/light definition in scene (with surface marker)
+  -> surface manager
+      -> atlas mapper
           -> lightmap renderer
               -> lightmap compositor
                   -> final lightmap
