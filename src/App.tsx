@@ -36,7 +36,7 @@ function App() {
   >();
 
   useEffect(() => {
-    if (!startWorkbenchHandler) {
+    if (!startWorkbenchHandler || !loadedData) {
       return;
     }
 
@@ -45,7 +45,7 @@ function App() {
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [startWorkbenchHandler]);
+  }, [startWorkbenchHandler, loadedData]);
 
   return (
     <Canvas
