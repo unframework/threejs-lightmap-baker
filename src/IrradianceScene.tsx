@@ -2,17 +2,14 @@ import React from 'react';
 import { useUpdate } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import {
-  useAtlasMeshRegister,
-  useLightRegister
-} from './IrradianceSurfaceManager';
+import { useMeshRegister, useLightRegister } from './IrradianceSurfaceManager';
 
 // add as a child of a mesh to track it as a contributor of the light scene
 export const IrradianceSurface: React.FC<{
   factor?: string;
   animationClip?: THREE.AnimationClip;
 }> = ({ factor, animationClip }) => {
-  const meshRegistrationHandler = useAtlasMeshRegister(
+  const meshRegistrationHandler = useMeshRegister(
     factor || null,
     animationClip || null
   );
@@ -35,7 +32,7 @@ export const IrradianceSurface: React.FC<{
         throw new Error('only Lambert materials are supported');
       }
 
-      // add to atlas
+      // add to light scene
       meshRegistrationHandler(mesh, material);
     },
     [meshRegistrationHandler]

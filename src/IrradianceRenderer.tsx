@@ -2,7 +2,10 @@ import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
 import { useFrame, createPortal } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useIrradianceAtlasContext, Atlas } from './IrradianceSurfaceManager';
+import {
+  useIrradianceWorkbenchContext,
+  Workbench
+} from './IrradianceSurfaceManager';
 import { WorkManagerContext } from './WorkManager';
 import {
   atlasWidth,
@@ -35,12 +38,12 @@ export interface IrradianceStagingTimeline {
 
 // @todo move into surface manager?
 function getLightProbeSceneElement(
-  atlas: Atlas,
+  workbench: Workbench,
   lastTexture: THREE.Texture,
   activeFactorName: string | null,
   animationTime: number
 ) {
-  const { lightSceneItems, lightSceneLights } = atlas;
+  const { lightSceneItems, lightSceneLights } = workbench;
 
   return (
     <scene
@@ -304,7 +307,7 @@ const IrradianceRenderer: React.FC<{
   const factorNameRef = useRef(props.factorName); // read once
   const animationTimeRef = useRef(props.time || 0); // read once
 
-  const atlas = useIrradianceAtlasContext();
+  const workbench = useIrradianceWorkbenchContext();
 
   // output of the previous baking pass (applied to the light probe scene)
   const [previousOutput, previousOutputData] = useMemo(
@@ -350,18 +353,18 @@ const IrradianceRenderer: React.FC<{
   // create light scene in separate render tick
   useEffect(() => {
     // @todo for some reason the scene does not render unless created inside the timeout
-    // (even though the atlas is already initialized/etc by now anyway)
+    // (even though the workbench is already initialized/etc by now anyway)
     setTimeout(() => {
       setLightSceneElement(
         getLightProbeSceneElement(
-          atlas,
+          workbench,
           previousOutput,
           factorNameRef.current,
           animationTimeRef.current
         )
       );
     }, 0);
-  }, [atlas, previousOutput]);
+  }, [workbench, previousOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {

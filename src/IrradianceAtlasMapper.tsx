@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useIrradianceAtlasContext } from './IrradianceSurfaceManager';
+import { useIrradianceWorkbenchContext } from './IrradianceSurfaceManager';
 
 export interface AtlasMapItem {
   faceCount: number;
@@ -39,7 +39,7 @@ const tmpV = new THREE.Vector3();
 const IrradianceAtlasMapper: React.FC<{
   children: (atlasMap: AtlasMap | null) => React.ReactElement | null;
 }> = ({ children }) => {
-  const atlas = useIrradianceAtlasContext();
+  const workbench = useIrradianceWorkbenchContext();
 
   // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
@@ -50,7 +50,7 @@ const IrradianceAtlasMapper: React.FC<{
   useEffect(() => {
     // disposed during scene unmount
     setInputItems(
-      atlas.lightSceneItems
+      workbench.lightSceneItems
         .filter(({ hasUV2 }) => hasUV2)
         .map((item, itemIndex) => {
           const { mesh } = item;
@@ -170,7 +170,7 @@ const IrradianceAtlasMapper: React.FC<{
           };
         })
     );
-  }, [atlas]);
+  }, [workbench]);
 
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {

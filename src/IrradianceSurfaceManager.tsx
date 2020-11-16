@@ -1,7 +1,7 @@
 import React, { useMemo, useCallback, useContext, useRef } from 'react';
 import * as THREE from 'three';
 
-export interface AtlasSceneItem {
+export interface WorkbenchSceneItem {
   mesh: THREE.Mesh;
   material: THREE.MeshLambertMaterial;
   hasUV2: boolean;
@@ -9,25 +9,25 @@ export interface AtlasSceneItem {
   animationClip: THREE.AnimationClip | null;
 }
 
-export interface AtlasSceneLight {
+export interface WorkbenchSceneLight {
   dirLight: THREE.DirectionalLight;
   factorName: string | null;
 }
 
-export interface AtlasLightFactor {
+export interface WorkbenchLightFactor {
   mesh: THREE.Mesh;
   emissiveIntensity: number;
 }
 
-export interface Atlas {
-  lightSceneItems: AtlasSceneItem[];
-  lightSceneLights: AtlasSceneLight[];
+export interface Workbench {
+  lightSceneItems: WorkbenchSceneItem[];
+  lightSceneLights: WorkbenchSceneLight[];
 }
 
-const IrradianceAtlasContext = React.createContext<Atlas | null>(null);
+const IrradianceWorkbenchContext = React.createContext<Workbench | null>(null);
 
-export function useIrradianceAtlasContext() {
-  const atlasInfo = useContext(IrradianceAtlasContext);
+export function useIrradianceWorkbenchContext() {
+  const atlasInfo = useContext(IrradianceWorkbenchContext);
 
   if (!atlasInfo) {
     throw new Error('must be inside manager context');
@@ -42,12 +42,11 @@ export const IrradianceTextureContext = React.createContext<THREE.Texture | null
 );
 
 // allow to attach a mesh to be mapped in texture atlas
-export function useAtlasMeshRegister(
+export function useMeshRegister(
   factorName: string | null,
   animationClip: THREE.AnimationClip | null
 ) {
-  const atlas = useIrradianceAtlasContext();
-  const { lightSceneItems } = atlas;
+  const { lightSceneItems } = useIrradianceWorkbenchContext();
 
   // wrap in refs to keep only initial value
   const animationClipRef = useRef(animationClip);
@@ -77,7 +76,7 @@ export function useAtlasMeshRegister(
 }
 
 export function useLightRegister(factorName: string | null) {
-  const { lightSceneLights } = useIrradianceAtlasContext();
+  const { lightSceneLights } = useIrradianceWorkbenchContext();
 
   const factorNameRef = useRef(factorName);
 
@@ -96,7 +95,7 @@ export function useLightRegister(factorName: string | null) {
 }
 
 const IrradianceSurfaceManager: React.FC = ({ children }) => {
-  const atlas: Atlas = useMemo(
+  const workbench: Workbench = useMemo(
     () => ({
       lightSceneItems: [],
       lightSceneLights: []
@@ -105,9 +104,9 @@ const IrradianceSurfaceManager: React.FC = ({ children }) => {
   );
 
   return (
-    <IrradianceAtlasContext.Provider value={atlas}>
+    <IrradianceWorkbenchContext.Provider value={workbench}>
       {children}
-    </IrradianceAtlasContext.Provider>
+    </IrradianceWorkbenchContext.Provider>
   );
 };
 
