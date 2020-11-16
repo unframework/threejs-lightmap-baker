@@ -112,10 +112,6 @@ const Scene: React.FC<{
     [THREE.Texture, THREE.Texture]
   >();
 
-  const [outputTextureSink, outputTexture] = useRenderProp<
-    [THREE.Texture | null]
-  >();
-
   // main scene rendering
   const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
 
@@ -141,17 +137,11 @@ const Scene: React.FC<{
         </IrradianceRenderer>
       )}
 
-      <DebugOverlayScene
-        atlasTexture={atlasMap && atlasMap.texture}
-        outputTexture={outputTexture}
-        probeTexture={probeTexture}
-      />
-
       <IrradianceCompositor baseOutput={baseLightTexture} factorOutputs={{}}>
-        {/* collect output for debug display */}
-        <IrradianceTextureContext.Consumer>
-          {outputTextureSink}
-        </IrradianceTextureContext.Consumer>
+        <DebugOverlayScene
+          atlasTexture={atlasMap && atlasMap.texture}
+          probeTexture={probeTexture}
+        />
 
         <IrradianceTextureContext.Consumer>
           {(lightMap) => (
