@@ -2,9 +2,8 @@ import React, { useMemo } from 'react';
 import { useResource, useFrame, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useIrradianceTexture } from './IrradianceCompositor';
-import { PROBE_BATCH_COUNT } from './IrradianceLightProbe';
-import { DebugMaterial } from './DebugMaterial';
+import { useIrradianceTexture } from './core/IrradianceCompositor';
+import { PROBE_BATCH_COUNT } from './core/IrradianceLightProbe';
 
 export const DebugOverlayScene: React.FC<{
   atlasTexture?: THREE.Texture | null;
@@ -33,14 +32,22 @@ export const DebugOverlayScene: React.FC<{
       {outputTexture && (
         <mesh position={[85, 85, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <DebugMaterial attach="material" map={outputTexture} />
+          <meshBasicMaterial
+            attach="material"
+            map={outputTexture}
+            toneMapped={false}
+          />
         </mesh>
       )}
 
       {atlasTexture && (
         <mesh position={[85, 64, 0]}>
           <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <DebugMaterial attach="material" map={atlasTexture} />
+          <meshBasicMaterial
+            attach="material"
+            map={atlasTexture}
+            toneMapped={false}
+          />
         </mesh>
       )}
 
@@ -50,7 +57,11 @@ export const DebugOverlayScene: React.FC<{
             attach="geometry"
             args={[10, 5 * PROBE_BATCH_COUNT]}
           />
-          <DebugMaterial attach="material" map={probeTexture} />
+          <meshBasicMaterial
+            attach="material"
+            map={probeTexture}
+            toneMapped={false}
+          />
         </mesh>
       )}
     </scene>

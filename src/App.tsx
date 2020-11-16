@@ -3,11 +3,11 @@ import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 import { useRenderProp } from 'react-render-prop';
 
-import IrradianceSurfaceManager from './IrradianceSurfaceManager';
-import WorkManager from './WorkManager';
-import IrradianceAtlasMapper, { AtlasMap } from './IrradianceAtlasMapper';
-import IrradianceRenderer from './IrradianceRenderer';
-import IrradianceCompositor from './IrradianceCompositor';
+import IrradianceSurfaceManager from './core/IrradianceSurfaceManager';
+import WorkManager from './core/WorkManager';
+import IrradianceAtlasMapper, { AtlasMap } from './core/IrradianceAtlasMapper';
+import IrradianceRenderer from './core/IrradianceRenderer';
+import IrradianceCompositor from './core/IrradianceCompositor';
 import SceneControls from './SceneControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 import { MainScene } from './MainScene';
