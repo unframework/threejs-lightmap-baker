@@ -19,6 +19,7 @@ import { useRenderProp } from 'react-render-prop';
 
 import sceneUrl from './tile-game-room6.glb';
 
+// @todo split up debug scene and core baking state from this
 const Scene: React.FC<{
   workbench: Workbench | null;
   loadedData: GLTF;
