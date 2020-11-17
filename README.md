@@ -10,7 +10,7 @@ To try the experimental lightmap display, do this:
 git clone git@github.com:unframework/threejs-lightmap-baker.git
 cd threejs-lightmap-baker
 yarn
-yarn start
+yarn storybook
 ```
 
 ## Internal Pipeline Overview
