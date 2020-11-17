@@ -15,7 +15,7 @@ import { useIrradianceTexture } from '../core/IrradianceCompositor';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
-import './viewportIframe.css';
+import './viewport.css';
 import sceneUrl from './tile-game-room6.glb';
 
 export default {
