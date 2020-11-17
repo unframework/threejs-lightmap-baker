@@ -6,7 +6,7 @@ import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
 import { useIrradianceTexture } from './core/IrradianceCompositor';
 
-import sceneUrl from './tile-game-room6.glb';
+import sceneUrl from './stories/tile-game-room6.glb';
 
 export const MainScene: React.FC<{ onReady: () => void }> = React.memo(
   ({ onReady }) => {

@@ -12,11 +12,11 @@ import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
 import { useIrradianceTexture } from '../core/IrradianceCompositor';
-import SceneControls from '../SceneControls';
-import { DebugOverlayScene } from '../DebugOverlayScene';
+import DebugControls from './DebugControls';
+import { DebugOverlayScene } from './DebugOverlayScene';
 
 import './viewportIframe.css';
-import sceneUrl from '../tile-game-room6.glb';
+import sceneUrl from './tile-game-room6.glb';
 
 export default {
   title: 'glTF scene'
@@ -78,7 +78,7 @@ const Baker: React.FC<{
         </IrradianceSurfaceManager>
       </WorkManager>
 
-      <SceneControls />
+      <DebugControls />
     </Canvas>
   );
 };

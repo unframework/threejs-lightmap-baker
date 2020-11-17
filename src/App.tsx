@@ -8,8 +8,8 @@ import WorkManager from './core/WorkManager';
 import IrradianceAtlasMapper, { AtlasMap } from './core/IrradianceAtlasMapper';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
-import SceneControls from './SceneControls';
-import { DebugOverlayScene } from './DebugOverlayScene';
+import DebugControls from './stories/DebugControls';
+import { DebugOverlayScene } from './stories/DebugOverlayScene';
 import { MainScene } from './MainScene';
 
 function App() {
@@ -66,7 +66,7 @@ function App() {
         </IrradianceSurfaceManager>
       </WorkManager>
 
-      <SceneControls />
+      <DebugControls />
     </Canvas>
   );
 }
