@@ -8,7 +8,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Canvas, useResource, useFrame } from 'react-three-fiber';
-import { useRenderProp } from 'react-render-prop';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 
@@ -26,11 +25,6 @@ import './stories/viewport.css';
 import sceneUrl from './stories/tile-game-room6.glb';
 
 function App() {
-  // plumbing between baker components
-  const [baseRendererSink, baseLightTexture, probeTexture] = useRenderProp<
-    [THREE.Texture, THREE.Texture]
-  >();
-
   return (
     <Canvas
       camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
@@ -45,25 +39,21 @@ function App() {
       <WorkManager>
         <IrradianceSurfaceManager>
           {(workbench, startWorkbench) => (
-            <>
-              {workbench && (
-                <IrradianceRenderer workbench={workbench} factorName={null}>
-                  {baseRendererSink}
-                </IrradianceRenderer>
+            <IrradianceRenderer workbench={workbench} factorName={null}>
+              {(baseLightTexture, probeTexture) => (
+                <IrradianceCompositor
+                  baseOutput={baseLightTexture}
+                  factorOutputs={{}}
+                >
+                  <DebugOverlayScene
+                    atlasTexture={workbench && workbench.atlasMap.texture}
+                    probeTexture={probeTexture}
+                  />
+
+                  <MainScene onReady={startWorkbench} />
+                </IrradianceCompositor>
               )}
-
-              <IrradianceCompositor
-                baseOutput={baseLightTexture}
-                factorOutputs={{}}
-              >
-                <DebugOverlayScene
-                  atlasTexture={workbench && workbench.atlasMap.texture}
-                  probeTexture={probeTexture}
-                />
-
-                <MainScene onReady={startWorkbench} />
-              </IrradianceCompositor>
-            </>
+            </IrradianceRenderer>
           )}
         </IrradianceSurfaceManager>
       </WorkManager>

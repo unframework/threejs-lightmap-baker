@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Story, Meta } from '@storybook/react';
-import { useRenderProp } from 'react-render-prop';
 import { Canvas, useResource, useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
@@ -25,11 +24,6 @@ export default {
 const Baker: React.FC<{
   children: (onReady: () => void) => React.ReactElement;
 }> = ({ children }) => {
-  // plumbing between baker components
-  const [baseRendererSink, baseLightTexture, probeTexture] = useRenderProp<
-    [THREE.Texture, THREE.Texture]
-  >();
-
   return (
     <Canvas
       camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
@@ -44,25 +38,21 @@ const Baker: React.FC<{
       <WorkManager>
         <IrradianceSurfaceManager>
           {(workbench, startWorkbench) => (
-            <>
-              {workbench && (
-                <IrradianceRenderer workbench={workbench} factorName={null}>
-                  {baseRendererSink}
-                </IrradianceRenderer>
+            <IrradianceRenderer workbench={workbench} factorName={null}>
+              {(baseLightTexture, probeTexture) => (
+                <IrradianceCompositor
+                  baseOutput={baseLightTexture}
+                  factorOutputs={{}}
+                >
+                  <DebugOverlayScene
+                    atlasTexture={workbench && workbench.atlasMap.texture}
+                    probeTexture={probeTexture}
+                  />
+
+                  {children(startWorkbench)}
+                </IrradianceCompositor>
               )}
-
-              <IrradianceCompositor
-                baseOutput={baseLightTexture}
-                factorOutputs={{}}
-              >
-                <DebugOverlayScene
-                  atlasTexture={workbench && workbench.atlasMap.texture}
-                  probeTexture={probeTexture}
-                />
-
-                {children(startWorkbench)}
-              </IrradianceCompositor>
-            </>
+            </IrradianceRenderer>
           )}
         </IrradianceSurfaceManager>
       </WorkManager>
