@@ -8,7 +8,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Canvas, useResource, useFrame } from 'react-three-fiber';
-import { useRenderProp } from 'react-render-prop';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 
@@ -24,65 +23,6 @@ import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
 import './stories/viewport.css';
 import sceneUrl from './stories/tile-game-room6.glb';
-
-function App() {
-  // plumbing between baker components
-  const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
-  const [baseRendererSink, baseLightTexture, probeTexture] = useRenderProp<
-    [THREE.Texture, THREE.Texture]
-  >();
-
-  return (
-    <Canvas
-      camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
-      shadowMap
-      onCreated={({ gl }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 0.9;
-
-        gl.outputEncoding = THREE.sRGBEncoding;
-      }}
-    >
-      <WorkManager>
-        <IrradianceSurfaceManager>
-          {(workbench, startWorkbench) => (
-            <>
-              {workbench && (
-                <IrradianceAtlasMapper workbench={workbench}>
-                  {atlasMapSink}
-                </IrradianceAtlasMapper>
-              )}
-
-              {workbench && atlasMap && (
-                <IrradianceRenderer
-                  workbench={workbench}
-                  atlasMap={atlasMap}
-                  factorName={null}
-                >
-                  {baseRendererSink}
-                </IrradianceRenderer>
-              )}
-
-              <IrradianceCompositor
-                baseOutput={baseLightTexture}
-                factorOutputs={{}}
-              >
-                <DebugOverlayScene
-                  atlasTexture={atlasMap && atlasMap.texture}
-                  probeTexture={probeTexture}
-                />
-
-                <MainScene onReady={startWorkbench} />
-              </IrradianceCompositor>
-            </>
-          )}
-        </IrradianceSurfaceManager>
-      </WorkManager>
-
-      <DebugControls />
-    </Canvas>
-  );
-}
 
 const MainScene: React.FC<{ onReady: () => void }> = React.memo(
   ({ onReady }) => {
@@ -239,4 +179,40 @@ const MainScene: React.FC<{ onReady: () => void }> = React.memo(
   }
 );
 
-ReactDOM.render(<App />, document.getElementById('root'));
+ReactDOM.render(
+  <Canvas
+    camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
+    shadowMap
+    onCreated={({ gl }) => {
+      gl.toneMapping = THREE.ACESFilmicToneMapping;
+      gl.toneMappingExposure = 0.9;
+
+      gl.outputEncoding = THREE.sRGBEncoding;
+    }}
+  >
+    <WorkManager>
+      <IrradianceSurfaceManager>
+        {(workbench, startWorkbench) => (
+          <IrradianceRenderer workbench={workbench} factorName={null}>
+            {(baseLightTexture, probeTexture) => (
+              <IrradianceCompositor
+                baseOutput={baseLightTexture}
+                factorOutputs={{}}
+              >
+                <DebugOverlayScene
+                  atlasTexture={workbench && workbench.atlasMap.texture}
+                  probeTexture={probeTexture}
+                />
+
+                <MainScene onReady={startWorkbench} />
+              </IrradianceCompositor>
+            )}
+          </IrradianceRenderer>
+        )}
+      </IrradianceSurfaceManager>
+    </WorkManager>
+
+    <DebugControls />
+  </Canvas>,
+  document.getElementById('root')
+);

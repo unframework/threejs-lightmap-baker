@@ -66,6 +66,7 @@ const CompositorLayerMaterial: React.FC<{
   );
 };
 
+// @todo support directly exposing texture as render-prop for simpler cases, not just context
 export default function IrradianceCompositor<
   FactorMap extends { [name: string]: THREE.Texture | null | undefined }
 >({
