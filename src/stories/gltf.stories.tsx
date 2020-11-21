@@ -21,47 +21,6 @@ export default {
   title: 'glTF scene'
 } as Meta;
 
-const Baker: React.FC<{
-  children: (onReady: () => void) => React.ReactElement;
-}> = ({ children }) => {
-  return (
-    <Canvas
-      camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
-      shadowMap
-      onCreated={({ gl }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping;
-        gl.toneMappingExposure = 0.9;
-
-        gl.outputEncoding = THREE.sRGBEncoding;
-      }}
-    >
-      <WorkManager>
-        <IrradianceSurfaceManager>
-          {(workbench, startWorkbench) => (
-            <IrradianceRenderer workbench={workbench} factorName={null}>
-              {(baseLightTexture, probeTexture) => (
-                <IrradianceCompositor
-                  baseOutput={baseLightTexture}
-                  factorOutputs={{}}
-                >
-                  <DebugOverlayScene
-                    atlasTexture={workbench && workbench.atlasMap.texture}
-                    probeTexture={probeTexture}
-                  />
-
-                  {children(startWorkbench)}
-                </IrradianceCompositor>
-              )}
-            </IrradianceRenderer>
-          )}
-        </IrradianceSurfaceManager>
-      </WorkManager>
-
-      <DebugControls />
-    </Canvas>
-  );
-};
-
 const MainScene: React.FC<{ onReady: () => void }> = ({ onReady }) => {
   // resulting lightmap texture produced by the baking process
   const lightMap = useIrradianceTexture();
@@ -216,5 +175,38 @@ const MainScene: React.FC<{ onReady: () => void }> = ({ onReady }) => {
 };
 
 export const Main: Story = () => (
-  <Baker>{(onReady) => <MainScene onReady={onReady} />}</Baker>
+  <Canvas
+    camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
+    shadowMap
+    onCreated={({ gl }) => {
+      gl.toneMapping = THREE.ACESFilmicToneMapping;
+      gl.toneMappingExposure = 0.9;
+
+      gl.outputEncoding = THREE.sRGBEncoding;
+    }}
+  >
+    <WorkManager>
+      <IrradianceSurfaceManager>
+        {(workbench, startWorkbench) => (
+          <IrradianceRenderer workbench={workbench} factorName={null}>
+            {(baseLightTexture, probeTexture) => (
+              <IrradianceCompositor
+                baseOutput={baseLightTexture}
+                factorOutputs={{}}
+              >
+                <DebugOverlayScene
+                  atlasTexture={workbench && workbench.atlasMap.texture}
+                  probeTexture={probeTexture}
+                />
+
+                {<MainScene onReady={startWorkbench} />}
+              </IrradianceCompositor>
+            )}
+          </IrradianceRenderer>
+        )}
+      </IrradianceSurfaceManager>
+    </WorkManager>
+
+    <DebugControls />
+  </Canvas>
 );
