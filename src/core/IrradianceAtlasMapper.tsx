@@ -2,7 +2,23 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { Workbench } from './IrradianceSurfaceManager';
+export interface WorkbenchSceneItem {
+  mesh: THREE.Mesh;
+  material: THREE.MeshLambertMaterial;
+  hasUV2: boolean;
+  factorName: string | null;
+  animationClip: THREE.AnimationClip | null;
+}
+
+export interface WorkbenchSceneLight {
+  dirLight: THREE.DirectionalLight;
+  factorName: string | null;
+}
+
+export interface Workbench {
+  lightSceneItems: WorkbenchSceneItem[];
+  lightSceneLights: WorkbenchSceneLight[];
+}
 
 export interface AtlasMapItem {
   faceCount: number;

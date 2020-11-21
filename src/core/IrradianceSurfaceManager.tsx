@@ -8,28 +8,11 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
-export interface WorkbenchSceneItem {
-  mesh: THREE.Mesh;
-  material: THREE.MeshLambertMaterial;
-  hasUV2: boolean;
-  factorName: string | null;
-  animationClip: THREE.AnimationClip | null;
-}
-
-export interface WorkbenchSceneLight {
-  dirLight: THREE.DirectionalLight;
-  factorName: string | null;
-}
-
-export interface WorkbenchLightFactor {
-  mesh: THREE.Mesh;
-  emissiveIntensity: number;
-}
-
-export interface Workbench {
-  lightSceneItems: WorkbenchSceneItem[];
-  lightSceneLights: WorkbenchSceneLight[];
-}
+import {
+  Workbench,
+  WorkbenchSceneItem,
+  WorkbenchSceneLight
+} from './IrradianceAtlasMapper';
 
 const IrradianceWorkbenchContext = React.createContext<{
   items: { [uuid: string]: WorkbenchSceneItem | undefined };
