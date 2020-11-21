@@ -1,5 +1,6 @@
 {
-  "name": "tile-game",
+  "name": "threejs-lightmap-baker",
+  "description": "Experimental lightmap baker built on ThreeJS and react-three-fiber (r3f)",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
