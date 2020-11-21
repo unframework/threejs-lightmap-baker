@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 extend({ OrbitControls });
 
-const SceneControls: React.FC = () => {
+const DebugControls: React.FC = () => {
   const { camera, gl } = useThree();
   const orbitControlsRef = useRef<OrbitControls>();
 
@@ -28,4 +28,4 @@ const SceneControls: React.FC = () => {
   );
 };
 
-export default SceneControls;
+export default DebugControls;

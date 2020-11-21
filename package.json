@@ -1,28 +1,21 @@
 {
-  "name": "tile-game",
+  "name": "threejs-lightmap-baker",
+  "description": "Experimental lightmap baker built on ThreeJS and react-three-fiber (r3f)",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@testing-library/jest-dom": "^4.2.4",
-    "@testing-library/react": "^9.3.2",
-    "@testing-library/user-event": "^7.1.2",
-    "@types/jest": "^24.0.0",
-    "@types/node": "^12.0.0",
     "@types/react": "^16.9.0",
     "@types/react-dom": "^16.9.0",
     "react": "^16.13.1",
     "react-dom": "^16.13.1",
     "react-render-prop": "^0.0.1",
-    "react-scripts": "^3.4.3",
     "react-three-fiber": "^4.1.2",
     "three": "^0.116.0",
     "typescript": "^3.9.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "storybook": "start-storybook -p 6006 -s public --no-dll",
+    "build-storybook": "build-storybook -s public --no-dll"
   },
   "eslintConfig": {
     "extends": "react-app"
@@ -40,6 +33,13 @@
     ]
   },
   "devDependencies": {
-    "prettier": "^2.0.5"
+    "@babel/core": "^7.12.3",
+    "@storybook/addon-actions": "^6.0.28",
+    "@storybook/addon-essentials": "^6.0.28",
+    "@storybook/addon-links": "^6.0.28",
+    "@storybook/react": "^6.0.28",
+    "babel-loader": "^8.2.1",
+    "prettier": "^2.0.5",
+    "react-is": "^16.8.0"
   }
 }
