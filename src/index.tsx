@@ -1,3 +1,10 @@
+/**
+ *
+ * Hi! This file can run inside CodeSandbox or a similar live-editing environment.
+ * For local development, try the storybook files under src/stories.
+ *
+ */
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import { Canvas, useResource, useFrame } from 'react-three-fiber';
