@@ -26,7 +26,6 @@ const Baker: React.FC<{
   children: (onReady: () => void) => React.ReactElement;
 }> = ({ children }) => {
   // plumbing between baker components
-  const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
   const [baseRendererSink, baseLightTexture, probeTexture] = useRenderProp<
     [THREE.Texture, THREE.Texture]
   >();
@@ -47,17 +46,7 @@ const Baker: React.FC<{
           {(workbench, startWorkbench) => (
             <>
               {workbench && (
-                <IrradianceAtlasMapper workbench={workbench}>
-                  {atlasMapSink}
-                </IrradianceAtlasMapper>
-              )}
-
-              {workbench && atlasMap && (
-                <IrradianceRenderer
-                  workbench={workbench}
-                  atlasMap={atlasMap}
-                  factorName={null}
-                >
+                <IrradianceRenderer workbench={workbench} factorName={null}>
                   {baseRendererSink}
                 </IrradianceRenderer>
               )}
@@ -67,7 +56,7 @@ const Baker: React.FC<{
                 factorOutputs={{}}
               >
                 <DebugOverlayScene
-                  atlasTexture={atlasMap && atlasMap.texture}
+                  atlasTexture={workbench && workbench.atlasMap.texture}
                   probeTexture={probeTexture}
                 />
 

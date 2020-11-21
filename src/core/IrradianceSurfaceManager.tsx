@@ -8,11 +8,14 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
-import {
+import IrradianceAtlasMapper, {
   Workbench,
   WorkbenchSceneItem,
-  WorkbenchSceneLight
+  WorkbenchSceneLight,
+  AtlasMap
 } from './IrradianceAtlasMapper';
+
+export type { Workbench, WorkbenchSceneItem, WorkbenchSceneLight };
 
 const IrradianceWorkbenchContext = React.createContext<{
   items: { [uuid: string]: WorkbenchSceneItem | undefined };
@@ -114,21 +117,56 @@ const IrradianceSurfaceManager: React.FC<{
     []
   );
 
-  // snapshot triggered by start handler
-  const [workbench, setWorkbench] = useState<Workbench | null>(null);
+  // basic snapshot triggered by start handler
+  const [workbenchBasics, setWorkbenchBasics] = useState<{
+    id: number; // for refresh
+    items: WorkbenchSceneItem[];
+    lights: WorkbenchSceneLight[];
+  } | null>(null);
 
   const startHandler = useCallback(() => {
     // save a snapshot copy of staging data
-    setWorkbench({
-      lightSceneItems: Object.values(workbenchStage.items),
-      lightSceneLights: Object.values(workbenchStage.lights)
-    });
+    setWorkbenchBasics((prev) => ({
+      id: prev ? prev.id + 1 : 1,
+      items: Object.values(workbenchStage.items),
+      lights: Object.values(workbenchStage.lights)
+    }));
   }, [workbenchStage]);
 
+  // full workbench with atlas map
+  const [workbench, setWorkbench] = useState<Workbench | null>(null);
+
+  const atlasMapHandler = useCallback(
+    (atlasMap: AtlasMap) => {
+      if (!workbenchBasics) {
+        throw new Error('unexpected early call');
+      }
+
+      // save final copy of workbench
+      setWorkbench({
+        id: workbenchBasics.id,
+        lightSceneItems: workbenchBasics.items,
+        lightSceneLights: workbenchBasics.lights,
+        atlasMap
+      });
+    },
+    [workbenchBasics]
+  );
+
   return (
-    <IrradianceWorkbenchContext.Provider value={workbenchStage}>
-      {children(workbench, startHandler)}
-    </IrradianceWorkbenchContext.Provider>
+    <>
+      <IrradianceWorkbenchContext.Provider value={workbenchStage}>
+        {children(workbench, startHandler)}
+      </IrradianceWorkbenchContext.Provider>
+
+      {workbenchBasics && (
+        <IrradianceAtlasMapper
+          key={workbenchBasics.id} // re-create for new workbench
+          lightSceneItems={workbenchBasics.items}
+          onComplete={atlasMapHandler}
+        />
+      )}
+    </>
   );
 };
 

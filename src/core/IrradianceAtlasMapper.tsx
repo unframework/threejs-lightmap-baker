@@ -15,11 +15,6 @@ export interface WorkbenchSceneLight {
   factorName: string | null;
 }
 
-export interface Workbench {
-  lightSceneItems: WorkbenchSceneItem[];
-  lightSceneLights: WorkbenchSceneLight[];
-}
-
 export interface AtlasMapItem {
   faceCount: number;
   faceBuffer: THREE.BufferGeometry;
@@ -31,6 +26,13 @@ export interface AtlasMap {
   items: AtlasMapItem[];
   data: Float32Array;
   texture: THREE.Texture;
+}
+
+export interface Workbench {
+  id: number; // for refresh
+  lightSceneItems: WorkbenchSceneItem[];
+  lightSceneLights: WorkbenchSceneLight[];
+  atlasMap: AtlasMap;
 }
 
 export const atlasWidth = 64;
@@ -51,24 +53,21 @@ const tmpV = new THREE.Vector3();
 // (quad index is int stored as float, but precision should be good enough)
 // @todo consider stencil buffer, or just 8bit texture
 // @todo consider rounding to account for texel size
-// @todo provide output via context
 const IrradianceAtlasMapper: React.FC<{
-  workbench: Workbench;
-  children: (atlasMap: AtlasMap | null) => React.ReactElement | null;
-}> = ({ workbench, children }) => {
+  lightSceneItems: WorkbenchSceneItem[];
+  onComplete: (atlasMap: AtlasMap) => void;
+}> = ({ lightSceneItems, onComplete }) => {
   // read value only on first render
-  const workbenchRef = useRef(workbench);
+  const lightSceneItemsRef = useRef(lightSceneItems);
 
   // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
-
-  // set when render is complete
-  const [atlasMap, setAtlasMap] = useState<AtlasMap | null>(null);
+  const [isComplete, setIsComplete] = useState<boolean>(false);
 
   useEffect(() => {
     // disposed during scene unmount
     setInputItems(
-      workbenchRef.current.lightSceneItems
+      lightSceneItemsRef.current
         .filter(({ hasUV2 }) => hasUV2)
         .map((item, itemIndex) => {
           const { mesh } = item;
@@ -251,7 +250,7 @@ const IrradianceAtlasMapper: React.FC<{
   const orthoSceneRef = useUpdate<THREE.Scene>(
     (orthoScene) => {
       // nothing to do
-      if (!inputItems) {
+      if (!inputItems || isComplete) {
         return;
       }
 
@@ -270,7 +269,9 @@ const IrradianceAtlasMapper: React.FC<{
         orthoData
       );
 
-      setAtlasMap({
+      setIsComplete(true);
+
+      onComplete({
         texture: orthoTarget.texture,
         data: orthoData,
         items: inputItems
@@ -281,9 +282,7 @@ const IrradianceAtlasMapper: React.FC<{
 
   return (
     <>
-      {children(atlasMap)}
-
-      {inputItems && !atlasMap && (
+      {inputItems && !isComplete && (
         <scene ref={orthoSceneRef}>
           {inputItems.map((geom, geomIndex) => {
             return (

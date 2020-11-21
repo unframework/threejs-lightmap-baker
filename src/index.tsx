@@ -27,7 +27,6 @@ import sceneUrl from './stories/tile-game-room6.glb';
 
 function App() {
   // plumbing between baker components
-  const [atlasMapSink, atlasMap] = useRenderProp<[AtlasMap | null]>();
   const [baseRendererSink, baseLightTexture, probeTexture] = useRenderProp<
     [THREE.Texture, THREE.Texture]
   >();
@@ -48,17 +47,7 @@ function App() {
           {(workbench, startWorkbench) => (
             <>
               {workbench && (
-                <IrradianceAtlasMapper workbench={workbench}>
-                  {atlasMapSink}
-                </IrradianceAtlasMapper>
-              )}
-
-              {workbench && atlasMap && (
-                <IrradianceRenderer
-                  workbench={workbench}
-                  atlasMap={atlasMap}
-                  factorName={null}
-                >
+                <IrradianceRenderer workbench={workbench} factorName={null}>
                   {baseRendererSink}
                 </IrradianceRenderer>
               )}
@@ -68,7 +57,7 @@ function App() {
                 factorOutputs={{}}
               >
                 <DebugOverlayScene
-                  atlasTexture={atlasMap && atlasMap.texture}
+                  atlasTexture={workbench && workbench.atlasMap.texture}
                   probeTexture={probeTexture}
                 />
 
