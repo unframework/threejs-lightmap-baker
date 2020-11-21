@@ -141,7 +141,7 @@ export default function IrradianceCompositor<
     gl.setRenderTarget(orthoTarget);
     gl.render(orthoScene, orthoCamera);
     gl.setRenderTarget(null);
-  }, 10);
+  });
 
   return (
     <>

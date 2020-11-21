@@ -533,7 +533,7 @@ const IrradianceRendererWorker: React.FC<{
         // no-op (not consuming the data)
       }
     );
-  }, 10);
+  });
 
   // report textures to parent
   useEffect(() => {

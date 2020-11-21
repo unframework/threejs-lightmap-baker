@@ -96,7 +96,7 @@ const WorkManager: React.FC = ({ children }) => {
 
       callback(gl);
     }
-  }, 10);
+  });
 
   return (
     <>
