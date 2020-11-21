@@ -350,18 +350,14 @@ const IrradianceRendererWorker: React.FC<{
 
   // create light scene in separate render tick
   useEffect(() => {
-    // @todo for some reason the scene does not render unless created inside the timeout
-    // (even though the workbench is already initialized/etc by now anyway)
-    setTimeout(() => {
-      setLightSceneElement(
-        getLightProbeSceneElement(
-          workbenchRef.current,
-          previousOutput,
-          factorNameRef.current,
-          animationTimeRef.current
-        )
-      );
-    }, 0);
+    setLightSceneElement(
+      getLightProbeSceneElement(
+        workbenchRef.current,
+        previousOutput,
+        factorNameRef.current,
+        animationTimeRef.current
+      )
+    );
   }, [previousOutput]);
 
   // kick off new pass when current one is complete
