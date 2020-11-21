@@ -76,10 +76,13 @@ export default function IrradianceCompositor<
   children
 }: React.PropsWithChildren<{
   baseOutput: THREE.Texture | null | undefined;
-  factorOutputs: FactorMap;
+  factorOutputs?: FactorMap | null;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
 }>): React.ReactElement {
   const orthoSceneRef = useRef<THREE.Scene>();
+
+  // fall back to empty object if no factors given
+  const realFactorOutputs = useMemo(() => factorOutputs || {}, [factorOutputs]);
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
@@ -88,11 +91,11 @@ export default function IrradianceCompositor<
       [name: string]: React.MutableRefObject<THREE.ShaderMaterial | null>;
     };
 
-    for (const key of Object.keys(factorOutputs)) {
+    for (const key of Object.keys(realFactorOutputs)) {
       result[key] = React.createRef<THREE.ShaderMaterial>();
     }
     return result;
-  }, [factorOutputs]);
+  }, [realFactorOutputs]);
 
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
@@ -128,7 +131,7 @@ export default function IrradianceCompositor<
       baseMaterialRef.current.uniforms.multiplier.value = 1;
     }
 
-    for (const factorName in factorOutputs) {
+    for (const factorName in realFactorOutputs) {
       const factorMaterialRef = factorMaterialRefMap[factorName];
       const multiplier = factorValues && factorValues[factorName];
 
@@ -156,8 +159,8 @@ export default function IrradianceCompositor<
           </mesh>
         )}
 
-        {Object.keys(factorOutputs).map((factorName) => {
-          const factorOutput = factorOutputs[factorName];
+        {Object.keys(realFactorOutputs).map((factorName) => {
+          const factorOutput = realFactorOutputs[factorName];
           return (
             factorOutput && (
               <mesh key={factorName}>

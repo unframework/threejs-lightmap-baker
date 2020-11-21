@@ -195,10 +195,7 @@ ReactDOM.render(
         {(workbench, startWorkbench) => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor
-                baseOutput={baseLightTexture}
-                factorOutputs={{}}
-              >
+              <IrradianceCompositor baseOutput={baseLightTexture}>
                 <DebugOverlayScene
                   atlasTexture={workbench && workbench.atlasMap.texture}
                   probeTexture={probeTexture}
