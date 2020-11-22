@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -58,15 +58,17 @@ interface AutoUVBox extends PotPackItem {
 const lightmapPhysWidth = 16;
 const lightmapTexelSize = lightmapPhysWidth / atlasWidth;
 
-export const AutoUV2: React.FC<{
-  children: React.ReactElement<{}, 'mesh'>;
-}> = ({ children }) => {
-  const [meshRef, mesh] = useResource<THREE.Mesh>();
+export const AutoUV2: React.FC = ({ children }) => {
+  const groupRef = useRef<THREE.Group>();
 
   useEffect(() => {
-    if (!mesh) {
-      return;
+    const group = groupRef.current;
+
+    if (!group) {
+      throw new Error('did not instantiate after render');
     }
+
+    const mesh = group.parent;
 
     if (!(mesh instanceof THREE.Mesh)) {
       throw new Error('expecting mesh');
@@ -287,7 +289,7 @@ export const AutoUV2: React.FC<{
     }
 
     buffer.setAttribute('uv2', uv2Attr);
-  }, [mesh]);
+  }, []);
 
-  return React.cloneElement(children, { ref: meshRef });
+  return <group ref={groupRef} />;
 };

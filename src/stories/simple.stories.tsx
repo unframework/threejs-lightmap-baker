@@ -54,20 +54,16 @@ export const Main: Story = () => (
                         <IrradianceSurface />
                       </mesh>
 
-                      <AutoUV2>
-                        <mesh position={[0, 0, 0]} castShadow receiveShadow>
-                          <boxBufferGeometry
-                            attach="geometry"
-                            args={[2, 2, 2]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#ffffff"
-                            lightMap={outputLightMap}
-                          />
-                          <IrradianceSurface />
-                        </mesh>
-                      </AutoUV2>
+                      <mesh position={[0, 0, 0]} castShadow receiveShadow>
+                        <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+                        <meshLambertMaterial
+                          attach="material"
+                          color="#ffffff"
+                          lightMap={outputLightMap}
+                        />
+                        <AutoUV2 />
+                        <IrradianceSurface />
+                      </mesh>
 
                       <directionalLight
                         intensity={1}
