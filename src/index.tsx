@@ -173,6 +173,7 @@ const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
 
 ReactDOM.render(
   <Canvas
+    colorManagement={false} // @todo reconsider
     camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
     shadowMap
     onCreated={({ gl }) => {

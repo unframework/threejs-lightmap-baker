@@ -12,8 +12,8 @@ export const DebugOverlayScene: React.FC<{
 }> = React.memo(({ atlasTexture, probeTexture, children }) => {
   const outputTexture = useIrradianceTexture();
 
-  const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
-  const [debugSceneRef, debugScene] = useResource<THREE.Scene>();
+  const mainSceneRef = useResource<THREE.Scene>();
+  const debugSceneRef = useResource<THREE.Scene>();
 
   const { size } = useThree();
   const debugCamera = useMemo(() => {
@@ -23,13 +23,13 @@ export const DebugOverlayScene: React.FC<{
   }, [size]);
 
   useFrame(({ gl, camera }) => {
-    gl.render(mainScene, camera);
+    gl.render(mainSceneRef.current, camera);
   }, 20);
 
   useFrame(({ gl }) => {
     gl.autoClear = false;
     gl.clearDepth();
-    gl.render(debugScene, debugCamera);
+    gl.render(debugSceneRef.current, debugCamera);
     gl.autoClear = true;
   }, 30);
 

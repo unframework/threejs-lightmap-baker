@@ -70,15 +70,11 @@ function getLightProbeSceneElement(
               intensity={dirLight.intensity}
               target={cloneTarget}
               castShadow
-            >
-              <directionalLightShadow
-                attach="shadow"
-                camera-left={dirLight.shadow.camera.left}
-                camera-right={dirLight.shadow.camera.right}
-                camera-top={dirLight.shadow.camera.top}
-                camera-bottom={dirLight.shadow.camera.bottom}
-              />
-            </primitive>
+              shadow-camera-left={dirLight.shadow.camera.left}
+              shadow-camera-right={dirLight.shadow.camera.right}
+              shadow-camera-top={dirLight.shadow.camera.top}
+              shadow-camera-bottom={dirLight.shadow.camera.bottom}
+            />
           </React.Fragment>
         );
       })}

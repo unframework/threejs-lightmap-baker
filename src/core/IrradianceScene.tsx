@@ -9,9 +9,9 @@ export const IrradianceSurface: React.FC<{
   factor?: string;
   animationClip?: THREE.AnimationClip;
 }> = ({ factor, animationClip }) => {
-  const [groupRef, group] = useResource<THREE.Group>();
+  const groupRef = useResource<THREE.Group>();
 
-  const mesh = group && group.parent;
+  const mesh = groupRef.current && groupRef.current.parent;
 
   // extra error checks
   if (mesh) {
@@ -45,9 +45,9 @@ export const IrradianceSurface: React.FC<{
 export const IrradianceLight: React.FC<{
   factor?: string;
 }> = ({ factor, children }) => {
-  const [groupRef, group] = useResource<THREE.Group>();
+  const groupRef = useResource<THREE.Group>();
 
-  const light = group && group.parent;
+  const light = groupRef.current && groupRef.current.parent;
 
   if (light && !(light instanceof THREE.DirectionalLight)) {
     throw new Error('only directional lights are supported');

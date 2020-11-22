@@ -7,11 +7,11 @@
     "@types/react": "^16.9.0",
     "@types/react-dom": "^16.9.0",
     "potpack": "^1.0.1",
-    "react": "^16.13.1",
-    "react-dom": "^16.13.1",
+    "react": "^17.0.0",
+    "react-dom": "^17.0.0",
     "react-render-prop": "^0.0.1",
-    "react-three-fiber": "^4.1.2",
-    "three": "^0.116.0",
+    "react-three-fiber": "^5.3.1",
+    "three": "^0.121.0",
     "typescript": "^3.9.0"
   },
   "scripts": {
