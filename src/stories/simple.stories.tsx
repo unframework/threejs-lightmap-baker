@@ -3,9 +3,13 @@ import { Story, Meta } from '@storybook/react';
 import { Canvas, useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
+/// <reference path="potpack.d.ts"/>
+import potpack, { PotPackItem } from 'potpack';
+
 import IrradianceSurfaceManager from '../core/IrradianceSurfaceManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
+import { atlasWidth, atlasHeight } from '../core/IrradianceAtlasMapper';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
 import { useIrradianceTexture } from '../core/IrradianceCompositor';
@@ -45,6 +49,24 @@ const tmpVLocal = new THREE.Vector2();
 const tmpMinLocal = new THREE.Vector2();
 const tmpMaxLocal = new THREE.Vector2();
 
+interface AutoUVBox extends PotPackItem {
+  // index and local coords inside box
+  vOrigin: number;
+  vOtx: number;
+  vOty: number;
+
+  vU: number;
+  vUtx: number;
+  vUty: number;
+
+  vV: number;
+  vVtx: number;
+  vVty: number;
+}
+
+const lightmapPhysWidth = 16;
+const lightmapTexelSize = lightmapPhysWidth / atlasWidth;
+
 const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
   children
 }) => {
@@ -76,6 +98,8 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
 
     const posArray = buffer.attributes.position.array;
     const normalArray = buffer.attributes.normal.array;
+
+    const layoutBoxes: AutoUVBox[] = [];
 
     for (let vStart = 0; vStart < faceCount * 3; vStart += 3) {
       const vNextStart = vStart + 3;
@@ -136,7 +160,29 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
         tmpMaxLocal.max(tmpULocal);
         tmpMaxLocal.max(tmpVLocal);
 
-        console.log(tmpMinLocal, tmpMaxLocal);
+        const realWidth = tmpMaxLocal.x - tmpMinLocal.x;
+        const realHeight = tmpMaxLocal.y - tmpMinLocal.y;
+        const boxWidthInTexels = Math.ceil(realWidth / lightmapTexelSize);
+        const boxHeightInTexels = Math.ceil(realHeight / lightmapTexelSize);
+
+        layoutBoxes.push({
+          x: 0, // filled later
+          y: 0, // filled later
+          w: boxWidthInTexels + 2, // plus margins
+          h: boxHeightInTexels + 2, // plus margins
+
+          vOrigin,
+          vOtx: -tmpMinLocal.x / realWidth,
+          vOty: -tmpMinLocal.y / realWidth,
+
+          vU,
+          vUtx: (tmpULocal.x - tmpMinLocal.x) / realWidth,
+          vUty: (tmpULocal.y - tmpMinLocal.y) / realWidth,
+
+          vV,
+          vVtx: (tmpVLocal.x - tmpMinLocal.x) / realWidth,
+          vVty: (tmpVLocal.y - tmpMinLocal.y) / realWidth
+        });
 
         // advance by one extra triangle on next cycle if faces share edge
         // @todo process the second triangle
@@ -144,6 +190,35 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
           vStart += 3;
         }
       }
+    }
+
+    const { w: layoutWidth, h: layoutHeight } = potpack(layoutBoxes);
+
+    if (layoutWidth > atlasWidth || layoutHeight > atlasHeight) {
+      throw new Error(
+        `auto-UV needs lightmap sized ${layoutWidth}x${layoutHeight}`
+      );
+    }
+
+    // now fill in the uv2 coordinates
+    for (const layoutBox of layoutBoxes) {
+      const {
+        x,
+        y,
+        w,
+        h,
+        vOrigin,
+        vOtx,
+        vOty,
+        vU,
+        vUtx,
+        vUty,
+        vV,
+        vVtx,
+        vVty
+      } = layoutBox;
+
+      console.log(vUtx, vUty, vVtx, vVty);
     }
   }, [mesh]);
 
