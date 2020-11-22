@@ -267,30 +267,36 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
         vWty
       } = layoutBox;
 
+      // inner texel box without margins
+      const ix = x + 1;
+      const iy = y + 1;
+      const iw = w - 2;
+      const ih = h - 2;
+
       // convert texel box placement into atlas UV coordinates
       uv2Attr.setXY(
         indexArray[vOrigin],
-        (x + 1 + vOtx * w) / atlasWidth,
-        (y + 1 + vOty * h) / atlasHeight
+        (ix + vOtx * iw) / atlasWidth,
+        (iy + vOty * ih) / atlasHeight
       );
 
       uv2Attr.setXY(
         indexArray[vU],
-        (x + 1 + vUtx * w) / atlasWidth,
-        (y + 1 + vUty * h) / atlasHeight
+        (ix + vUtx * iw) / atlasWidth,
+        (iy + vUty * ih) / atlasHeight
       );
 
       uv2Attr.setXY(
         indexArray[vV],
-        (x + 1 + vVtx * w) / atlasWidth,
-        (y + 1 + vVty * h) / atlasHeight
+        (ix + vVtx * iw) / atlasWidth,
+        (iy + vVty * ih) / atlasHeight
       );
 
       if (vW !== -1) {
         uv2Attr.setXY(
           indexArray[vW],
-          (x + 1 + vWtx * w) / atlasWidth,
-          (y + 1 + vWty * h) / atlasHeight
+          (ix + vWtx * iw) / atlasWidth,
+          (iy + vWty * ih) / atlasHeight
         );
       }
     }
