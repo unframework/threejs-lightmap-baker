@@ -82,7 +82,9 @@ export default function IrradianceCompositor<
   const orthoSceneRef = useRef<THREE.Scene>();
 
   // fall back to empty object if no factors given
-  const realFactorOutputs = useMemo(() => factorOutputs || {}, [factorOutputs]);
+  const realFactorOutputs = useMemo(() => factorOutputs || ({} as FactorMap), [
+    factorOutputs
+  ]);
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
