@@ -324,37 +324,51 @@ export const Main: Story = () => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
               <IrradianceCompositor baseOutput={baseLightTexture}>
-                <DebugOverlayScene
-                  atlasTexture={workbench && workbench.atlasMap.texture}
-                  probeTexture={probeTexture}
-                >
-                  <scene>
-                    <mesh position={[0, 0, -2]} receiveShadow>
-                      <planeBufferGeometry attach="geometry" args={[20, 20]} />
-                      <meshLambertMaterial attach="material" color="#171717" />
-                      <IrradianceSurface />
-                    </mesh>
-
-                    <AutoUV2>
-                      <mesh position={[0, 0, 0]} castShadow receiveShadow>
-                        <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+                {(outputLightMap) => (
+                  <DebugOverlayScene
+                    atlasTexture={workbench && workbench.atlasMap.texture}
+                    probeTexture={probeTexture}
+                  >
+                    <scene>
+                      <mesh position={[0, 0, -2]} receiveShadow>
+                        <planeBufferGeometry
+                          attach="geometry"
+                          args={[20, 20]}
+                        />
                         <meshLambertMaterial
                           attach="material"
-                          color="#904090"
+                          color="#c04020"
                         />
                         <IrradianceSurface />
                       </mesh>
-                    </AutoUV2>
 
-                    <directionalLight
-                      intensity={1}
-                      position={[-1, 1, 2]}
-                      castShadow
-                    />
+                      <AutoUV2>
+                        <mesh position={[0, 0, 0]} castShadow receiveShadow>
+                          <boxBufferGeometry
+                            attach="geometry"
+                            args={[2, 2, 2]}
+                          />
+                          <meshLambertMaterial
+                            attach="material"
+                            color="#ffffff"
+                            lightMap={outputLightMap}
+                          />
+                          <IrradianceSurface />
+                        </mesh>
+                      </AutoUV2>
 
-                    <DebugControls />
-                  </scene>
-                </DebugOverlayScene>
+                      <directionalLight
+                        intensity={1}
+                        position={[-1, 1, 2]}
+                        castShadow
+                      >
+                        <IrradianceLight />
+                      </directionalLight>
+
+                      <DebugControls />
+                    </scene>
+                  </DebugOverlayScene>
+                )}
               </IrradianceCompositor>
             )}
           </IrradianceRenderer>
