@@ -7,13 +7,12 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Canvas, useResource, useFrame } from 'react-three-fiber';
+import { Canvas } from 'react-three-fiber';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 import * as THREE from 'three';
 
 import IrradianceSurfaceManager from './core/IrradianceSurfaceManager';
 import WorkManager from './core/WorkManager';
-import IrradianceAtlasMapper, { AtlasMap } from './core/IrradianceAtlasMapper';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
@@ -24,8 +23,8 @@ import { DebugOverlayScene } from './stories/DebugOverlayScene';
 import './stories/viewport.css';
 import sceneUrl from './stories/tile-game-room6.glb';
 
-const MainScene: React.FC<{ onReady: () => void }> = React.memo(
-  ({ onReady }) => {
+const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
+  ({ onReady }, mainSceneRef) => {
     // resulting lightmap texture produced by the baking process
     const lightMap = useIrradianceTexture();
 
@@ -135,13 +134,6 @@ const MainScene: React.FC<{ onReady: () => void }> = React.memo(
       };
     }, [loadedData]);
 
-    // main scene rendering
-    const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
-
-    useFrame(({ gl, camera }) => {
-      gl.render(mainScene, camera);
-    }, 20);
-
     return (
       <scene ref={mainSceneRef}>
         <mesh position={[0, 0, -5]}>
@@ -195,16 +187,13 @@ ReactDOM.render(
         {(workbench, startWorkbench) => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor
-                baseOutput={baseLightTexture}
-                factorOutputs={{}}
-              >
+              <IrradianceCompositor baseOutput={baseLightTexture}>
                 <DebugOverlayScene
                   atlasTexture={workbench && workbench.atlasMap.texture}
                   probeTexture={probeTexture}
-                />
-
-                <MainScene onReady={startWorkbench} />
+                >
+                  <MainScene onReady={startWorkbench} />
+                </DebugOverlayScene>
               </IrradianceCompositor>
             )}
           </IrradianceRenderer>

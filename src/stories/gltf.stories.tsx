@@ -1,12 +1,11 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Story, Meta } from '@storybook/react';
-import { Canvas, useResource, useFrame } from 'react-three-fiber';
+import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import IrradianceSurfaceManager from '../core/IrradianceSurfaceManager';
 import WorkManager from '../core/WorkManager';
-import IrradianceAtlasMapper, { AtlasMap } from '../core/IrradianceAtlasMapper';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
@@ -21,158 +20,153 @@ export default {
   title: 'glTF scene'
 } as Meta;
 
-const MainScene: React.FC<{ onReady: () => void }> = ({ onReady }) => {
-  // resulting lightmap texture produced by the baking process
-  const lightMap = useIrradianceTexture();
+const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
+  ({ onReady }, mainSceneRef) => {
+    // resulting lightmap texture produced by the baking process
+    const lightMap = useIrradianceTexture();
 
-  // data loading
-  const [loadedData, setLoadedData] = useState<GLTF | null>(null);
+    // data loading
+    const [loadedData, setLoadedData] = useState<GLTF | null>(null);
 
-  useEffect(() => {
-    new GLTFLoader().load(sceneUrl, (data) => {
-      setLoadedData(data);
-    });
-  }, []);
-
-  const { loadedMeshList, loadedLightList } = useMemo(() => {
-    const meshes: THREE.Mesh[] = [];
-    const lights: THREE.DirectionalLight[] = [];
-
-    if (loadedData) {
-      loadedData.scene.traverse((object) => {
-        // glTF import is still not great with lights, so we improvise
-        if (object.name.includes('Light')) {
-          const light = new THREE.DirectionalLight();
-          light.intensity = object.scale.z;
-
-          light.castShadow = true;
-          light.shadow.camera.left = -object.scale.x;
-          light.shadow.camera.right = object.scale.x;
-          light.shadow.camera.top = object.scale.y;
-          light.shadow.camera.bottom = -object.scale.y;
-
-          light.position.copy(object.position);
-
-          const target = new THREE.Object3D();
-          target.position.set(0, 0, -1);
-          target.position.applyEuler(object.rotation);
-          target.position.add(light.position);
-
-          light.target = target;
-
-          lights.push(light);
-          return;
-        }
-
-        if (!(object instanceof THREE.Mesh)) {
-          return;
-        }
-
-        // convert glTF's standard material into Lambert
-        if (object.material) {
-          const stdMat = object.material as THREE.MeshStandardMaterial;
-
-          if (stdMat.map) {
-            stdMat.map.magFilter = THREE.NearestFilter;
-          }
-
-          if (stdMat.emissiveMap) {
-            stdMat.emissiveMap.magFilter = THREE.NearestFilter;
-          }
-
-          object.material = new THREE.MeshLambertMaterial({
-            color: stdMat.color,
-            map: stdMat.map,
-            emissive: stdMat.emissive,
-            emissiveMap: stdMat.emissiveMap,
-            emissiveIntensity: stdMat.emissiveIntensity
-          });
-
-          // always cast shadow, but only albedo materials receive it
-          object.castShadow = true;
-
-          if (stdMat.map) {
-            object.receiveShadow = true;
-          }
-
-          // special case for outer sunlight cover
-          if (object.name === 'Cover') {
-            object.material.depthWrite = false;
-            object.material.colorWrite = false;
-          }
-        }
-
-        meshes.push(object);
+    useEffect(() => {
+      new GLTFLoader().load(sceneUrl, (data) => {
+        setLoadedData(data);
       });
-    }
+    }, []);
 
-    return {
-      loadedMeshList: meshes,
-      loadedLightList: lights
-    };
-  }, [loadedData]);
+    const { loadedMeshList, loadedLightList } = useMemo(() => {
+      const meshes: THREE.Mesh[] = [];
+      const lights: THREE.DirectionalLight[] = [];
 
-  const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
-  const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
+      if (loadedData) {
+        loadedData.scene.traverse((object) => {
+          // glTF import is still not great with lights, so we improvise
+          if (object.name.includes('Light')) {
+            const light = new THREE.DirectionalLight();
+            light.intensity = object.scale.z;
 
-  // signal readiness when loaded
-  const onReadyRef = useRef(onReady); // wrap in ref to avoid re-triggering
-  onReadyRef.current = onReady;
+            light.castShadow = true;
+            light.shadow.camera.left = -object.scale.x;
+            light.shadow.camera.right = object.scale.x;
+            light.shadow.camera.top = object.scale.y;
+            light.shadow.camera.bottom = -object.scale.y;
 
-  useEffect(() => {
-    if (!loadedData) {
-      return;
-    }
+            light.position.copy(object.position);
 
-    const timeoutId = setTimeout(onReadyRef.current, 100);
+            const target = new THREE.Object3D();
+            target.position.set(0, 0, -1);
+            target.position.applyEuler(object.rotation);
+            target.position.add(light.position);
 
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [loadedData]);
+            light.target = target;
 
-  // main scene rendering
-  const [mainSceneRef, mainScene] = useResource<THREE.Scene>();
+            lights.push(light);
+            return;
+          }
 
-  useFrame(({ gl, camera }) => {
-    gl.render(mainScene, camera);
-  }, 20);
+          if (!(object instanceof THREE.Mesh)) {
+            return;
+          }
 
-  return (
-    <scene ref={mainSceneRef}>
-      <mesh position={[0, 0, -5]}>
-        <planeBufferGeometry attach="geometry" args={[200, 200]} />
-        <meshBasicMaterial attach="material" color="#171717" />
-      </mesh>
+          // convert glTF's standard material into Lambert
+          if (object.material) {
+            const stdMat = object.material as THREE.MeshStandardMaterial;
 
-      {loadedLightList.map((light) => (
-        <React.Fragment key={light.uuid}>
-          <primitive object={light} dispose={null}>
-            <IrradianceLight />
+            if (stdMat.map) {
+              stdMat.map.magFilter = THREE.NearestFilter;
+            }
+
+            if (stdMat.emissiveMap) {
+              stdMat.emissiveMap.magFilter = THREE.NearestFilter;
+            }
+
+            object.material = new THREE.MeshLambertMaterial({
+              color: stdMat.color,
+              map: stdMat.map,
+              emissive: stdMat.emissive,
+              emissiveMap: stdMat.emissiveMap,
+              emissiveIntensity: stdMat.emissiveIntensity
+            });
+
+            // always cast shadow, but only albedo materials receive it
+            object.castShadow = true;
+
+            if (stdMat.map) {
+              object.receiveShadow = true;
+            }
+
+            // special case for outer sunlight cover
+            if (object.name === 'Cover') {
+              object.material.depthWrite = false;
+              object.material.colorWrite = false;
+            }
+          }
+
+          meshes.push(object);
+        });
+      }
+
+      return {
+        loadedMeshList: meshes,
+        loadedLightList: lights
+      };
+    }, [loadedData]);
+
+    const baseMesh = loadedMeshList.find((item) => item.name === 'Base');
+    const coverMesh = loadedMeshList.find((item) => item.name === 'Cover');
+
+    // signal readiness when loaded
+    const onReadyRef = useRef(onReady); // wrap in ref to avoid re-triggering
+    onReadyRef.current = onReady;
+
+    useEffect(() => {
+      if (!loadedData) {
+        return;
+      }
+
+      const timeoutId = setTimeout(onReadyRef.current, 100);
+
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }, [loadedData]);
+
+    return (
+      <scene ref={mainSceneRef}>
+        <mesh position={[0, 0, -5]}>
+          <planeBufferGeometry attach="geometry" args={[200, 200]} />
+          <meshBasicMaterial attach="material" color="#171717" />
+        </mesh>
+
+        {loadedLightList.map((light) => (
+          <React.Fragment key={light.uuid}>
+            <primitive object={light} dispose={null}>
+              <IrradianceLight />
+            </primitive>
+
+            <primitive object={light.target} dispose={null} />
+          </React.Fragment>
+        ))}
+
+        {baseMesh && (
+          <primitive
+            object={baseMesh}
+            material-lightMap={lightMap}
+            dispose={null}
+          >
+            <IrradianceSurface />
           </primitive>
+        )}
 
-          <primitive object={light.target} dispose={null} />
-        </React.Fragment>
-      ))}
-
-      {baseMesh && (
-        <primitive
-          object={baseMesh}
-          material-lightMap={lightMap}
-          dispose={null}
-        >
-          <IrradianceSurface />
-        </primitive>
-      )}
-
-      {coverMesh && (
-        <primitive object={coverMesh} dispose={null}>
-          <IrradianceSurface />
-        </primitive>
-      )}
-    </scene>
-  );
-};
+        {coverMesh && (
+          <primitive object={coverMesh} dispose={null}>
+            <IrradianceSurface />
+          </primitive>
+        )}
+      </scene>
+    );
+  }
+);
 
 export const Main: Story = () => (
   <Canvas
@@ -190,16 +184,13 @@ export const Main: Story = () => (
         {(workbench, startWorkbench) => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor
-                baseOutput={baseLightTexture}
-                factorOutputs={{}}
-              >
+              <IrradianceCompositor baseOutput={baseLightTexture}>
                 <DebugOverlayScene
                   atlasTexture={workbench && workbench.atlasMap.texture}
                   probeTexture={probeTexture}
-                />
-
-                {<MainScene onReady={startWorkbench} />}
+                >
+                  <MainScene onReady={startWorkbench} />
+                </DebugOverlayScene>
               </IrradianceCompositor>
             )}
           </IrradianceRenderer>
