@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useContext, useMemo, useEffect, useRef } from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -58,10 +58,17 @@ interface AutoUVBox extends PotPackItem {
 const lightmapPhysWidth = 16;
 const lightmapTexelSize = lightmapPhysWidth / atlasWidth;
 
-export const AutoUV2: React.FC = ({ children }) => {
+const AutoUV2StagingContext = React.createContext<THREE.Mesh[] | null>(null);
+
+export const AutoUV2: React.FC = () => {
+  const meshStagingList = useContext(AutoUV2StagingContext);
   const groupRef = useRef<THREE.Group>();
 
   useEffect(() => {
+    if (!meshStagingList) {
+      throw new Error('must be inside AutoUV2Provider');
+    }
+
     const group = groupRef.current;
 
     if (!group) {
@@ -73,6 +80,23 @@ export const AutoUV2: React.FC = ({ children }) => {
     if (!(mesh instanceof THREE.Mesh)) {
       throw new Error('expecting mesh');
     }
+
+    meshStagingList.push(mesh);
+  }, []);
+
+  return <group ref={groupRef} />;
+};
+
+export const AutoUV2Provider: React.FC = ({ children }) => {
+  // modified in-place to be able to run right on first render
+  const meshStagingList = useMemo<THREE.Mesh[]>(() => [], []);
+
+  useEffect(() => {
+    if (meshStagingList.length < 1) {
+      return;
+    }
+
+    const mesh = meshStagingList[0];
 
     const buffer = mesh.geometry;
 
@@ -291,5 +315,9 @@ export const AutoUV2: React.FC = ({ children }) => {
     buffer.setAttribute('uv2', uv2Attr);
   }, []);
 
-  return <group ref={groupRef} />;
+  return (
+    <AutoUV2StagingContext.Provider value={meshStagingList}>
+      {children}
+    </AutoUV2StagingContext.Provider>
+  );
 };
