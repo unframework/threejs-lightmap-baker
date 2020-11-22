@@ -170,10 +170,11 @@ const IrradianceAtlasMapper: React.FC<{
               faceVertexIndex,
               facePosX,
               facePosY,
-              itemIndex * MAX_ITEM_FACES + faceIndex // @todo put +1 here instead of shader (Threejs somehow fails to set it though?)
+              itemIndex * MAX_ITEM_FACES + faceIndex + 1 // encode face info in texel
             );
           }
 
+          // @todo dispose of this buffer on unmount/etc? this is already disposed of automatically here
           const atlasBuffer = new THREE.BufferGeometry();
           atlasBuffer.setAttribute('position', atlasFacePosAttr);
           atlasBuffer.setAttribute('uv', atlasUVAttr);
@@ -216,34 +217,27 @@ const IrradianceAtlasMapper: React.FC<{
   }, []);
 
   // disposed during scene unmount
-  const material = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        side: THREE.DoubleSide, // UVs might have arbitrary winding
-        vertexShader: `
-          varying vec3 vFacePos;
+  const vertexShader = `
+    varying vec3 vFacePos;
 
-          void main() {
-            vFacePos = position;
+    void main() {
+      vFacePos = position;
 
-            gl_Position = projectionMatrix * vec4(
-              uv, // UV is the actual position on map
-              0,
-              1.0
-            );
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vFacePos;
+      gl_Position = projectionMatrix * vec4(
+        uv, // UV is the actual position on map
+        0,
+        1.0
+      );
+    }
+  `;
+  const fragmentShader = `
+    varying vec3 vFacePos;
 
-          void main() {
-            // encode the face information in map
-            gl_FragColor = vec4(vFacePos.xy, vFacePos.z + 1.0, 1.0);
-          }
-        `
-      }),
-    []
-  );
+    void main() {
+      // encode the face information in map
+      gl_FragColor = vec4(vFacePos.xyz, 1.0);
+    }
+  `;
 
   // render the output as needed
   const { gl } = useThree();
@@ -286,9 +280,19 @@ const IrradianceAtlasMapper: React.FC<{
         <scene ref={orthoSceneRef}>
           {inputItems.map((geom, geomIndex) => {
             return (
-              <mesh key={geomIndex}>
+              <mesh
+                key={geomIndex}
+                frustumCulled={false} // skip bounding box checks (not applicable and logic gets confused)
+                position={[0, 0, 0]}
+              >
                 <primitive attach="geometry" object={geom.faceBuffer} />
-                <primitive attach="material" object={material} />
+
+                <shaderMaterial
+                  attach="material"
+                  side={THREE.DoubleSide}
+                  vertexShader={vertexShader}
+                  fragmentShader={fragmentShader}
+                />
               </mesh>
             );
           })}
