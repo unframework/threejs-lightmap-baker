@@ -216,34 +216,27 @@ const IrradianceAtlasMapper: React.FC<{
   }, []);
 
   // disposed during scene unmount
-  const material = useMemo(
-    () =>
-      new THREE.ShaderMaterial({
-        side: THREE.DoubleSide, // UVs might have arbitrary winding
-        vertexShader: `
-          varying vec3 vFacePos;
+  const vertexShader = `
+    varying vec3 vFacePos;
 
-          void main() {
-            vFacePos = position;
+    void main() {
+      vFacePos = position;
 
-            gl_Position = projectionMatrix * vec4(
-              uv, // UV is the actual position on map
-              0,
-              1.0
-            );
-          }
-        `,
-        fragmentShader: `
-          varying vec3 vFacePos;
+      gl_Position = projectionMatrix * vec4(
+        uv, // UV is the actual position on map
+        0,
+        1.0
+      );
+    }
+  `;
+  const fragmentShader = `
+    varying vec3 vFacePos;
 
-          void main() {
-            // encode the face information in map
-            gl_FragColor = vec4(vFacePos.xy, vFacePos.z + 1.0, 1.0);
-          }
-        `
-      }),
-    []
-  );
+    void main() {
+      // encode the face information in map
+      gl_FragColor = vec4(vFacePos.xy, vFacePos.z + 1.0, 1.0);
+    }
+  `;
 
   // render the output as needed
   const { gl } = useThree();
@@ -288,7 +281,13 @@ const IrradianceAtlasMapper: React.FC<{
             return (
               <mesh key={geomIndex}>
                 <primitive attach="geometry" object={geom.faceBuffer} />
-                <primitive attach="material" object={material} />
+
+                <shaderMaterial
+                  attach="material"
+                  side={THREE.DoubleSide}
+                  vertexShader={vertexShader}
+                  fragmentShader={fragmentShader}
+                />
               </mesh>
             );
           })}
