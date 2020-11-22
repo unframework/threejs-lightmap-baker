@@ -117,8 +117,6 @@ export const Main: Story = () => (
                         >
                           <IrradianceLight />
                         </directionalLight>
-
-                        <DebugControls />
                       </scene>
                     </DebugOverlayScene>
                   </AutoUV2Provider>
@@ -129,5 +127,7 @@ export const Main: Story = () => (
         )}
       </IrradianceSurfaceManager>
     </WorkManager>
+
+    <DebugControls />
   </Canvas>
 );
