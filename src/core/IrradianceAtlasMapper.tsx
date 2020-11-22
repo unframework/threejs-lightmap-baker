@@ -170,10 +170,11 @@ const IrradianceAtlasMapper: React.FC<{
               faceVertexIndex,
               facePosX,
               facePosY,
-              itemIndex * MAX_ITEM_FACES + faceIndex // @todo put +1 here instead of shader (Threejs somehow fails to set it though?)
+              itemIndex * MAX_ITEM_FACES + faceIndex + 1 // encode face info in texel
             );
           }
 
+          // @todo dispose of this buffer on unmount/etc? this is already disposed of automatically here
           const atlasBuffer = new THREE.BufferGeometry();
           atlasBuffer.setAttribute('position', atlasFacePosAttr);
           atlasBuffer.setAttribute('uv', atlasUVAttr);
@@ -234,7 +235,7 @@ const IrradianceAtlasMapper: React.FC<{
 
     void main() {
       // encode the face information in map
-      gl_FragColor = vec4(vFacePos.xy, vFacePos.z + 1.0, 1.0);
+      gl_FragColor = vec4(vFacePos.xyz, 1.0);
     }
   `;
 
