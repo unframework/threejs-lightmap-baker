@@ -15,8 +15,6 @@ import IrradianceAtlasMapper, {
   AtlasMap
 } from './IrradianceAtlasMapper';
 
-export type { Workbench, WorkbenchSceneItem, WorkbenchSceneLight };
-
 interface WorkbenchStagingItem {
   mesh: THREE.Mesh;
   material: THREE.MeshLambertMaterial;

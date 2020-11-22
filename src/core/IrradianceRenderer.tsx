@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { Workbench } from './IrradianceSurfaceManager';
+import { Workbench } from './IrradianceAtlasMapper';
 import { WorkManagerContext } from './WorkManager';
 import {
   atlasWidth,
