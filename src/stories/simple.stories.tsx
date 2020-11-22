@@ -44,26 +44,62 @@ export const Main: Story = () => (
                       probeTexture={probeTexture}
                     >
                       <scene>
-                        <mesh position={[0, 0, -2]} receiveShadow>
+                        <mesh position={[0, 0, -4]} receiveShadow>
                           <planeBufferGeometry
                             attach="geometry"
                             args={[20, 20]}
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#c04020"
+                            color="#f0f0f0"
                           />
                           <IrradianceSurface />
                         </mesh>
 
-                        <mesh position={[0, 0, 0]} castShadow receiveShadow>
+                        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
+                          <boxBufferGeometry
+                            attach="geometry"
+                            args={[2, 2, 5]}
+                          />
+                          <meshLambertMaterial
+                            attach="material"
+                            color="#808080"
+                            lightMap={outputLightMap}
+                          />
+                          <AutoUV2 />
+                          <IrradianceSurface />
+                        </mesh>
+
+                        <mesh
+                          position={[0, -1.5, -1.5]}
+                          castShadow
+                          receiveShadow
+                        >
                           <boxBufferGeometry
                             attach="geometry"
                             args={[2, 2, 2]}
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#ffffff"
+                            color="#0000ff"
+                            lightMap={outputLightMap}
+                          />
+                          <AutoUV2 />
+                          <IrradianceSurface />
+                        </mesh>
+
+                        <mesh
+                          position={[0, -1.5, 1.5]}
+                          castShadow
+                          receiveShadow
+                        >
+                          <boxBufferGeometry
+                            attach="geometry"
+                            args={[2, 2, 2]}
+                          />
+                          <meshLambertMaterial
+                            attach="material"
+                            color="#ff0000"
                             lightMap={outputLightMap}
                           />
                           <AutoUV2 />
