@@ -38,6 +38,7 @@ function getEdgeCode(
 const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
+const tmpW = new THREE.Vector3();
 
 const tmpNormal = new THREE.Vector3();
 const tmpUAxis = new THREE.Vector3();
@@ -45,6 +46,7 @@ const tmpVAxis = new THREE.Vector3();
 
 const tmpULocal = new THREE.Vector2();
 const tmpVLocal = new THREE.Vector2();
+const tmpWLocal = new THREE.Vector2();
 
 const tmpMinLocal = new THREE.Vector2();
 const tmpMaxLocal = new THREE.Vector2();
@@ -62,6 +64,10 @@ interface AutoUVBox extends PotPackItem {
   vV: number;
   vVtx: number;
   vVty: number;
+
+  vW: number;
+  vWtx: number;
+  vWty: number;
 }
 
 const lightmapPhysWidth = 16;
@@ -151,14 +157,41 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
         tmpULocal.set(tmpU.dot(tmpUAxis), tmpU.dot(tmpVAxis));
         tmpVLocal.set(tmpV.dot(tmpUAxis), tmpV.dot(tmpVAxis));
 
-        // compute min and max extents of origin, U and V local coords
+        // work on the fourth vertex if this is a quad
+        // @todo check if its normal matches
+        let vW = -1;
+        if (sharedEdgeIndex !== -1) {
+          const sharedEdgeCode = curEdgeCodes[sharedEdgeIndex];
+
+          // figure out which edge this is in next face
+          const nextEdgeIndex = nextEdgeCodes.indexOf(sharedEdgeCode);
+
+          if (nextEdgeIndex === -1) {
+            throw new Error('unexpected non-shared edge');
+          }
+
+          // the fourth vertex of the quad is the one opposite to shared edge in next face
+          vW = vNextStart + ((nextEdgeIndex + 2) % 3);
+
+          // compute local coords
+          tmpW.fromArray(posArray, indexArray[vW] * 3);
+          tmpW.sub(tmpOrigin);
+          tmpWLocal.set(tmpW.dot(tmpUAxis), tmpW.dot(tmpVAxis));
+        } else {
+          // not applicable, set to dummy coords
+          tmpWLocal.set(0, 0);
+        }
+
+        // compute min and max extents of origin, U and V local coords (and W if filled)
         tmpMinLocal.set(0, 0);
         tmpMinLocal.min(tmpULocal);
         tmpMinLocal.min(tmpVLocal);
+        tmpMinLocal.min(tmpWLocal);
 
         tmpMaxLocal.set(0, 0);
         tmpMaxLocal.max(tmpULocal);
         tmpMaxLocal.max(tmpVLocal);
+        tmpMaxLocal.max(tmpWLocal);
 
         const realWidth = tmpMaxLocal.x - tmpMinLocal.x;
         const realHeight = tmpMaxLocal.y - tmpMinLocal.y;
@@ -181,7 +214,11 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
 
           vV,
           vVtx: (tmpVLocal.x - tmpMinLocal.x) / realWidth,
-          vVty: (tmpVLocal.y - tmpMinLocal.y) / realWidth
+          vVty: (tmpVLocal.y - tmpMinLocal.y) / realWidth,
+
+          vW,
+          vWtx: (tmpWLocal.x - tmpMinLocal.x) / realWidth,
+          vWty: (tmpWLocal.y - tmpMinLocal.y) / realWidth
         });
 
         // advance by one extra triangle on next cycle if faces share edge
@@ -215,10 +252,13 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
         vUty,
         vV,
         vVtx,
-        vVty
+        vVty,
+        vW,
+        vWtx,
+        vWty
       } = layoutBox;
 
-      console.log(vUtx, vUty, vVtx, vVty);
+      console.log(vUtx, vUty, vVtx, vVty, vWtx, vWty);
     }
   }, [mesh]);
 
