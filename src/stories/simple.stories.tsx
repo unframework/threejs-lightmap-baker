@@ -195,15 +195,19 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
 
         const realWidth = tmpMaxLocal.x - tmpMinLocal.x;
         const realHeight = tmpMaxLocal.y - tmpMinLocal.y;
+
+        // texel box is aligned to texel grid
         const boxWidthInTexels = Math.ceil(realWidth / lightmapTexelSize);
         const boxHeightInTexels = Math.ceil(realHeight / lightmapTexelSize);
 
+        // layout box positioning is in texels
         layoutBoxes.push({
           x: 0, // filled later
           y: 0, // filled later
           w: boxWidthInTexels + 2, // plus margins
           h: boxHeightInTexels + 2, // plus margins
 
+          // vertex local coords expressed as 0..1 inside texel box
           vOrigin,
           vOtx: -tmpMinLocal.x / realWidth,
           vOty: -tmpMinLocal.y / realWidth,
@@ -238,6 +242,11 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
     }
 
     // now fill in the uv2 coordinates
+    const uv2Attr = new THREE.Float32BufferAttribute(
+      (2 * posArray.length) / 3,
+      2
+    );
+
     for (const layoutBox of layoutBoxes) {
       const {
         x,
@@ -258,8 +267,35 @@ const AutoUV2: React.FC<{ children: React.ReactElement<{}, 'mesh'> }> = ({
         vWty
       } = layoutBox;
 
-      console.log(vUtx, vUty, vVtx, vVty, vWtx, vWty);
+      // convert texel box placement into atlas UV coordinates
+      uv2Attr.setXY(
+        indexArray[vOrigin],
+        (x + 1 + vOtx * w) / atlasWidth,
+        (y + 1 + vOty * h) / atlasHeight
+      );
+
+      uv2Attr.setXY(
+        indexArray[vU],
+        (x + 1 + vUtx * w) / atlasWidth,
+        (y + 1 + vUty * h) / atlasHeight
+      );
+
+      uv2Attr.setXY(
+        indexArray[vV],
+        (x + 1 + vVtx * w) / atlasWidth,
+        (y + 1 + vVty * h) / atlasHeight
+      );
+
+      if (vW !== -1) {
+        uv2Attr.setXY(
+          indexArray[vW],
+          (x + 1 + vWtx * w) / atlasWidth,
+          (y + 1 + vWty * h) / atlasHeight
+        );
+      }
     }
+
+    buffer.setAttribute('uv2', uv2Attr);
   }, [mesh]);
 
   return React.cloneElement(children, { ref: meshRef });
