@@ -103,11 +103,12 @@ export function useLightRegister(
 }
 
 const IrradianceSurfaceManager: React.FC<{
+  startDelayMs?: number;
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactElement;
-}> = ({ children }) => {
+}> = ({ startDelayMs, children }) => {
   // collect current available meshes/lights
   const workbenchStage = useMemo(
     () => ({
@@ -132,6 +133,19 @@ const IrradianceSurfaceManager: React.FC<{
       lights: Object.values(workbenchStage.lights)
     }));
   }, [workbenchStage]);
+
+  const startDelayMsRef = useRef(startDelayMs); // read once
+  useEffect(() => {
+    // do nothing if not specified
+    if (startDelayMsRef.current === undefined) {
+      return;
+    }
+
+    const timeoutId = setTimeout(startHandler, startDelayMsRef.current);
+
+    // always clean up on unmount
+    return clearTimeout.bind(null, timeoutId);
+  }, []);
 
   // full workbench with atlas map
   const [workbench, setWorkbench] = useState<Workbench | null>(null);
