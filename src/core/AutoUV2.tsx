@@ -231,19 +231,19 @@ export const AutoUV2Provider: React.FC = ({ children }) => {
             // vertex local coords expressed as 0..1 inside texel box
             viOrigin: indexArray[vOrigin],
             vOtx: -tmpMinLocal.x / realWidth,
-            vOty: -tmpMinLocal.y / realWidth,
+            vOty: -tmpMinLocal.y / realHeight,
 
             viU: indexArray[vU],
             vUtx: (tmpULocal.x - tmpMinLocal.x) / realWidth,
-            vUty: (tmpULocal.y - tmpMinLocal.y) / realWidth,
+            vUty: (tmpULocal.y - tmpMinLocal.y) / realHeight,
 
             viV: indexArray[vV],
             vVtx: (tmpVLocal.x - tmpMinLocal.x) / realWidth,
-            vVty: (tmpVLocal.y - tmpMinLocal.y) / realWidth,
+            vVty: (tmpVLocal.y - tmpMinLocal.y) / realHeight,
 
             viW: vW === -1 ? -1 : indexArray[vW],
             vWtx: (tmpWLocal.x - tmpMinLocal.x) / realWidth,
-            vWty: (tmpWLocal.y - tmpMinLocal.y) / realWidth
+            vWty: (tmpWLocal.y - tmpMinLocal.y) / realHeight
           });
 
           // advance by one extra triangle on next cycle if faces share edge
