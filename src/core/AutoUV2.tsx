@@ -1,5 +1,4 @@
 import React, { useContext, useMemo, useEffect, useRef } from 'react';
-import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
 /// <reference path="potpack.d.ts"/>

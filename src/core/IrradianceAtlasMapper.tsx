@@ -280,7 +280,11 @@ const IrradianceAtlasMapper: React.FC<{
         <scene ref={orthoSceneRef}>
           {inputItems.map((geom, geomIndex) => {
             return (
-              <mesh key={geomIndex}>
+              <mesh
+                key={geomIndex}
+                frustumCulled={false} // skip bounding box checks (not applicable and logic gets confused)
+                position={[0, 0, 0]}
+              >
                 <primitive attach="geometry" object={geom.faceBuffer} />
 
                 <shaderMaterial
