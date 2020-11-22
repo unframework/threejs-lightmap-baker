@@ -66,7 +66,6 @@ const CompositorLayerMaterial: React.FC<{
   );
 };
 
-// @todo support directly exposing texture as render-prop for simpler cases, not just context
 export default function IrradianceCompositor<
   FactorMap extends { [name: string]: THREE.Texture | null | undefined }
 >({
@@ -78,11 +77,16 @@ export default function IrradianceCompositor<
   baseOutput: THREE.Texture | null | undefined;
   factorOutputs?: FactorMap | null;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
+  children:
+    | ((outputLightMap: THREE.Texture) => React.ReactElement)
+    | React.ReactElement;
 }>): React.ReactElement {
   const orthoSceneRef = useRef<THREE.Scene>();
 
   // fall back to empty object if no factors given
-  const realFactorOutputs = useMemo(() => factorOutputs || {}, [factorOutputs]);
+  const realFactorOutputs = useMemo(() => factorOutputs || ({} as FactorMap), [
+    factorOutputs
+  ]);
 
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
@@ -176,7 +180,9 @@ export default function IrradianceCompositor<
       </scene>
 
       <IrradianceTextureContext.Provider value={orthoTarget.texture}>
-        {children}
+        {typeof children === 'function'
+          ? children(orthoTarget.texture)
+          : children}
       </IrradianceTextureContext.Provider>
     </>
   );

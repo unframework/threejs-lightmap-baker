@@ -17,8 +17,15 @@ import IrradianceAtlasMapper, {
 
 export type { Workbench, WorkbenchSceneItem, WorkbenchSceneLight };
 
+interface WorkbenchStagingItem {
+  mesh: THREE.Mesh;
+  material: THREE.MeshLambertMaterial;
+  factorName: string | null;
+  animationClip: THREE.AnimationClip | null;
+}
+
 const IrradianceWorkbenchContext = React.createContext<{
-  items: { [uuid: string]: WorkbenchSceneItem | undefined };
+  items: { [uuid: string]: WorkbenchStagingItem | undefined };
   lights: { [uuid: string]: WorkbenchSceneLight | undefined };
 } | null>(null);
 
@@ -52,17 +59,10 @@ export function useMeshRegister(
 
     const uuid = mesh.uuid; // freeze local reference
 
-    // determine whether this material accepts a lightmap
-    const hasUV2 =
-      mesh.geometry instanceof THREE.Geometry
-        ? mesh.geometry.faceVertexUvs.length > 1
-        : !!mesh.geometry.attributes.uv2;
-
     // register display item
     items[uuid] = {
       mesh,
       material,
-      hasUV2,
       factorName: factorNameRef.current,
       animationClip: animationClipRef.current
     };
@@ -112,8 +112,8 @@ const IrradianceSurfaceManager: React.FC<{
   // collect current available meshes/lights
   const workbenchStage = useMemo(
     () => ({
-      items: {},
-      lights: {}
+      items: {} as { [uuid: string]: WorkbenchStagingItem },
+      lights: {} as { [uuid: string]: WorkbenchSceneLight }
     }),
     []
   );
@@ -129,7 +129,21 @@ const IrradianceSurfaceManager: React.FC<{
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
-      items: Object.values(workbenchStage.items),
+      items: Object.values(workbenchStage.items).map((item) => {
+        const { mesh } = item;
+
+        // determine whether this material accepts a lightmap
+        // (doing this at time of snapshot rather than earlier)
+        const hasUV2 =
+          mesh.geometry instanceof THREE.Geometry
+            ? mesh.geometry.faceVertexUvs.length > 1
+            : !!mesh.geometry.attributes.uv2;
+
+        return {
+          ...item,
+          hasUV2
+        };
+      }),
       lights: Object.values(workbenchStage.lights)
     }));
   }, [workbenchStage]);
