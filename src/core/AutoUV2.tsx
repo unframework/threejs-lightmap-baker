@@ -56,9 +56,6 @@ interface AutoUVBox extends PotPackItem {
   vWty: number;
 }
 
-const lightmapPhysWidth = 16;
-const lightmapTexelSize = lightmapPhysWidth / atlasWidth;
-
 const AutoUV2StagingContext = React.createContext<THREE.Mesh[] | null>(null);
 
 export const AutoUV2: React.FC = () => {
@@ -88,11 +85,23 @@ export const AutoUV2: React.FC = () => {
   return <group ref={groupRef} />;
 };
 
-export const AutoUV2Provider: React.FC = ({ children }) => {
+export interface AutoUV2ProviderProps {
+  mapWorldWidth: number;
+}
+
+export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
+  mapWorldWidth,
+  children
+}) => {
+  // wrap in ref to avoid re-triggering
+  const mapWorldWidthRef = useRef(mapWorldWidth);
+  mapWorldWidthRef.current = mapWorldWidth;
+
   // modified in-place to be able to run right on first render
   const meshStagingList = useMemo<THREE.Mesh[]>(() => [], []);
 
   useEffect(() => {
+    const lightmapTexelSize = mapWorldWidthRef.current / atlasWidth;
     const layoutBoxes: AutoUVBox[] = [];
 
     for (const mesh of meshStagingList) {

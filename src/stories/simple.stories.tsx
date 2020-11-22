@@ -38,13 +38,13 @@ export const Main: Story = () => (
             {(baseLightTexture, probeTexture) => (
               <IrradianceCompositor baseOutput={baseLightTexture}>
                 {(outputLightMap) => (
-                  <AutoUV2Provider>
+                  <AutoUV2Provider mapWorldWidth={32}>
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}
                     >
                       <scene>
-                        <mesh position={[0, 0, -4]} receiveShadow>
+                        <mesh position={[0, 0, -3]} receiveShadow>
                           <planeBufferGeometry
                             attach="geometry"
                             args={[20, 20]}
@@ -52,7 +52,9 @@ export const Main: Story = () => (
                           <meshLambertMaterial
                             attach="material"
                             color="#808080"
+                            lightMap={outputLightMap}
                           />
+                          <AutoUV2 />
                           <IrradianceSurface />
                         </mesh>
 
@@ -82,6 +84,8 @@ export const Main: Story = () => (
                           <meshLambertMaterial
                             attach="material"
                             color="#0000ff"
+                            emissive="#0000ff"
+                            emissiveIntensity={0.25}
                             lightMap={outputLightMap}
                           />
                           <AutoUV2 />
