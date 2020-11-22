@@ -22,7 +22,7 @@ export default {
 export const Main: Story = () => (
   <Canvas
     colorManagement={false} // @todo reconsider
-    camera={{ position: [-4, -4, 8], up: [0, 0, 1] }}
+    camera={{ position: [-6, -4, 2], up: [0, 0, 1] }}
     shadowMap
     onCreated={({ gl }) => {
       gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -51,7 +51,7 @@ export const Main: Story = () => (
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#f0f0f0"
+                            color="#808080"
                           />
                           <IrradianceSurface />
                         </mesh>
@@ -63,7 +63,7 @@ export const Main: Story = () => (
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#808080"
+                            color="#c0c0c0"
                             lightMap={outputLightMap}
                           />
                           <AutoUV2 />
@@ -108,7 +108,7 @@ export const Main: Story = () => (
 
                         <directionalLight
                           intensity={1}
-                          position={[-1, 1, 2]}
+                          position={[-2.5, 2.5, 4]}
                           castShadow
                         >
                           <IrradianceLight />
