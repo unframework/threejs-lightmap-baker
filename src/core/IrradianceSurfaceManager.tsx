@@ -103,12 +103,12 @@ export function useLightRegister(
 }
 
 const IrradianceSurfaceManager: React.FC<{
-  startDelayMs?: number;
+  autoStartDelayMs?: number;
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactElement;
-}> = ({ startDelayMs, children }) => {
+}> = ({ autoStartDelayMs, children }) => {
   // collect current available meshes/lights
   const workbenchStage = useMemo(
     () => ({
@@ -134,14 +134,14 @@ const IrradianceSurfaceManager: React.FC<{
     }));
   }, [workbenchStage]);
 
-  const startDelayMsRef = useRef(startDelayMs); // read once
+  const autoStartDelayMsRef = useRef(autoStartDelayMs); // read once
   useEffect(() => {
     // do nothing if not specified
-    if (startDelayMsRef.current === undefined) {
+    if (autoStartDelayMsRef.current === undefined) {
       return;
     }
 
-    const timeoutId = setTimeout(startHandler, startDelayMsRef.current);
+    const timeoutId = setTimeout(startHandler, autoStartDelayMsRef.current);
 
     // always clean up on unmount
     return clearTimeout.bind(null, timeoutId);
