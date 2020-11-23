@@ -28,8 +28,9 @@ function findVertex(
   return vertexIndex;
 }
 
-// @todo actual auto-seam functionality
-export const AutoSeam: React.FC = () => {
+// simple mesh auto-indexer (add face index attribute based on de-duplicated mesh vertices + normals)
+// does not change existing mesh position array/etc
+export const AutoIndex: React.FC = () => {
   const groupRef = useRef<THREE.Group>();
 
   useEffect(() => {

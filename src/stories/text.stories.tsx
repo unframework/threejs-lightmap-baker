@@ -10,7 +10,7 @@ import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
 import { useIrradianceTexture } from '../core/IrradianceCompositor';
 import { AutoUV2, AutoUV2Provider } from '../core/AutoUV2';
-import { AutoSeam } from '../core/AutoSeam';
+import { AutoIndex } from '../core/AutoIndex';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -88,7 +88,7 @@ export const Main: Story = () => (
                             lightMap={outputLightMap}
                           />
 
-                          <AutoSeam />
+                          <AutoIndex />
                           <AutoUV2 />
                           <IrradianceSurface />
                         </mesh>
