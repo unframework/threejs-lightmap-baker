@@ -10,6 +10,7 @@ import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
 import { useIrradianceTexture } from '../core/IrradianceCompositor';
 import { AutoUV2, AutoUV2Provider } from '../core/AutoUV2';
+import { AutoSeam } from '../core/AutoSeam';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -49,7 +50,7 @@ export const Main: Story = () => (
             {(baseLightTexture, probeTexture) => (
               <IrradianceCompositor baseOutput={baseLightTexture}>
                 {(outputLightMap) => (
-                  <AutoUV2Provider mapWorldWidth={32}>
+                  <AutoUV2Provider mapWorldWidth={5}>
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}
@@ -86,6 +87,10 @@ export const Main: Story = () => (
                             color="#c0c0c0"
                             lightMap={outputLightMap}
                           />
+
+                          <AutoSeam />
+                          <AutoUV2 />
+                          <IrradianceSurface />
                         </mesh>
 
                         <directionalLight
