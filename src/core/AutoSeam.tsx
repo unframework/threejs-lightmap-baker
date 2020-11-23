@@ -16,7 +16,7 @@ function findVertex(
   tmpNormal.fromArray(normalArray, vertexIndex * 3);
 
   // finish search before current vertex (since latter is the fallback return)
-  for (let vStart = 0; vStart < vertexIndex * 3; vStart += 3) {
+  for (let vStart = 0; vStart < vertexIndex; vStart += 1) {
     tmpVert2.fromArray(posArray, vStart * 3);
     tmpNormal2.fromArray(normalArray, vStart * 3);
 
@@ -56,7 +56,8 @@ export const AutoSeam: React.FC = () => {
     }
 
     const posArray = buffer.attributes.position.array;
-    const faceCount = Math.floor(posArray.length / 3);
+    const posCount = Math.floor(posArray.length / 3);
+    const faceCount = Math.floor(posCount / 3);
 
     const normalArray = buffer.attributes.normal.array;
 
