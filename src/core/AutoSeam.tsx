@@ -56,12 +56,13 @@ export const AutoSeam: React.FC = () => {
     }
 
     const posArray = buffer.attributes.position.array;
-    const posCount = Math.floor(posArray.length / 3);
-    const faceCount = Math.floor(posCount / 3);
+    const posVertexCount = Math.floor(posArray.length / 3);
+    const faceCount = Math.floor(posVertexCount / 3);
 
     const normalArray = buffer.attributes.normal.array;
 
-    const indexAttr = new THREE.Uint16Attribute(faceCount * 3, 3);
+    // @todo for some reason this needs 3x the actual needed array size on instantiation
+    const indexAttr = new THREE.Uint16Attribute(faceCount * 3 * 3, 3);
 
     for (let faceIndex = 0; faceIndex < faceCount; faceIndex += 1) {
       const vStart = faceIndex * 3;
@@ -74,7 +75,7 @@ export const AutoSeam: React.FC = () => {
 
     buffer.setIndex(indexAttr);
 
-    console.log(indexAttr, faceCount);
+    console.log(indexAttr.array, faceCount * 3)
   }, []);
 
   return <group ref={groupRef} />;

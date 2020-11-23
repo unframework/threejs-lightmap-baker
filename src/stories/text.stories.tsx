@@ -50,7 +50,7 @@ export const Main: Story = () => (
             {(baseLightTexture, probeTexture) => (
               <IrradianceCompositor baseOutput={baseLightTexture}>
                 {(outputLightMap) => (
-                  <AutoUV2Provider mapWorldWidth={5}>
+                  <AutoUV2Provider mapWorldWidth={8}>
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}
@@ -73,7 +73,7 @@ export const Main: Story = () => (
                           <textBufferGeometry
                             attach="geometry"
                             args={[
-                              'Hey',
+                              'H',
                               {
                                 font: helvetikerFont,
                                 size: 2,
