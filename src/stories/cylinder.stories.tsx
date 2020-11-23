@@ -57,9 +57,9 @@ export const Main: Story = () => (
                         </mesh>
 
                         <mesh position={[0, 0, 0]} castShadow receiveShadow>
-                          <boxBufferGeometry
+                          <cylinderBufferGeometry
                             attach="geometry"
-                            args={[2, 2, 2]}
+                            args={[1.5, 1.5, 2, 4]}
                           />
                           <meshLambertMaterial
                             attach="material"
