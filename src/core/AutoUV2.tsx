@@ -4,8 +4,6 @@ import * as THREE from 'three';
 /// <reference path="potpack.d.ts"/>
 import potpack, { PotPackItem } from 'potpack';
 
-import { atlasWidth, atlasHeight } from './IrradianceAtlasMapper';
-
 const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
@@ -95,22 +93,27 @@ export const AutoUV2: React.FC = () => {
 };
 
 export interface AutoUV2ProviderProps {
-  mapWorldWidth: number;
+  lightMapWidth: number;
+  lightMapHeight: number;
+  lightMapWorldWidth: number;
 }
 
 export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
-  mapWorldWidth,
+  lightMapWidth,
+  lightMapHeight,
+  lightMapWorldWidth: mapWorldWidth,
   children
 }) => {
-  // wrap in ref to avoid re-triggering
+  // read value only on first render
+  const widthRef = useRef(lightMapWidth);
+  const heightRef = useRef(lightMapHeight);
   const mapWorldWidthRef = useRef(mapWorldWidth);
-  mapWorldWidthRef.current = mapWorldWidth;
 
   // modified in-place to be able to run right on first render
   const meshStagingList = useMemo<THREE.Mesh[]>(() => [], []);
 
   useEffect(() => {
-    const lightmapTexelSize = mapWorldWidthRef.current / atlasWidth;
+    const lightmapTexelSize = mapWorldWidthRef.current / widthRef.current;
     const layoutBoxes: AutoUVBox[] = [];
 
     for (const mesh of meshStagingList) {
@@ -295,7 +298,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
     // main layout magic
     const { w: layoutWidth, h: layoutHeight } = potpack(layoutBoxes);
 
-    if (layoutWidth > atlasWidth || layoutHeight > atlasHeight) {
+    if (layoutWidth > widthRef.current || layoutHeight > heightRef.current) {
       throw new Error(
         `auto-UV needs lightmap sized ${layoutWidth}x${layoutHeight}`
       );
@@ -324,8 +327,8 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       for (let i = 0; i < posIndices.length; i += 1) {
         uv2Attr.setXY(
           posIndices[i],
-          (ix + posLocalX[i] * iw) / atlasWidth,
-          (iy + posLocalY[i] * ih) / atlasHeight
+          (ix + posLocalX[i] * iw) / widthRef.current,
+          (iy + posLocalY[i] * ih) / heightRef.current
         );
       }
     }

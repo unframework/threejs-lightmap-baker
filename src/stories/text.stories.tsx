@@ -19,6 +19,8 @@ import './viewport.css';
 import helvetikerFontData from './helvetiker.json';
 const helvetikerFont = new THREE.Font(helvetikerFontData);
 
+const LIGHT_MAP_RES = 64;
+
 export default {
   title: 'Text mesh scene'
 } as Meta;
@@ -44,13 +46,25 @@ export const Main: Story = () => (
     <FontLoader />
 
     <WorkManager>
-      <IrradianceSurfaceManager autoStartDelayMs={10}>
+      <IrradianceSurfaceManager
+        lightMapWidth={LIGHT_MAP_RES}
+        lightMapHeight={LIGHT_MAP_RES}
+        autoStartDelayMs={10}
+      >
         {(workbench) => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor baseOutput={baseLightTexture}>
+              <IrradianceCompositor
+                lightMapWidth={LIGHT_MAP_RES}
+                lightMapHeight={LIGHT_MAP_RES}
+                baseOutput={baseLightTexture}
+              >
                 {(outputLightMap) => (
-                  <AutoUV2Provider mapWorldWidth={8}>
+                  <AutoUV2Provider
+                    lightMapWidth={LIGHT_MAP_RES}
+                    lightMapHeight={LIGHT_MAP_RES}
+                    lightMapWorldWidth={8}
+                  >
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}

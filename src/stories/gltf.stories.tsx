@@ -16,6 +16,8 @@ import { DebugOverlayScene } from './DebugOverlayScene';
 import './viewport.css';
 import sceneUrl from './tile-game-room6.glb';
 
+const LIGHT_MAP_RES = 64;
+
 export default {
   title: 'glTF scene'
 } as Meta;
@@ -181,11 +183,18 @@ export const Main: Story = () => (
     }}
   >
     <WorkManager>
-      <IrradianceSurfaceManager>
+      <IrradianceSurfaceManager
+        lightMapWidth={LIGHT_MAP_RES}
+        lightMapHeight={LIGHT_MAP_RES}
+      >
         {(workbench, startWorkbench) => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor baseOutput={baseLightTexture}>
+              <IrradianceCompositor
+                lightMapWidth={LIGHT_MAP_RES}
+                lightMapHeight={LIGHT_MAP_RES}
+                baseOutput={baseLightTexture}
+              >
                 <DebugOverlayScene
                   atlasTexture={workbench && workbench.atlasMap.texture}
                   probeTexture={probeTexture}
