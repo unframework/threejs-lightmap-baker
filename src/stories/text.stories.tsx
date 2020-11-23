@@ -19,7 +19,7 @@ import './viewport.css';
 import helvetikerFontData from './helvetiker.json';
 const helvetikerFont = new THREE.Font(helvetikerFontData);
 
-const LIGHT_MAP_RES = 64;
+const LIGHT_MAP_RES = 128;
 
 export default {
   title: 'Text mesh scene'
@@ -34,7 +34,7 @@ const FontLoader: React.FC = () => {
 export const Main: Story = () => (
   <Canvas
     colorManagement={false} // @todo reconsider
-    camera={{ position: [-6, -4, 2], up: [0, 0, 1] }}
+    camera={{ position: [-2, -4, 6], up: [0, 0, 1] }}
     shadowMap
     onCreated={({ gl }) => {
       gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -63,42 +63,47 @@ export const Main: Story = () => (
                   <AutoUV2Provider
                     lightMapWidth={LIGHT_MAP_RES}
                     lightMapHeight={LIGHT_MAP_RES}
-                    lightMapWorldWidth={8}
+                    lightMapWorldWidth={20}
                   >
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}
                     >
                       <scene>
-                        <mesh position={[0, 0, -2]} receiveShadow>
+                        <mesh position={[0, 0, -0.1]} receiveShadow>
                           <planeBufferGeometry
                             attach="geometry"
-                            args={[20, 20]}
+                            args={[9, 5]}
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#808080"
+                            color="#ffffff"
                             lightMap={outputLightMap}
                           />
+                          <AutoUV2 />
                           <IrradianceSurface />
                         </mesh>
 
-                        <mesh position={[-2, -1, 0]} castShadow receiveShadow>
+                        <mesh
+                          position={[-3.2, -0.8, 0]}
+                          castShadow
+                          receiveShadow
+                        >
                           <textBufferGeometry
                             attach="geometry"
                             args={[
-                              'H',
+                              'Light!',
                               {
                                 font: helvetikerFont,
                                 size: 2,
-                                height: 0.5,
+                                height: 1.5,
                                 curveSegments: 1
                               }
                             ]}
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#c0c0c0"
+                            color="#ffe020"
                             lightMap={outputLightMap}
                           />
 
@@ -108,8 +113,8 @@ export const Main: Story = () => (
                         </mesh>
 
                         <directionalLight
-                          intensity={1}
-                          position={[-2.5, 2.5, 4]}
+                          intensity={1.5}
+                          position={[-2, 2, 4]}
                           castShadow
                         >
                           <IrradianceLight />
