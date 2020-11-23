@@ -2,8 +2,6 @@ import React, { useMemo, useEffect, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { atlasWidth, atlasHeight } from './IrradianceAtlasMapper';
-
 const IrradianceTextureContext = React.createContext<THREE.Texture | null>(
   null
 );
@@ -69,11 +67,15 @@ const CompositorLayerMaterial: React.FC<{
 export default function IrradianceCompositor<
   FactorMap extends { [name: string]: THREE.Texture | null | undefined }
 >({
+  lightMapWidth,
+  lightMapHeight,
   baseOutput,
   factorOutputs,
   factorValues,
   children
 }: React.PropsWithChildren<{
+  lightMapWidth: number;
+  lightMapHeight: number;
   baseOutput: THREE.Texture | null | undefined;
   factorOutputs?: FactorMap | null;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
@@ -81,6 +83,10 @@ export default function IrradianceCompositor<
     | ((outputLightMap: THREE.Texture) => React.ReactElement)
     | React.ReactElement;
 }>): React.ReactElement {
+  // read value only on first render
+  const widthRef = useRef(lightMapWidth);
+  const heightRef = useRef(lightMapHeight);
+
   const orthoSceneRef = useRef<THREE.Scene>();
 
   // fall back to empty object if no factors given
@@ -102,7 +108,7 @@ export default function IrradianceCompositor<
   }, [realFactorOutputs]);
 
   const orthoTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
+    return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
       type: THREE.FloatType,
       magFilter: THREE.NearestFilter,
       minFilter: THREE.NearestFilter,

@@ -22,6 +22,8 @@ import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
 import './stories/viewport.css';
 
+const LIGHT_MAP_RES = 64;
+
 ReactDOM.render(
   <Canvas
     colorManagement={false} // @todo reconsider
@@ -35,13 +37,25 @@ ReactDOM.render(
     }}
   >
     <WorkManager>
-      <IrradianceSurfaceManager autoStartDelayMs={10}>
+      <IrradianceSurfaceManager
+        lightMapWidth={LIGHT_MAP_RES}
+        lightMapHeight={LIGHT_MAP_RES}
+        autoStartDelayMs={10}
+      >
         {(workbench) => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor baseOutput={baseLightTexture}>
+              <IrradianceCompositor
+                lightMapWidth={LIGHT_MAP_RES}
+                lightMapHeight={LIGHT_MAP_RES}
+                baseOutput={baseLightTexture}
+              >
                 {(outputLightMap) => (
-                  <AutoUV2Provider mapWorldWidth={32}>
+                  <AutoUV2Provider
+                    lightMapWidth={LIGHT_MAP_RES}
+                    lightMapHeight={LIGHT_MAP_RES}
+                    lightMapWorldWidth={32}
+                  >
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}

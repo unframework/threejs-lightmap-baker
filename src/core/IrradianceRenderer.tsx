@@ -4,12 +4,7 @@ import * as THREE from 'three';
 
 import { Workbench } from './IrradianceAtlasMapper';
 import { WorkManagerContext } from './WorkManager';
-import {
-  atlasWidth,
-  atlasHeight,
-  MAX_ITEM_FACES,
-  AtlasMap
-} from './IrradianceAtlasMapper';
+import { MAX_ITEM_FACES, AtlasMap } from './IrradianceAtlasMapper';
 import {
   ProbeBatchRenderer,
   ProbeBatchReader,
@@ -305,7 +300,11 @@ const IrradianceRendererWorker: React.FC<{
 
   // output of the previous baking pass (applied to the light probe scene)
   const [previousOutput, previousOutputData] = useMemo(
-    () => createOutputTexture(atlasWidth, atlasHeight),
+    () =>
+      createOutputTexture(
+        workbenchRef.current.atlasMap.width,
+        workbenchRef.current.atlasMap.height
+      ),
     []
   );
   useEffect(
@@ -318,7 +317,11 @@ const IrradianceRendererWorker: React.FC<{
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
   const [activeOutput, activeOutputData] = useMemo(
-    () => createOutputTexture(atlasWidth, atlasHeight),
+    () =>
+      createOutputTexture(
+        workbenchRef.current.atlasMap.width,
+        workbenchRef.current.atlasMap.height
+      ),
     []
   );
   useEffect(
@@ -358,6 +361,7 @@ const IrradianceRendererWorker: React.FC<{
 
   // kick off new pass when current one is complete
   useEffect(() => {
+    const { atlasMap } = workbenchRef.current;
     const { passComplete, passesRemaining } = processingState;
 
     // check if we need to set up new pass
@@ -372,8 +376,8 @@ const IrradianceRendererWorker: React.FC<{
     // reset output (re-create test pattern only on base)
     // @todo do this only when needing to show debug output?
     clearOutputTexture(
-      atlasWidth,
-      atlasHeight,
+      atlasMap.width,
+      atlasMap.height,
       activeOutputData,
       withTestPattern
     );
@@ -415,6 +419,7 @@ const IrradianceRendererWorker: React.FC<{
           const { passTexelCounter } = processingState;
 
           const { atlasMap } = workbenchRef.current;
+          const { width: atlasWidth, height: atlasHeight } = atlasMap;
           const totalTexelCount = atlasWidth * atlasHeight;
 
           // allow for skipping a certain amount of empty texels
@@ -520,7 +525,7 @@ const IrradianceRendererWorker: React.FC<{
       (renderBatchItem) => {
         queueTexel(
           atlasMap,
-          atlasWidth * 18 + 21 + batchCount,
+          atlasMap.width * 1 + 1 + batchCount,
           renderBatchItem
         );
         batchCount += 1;

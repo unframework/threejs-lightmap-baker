@@ -23,6 +23,8 @@ export interface AtlasMapItem {
 }
 
 export interface AtlasMap {
+  width: number;
+  height: number;
   items: AtlasMapItem[];
   data: Float32Array;
   texture: THREE.Texture;
@@ -34,9 +36,6 @@ export interface Workbench {
   lightSceneLights: WorkbenchSceneLight[];
   atlasMap: AtlasMap;
 }
-
-export const atlasWidth = 64;
-export const atlasHeight = 64;
 
 export const MAX_ITEM_FACES = 1000; // used for encoding item+face index in texture
 
@@ -54,10 +53,14 @@ const tmpV = new THREE.Vector3();
 // @todo consider stencil buffer, or just 8bit texture
 // @todo consider rounding to account for texel size
 const IrradianceAtlasMapper: React.FC<{
+  width: number;
+  height: number;
   lightSceneItems: WorkbenchSceneItem[];
   onComplete: (atlasMap: AtlasMap) => void;
-}> = ({ lightSceneItems, onComplete }) => {
+}> = ({ width, height, lightSceneItems, onComplete }) => {
   // read value only on first render
+  const widthRef = useRef(width);
+  const heightRef = useRef(height);
   const lightSceneItemsRef = useRef(lightSceneItems);
 
   // wait until next render to queue up data to render into atlas texture
@@ -191,7 +194,7 @@ const IrradianceAtlasMapper: React.FC<{
   }, []);
 
   const orthoTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(atlasWidth, atlasHeight, {
+    return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
       type: THREE.FloatType,
       magFilter: THREE.NearestFilter, // pixelate for debug display
       minFilter: THREE.NearestFilter,
@@ -213,7 +216,7 @@ const IrradianceAtlasMapper: React.FC<{
   }, []);
 
   const orthoData = useMemo(() => {
-    return new Float32Array(atlasWidth * atlasHeight * 4);
+    return new Float32Array(widthRef.current * heightRef.current * 4);
   }, []);
 
   // disposed during scene unmount
@@ -258,14 +261,16 @@ const IrradianceAtlasMapper: React.FC<{
         orthoTarget,
         0,
         0,
-        atlasWidth,
-        atlasHeight,
+        widthRef.current,
+        heightRef.current,
         orthoData
       );
 
       setIsComplete(true);
 
       onComplete({
+        width: widthRef.current,
+        height: heightRef.current,
         texture: orthoTarget.texture,
         data: orthoData,
         items: inputItems

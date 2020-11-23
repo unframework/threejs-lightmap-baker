@@ -15,6 +15,8 @@ import { DebugOverlayScene } from './DebugOverlayScene';
 
 import './viewport.css';
 
+const LIGHT_MAP_RES = 64;
+
 export default {
   title: 'Cylinder scene (polygon UV)'
 } as Meta;
@@ -32,13 +34,25 @@ export const Main: Story = () => (
     }}
   >
     <WorkManager>
-      <IrradianceSurfaceManager autoStartDelayMs={10}>
+      <IrradianceSurfaceManager
+        lightMapWidth={LIGHT_MAP_RES}
+        lightMapHeight={LIGHT_MAP_RES}
+        autoStartDelayMs={10}
+      >
         {(workbench) => (
           <IrradianceRenderer workbench={workbench} factorName={null}>
             {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor baseOutput={baseLightTexture}>
+              <IrradianceCompositor
+                lightMapWidth={LIGHT_MAP_RES}
+                lightMapHeight={LIGHT_MAP_RES}
+                baseOutput={baseLightTexture}
+              >
                 {(outputLightMap) => (
-                  <AutoUV2Provider mapWorldWidth={16}>
+                  <AutoUV2Provider
+                    lightMapWidth={LIGHT_MAP_RES}
+                    lightMapHeight={LIGHT_MAP_RES}
+                    lightMapWorldWidth={16}
+                  >
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}
