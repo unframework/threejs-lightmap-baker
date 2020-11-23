@@ -176,9 +176,9 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
               throw new Error('unexpected orphaned layout box');
             }
             layoutBoxes.splice(removedBoxIndex, 1);
+          } else {
+            existingBox = possibleBox;
           }
-
-          existingBox = possibleBox;
         }
 
         // set up new layout box if needed
