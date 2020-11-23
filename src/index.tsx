@@ -17,12 +17,16 @@ import IrradianceCompositor from './core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
 import { useIrradianceTexture } from './core/IrradianceCompositor';
 import { AutoUV2, AutoUV2Provider } from './core/AutoUV2';
+import { AutoIndex } from './core/AutoIndex';
 import DebugControls from './stories/DebugControls';
 import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
 import './stories/viewport.css';
 
-const LIGHT_MAP_RES = 64;
+import helvetikerFontData from './stories/helvetiker.json';
+const helvetikerFont = new THREE.Font(helvetikerFontData);
+
+const LIGHT_MAP_RES = 128;
 
 ReactDOM.render(
   <Canvas
@@ -54,35 +58,21 @@ ReactDOM.render(
                   <AutoUV2Provider
                     lightMapWidth={LIGHT_MAP_RES}
                     lightMapHeight={LIGHT_MAP_RES}
-                    lightMapWorldWidth={32}
+                    lightMapWorldWidth={20}
                   >
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
                       probeTexture={probeTexture}
                     >
                       <scene>
-                        <mesh position={[0, 0, -3]} receiveShadow>
+                        <mesh position={[0, 0, -0.1]} receiveShadow>
                           <planeBufferGeometry
                             attach="geometry"
-                            args={[20, 20]}
+                            args={[9, 5]}
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#808080"
-                            lightMap={outputLightMap}
-                          />
-                          <AutoUV2 />
-                          <IrradianceSurface />
-                        </mesh>
-
-                        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
-                          <boxBufferGeometry
-                            attach="geometry"
-                            args={[2, 2, 5]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#c0c0c0"
+                            color="#ffffff"
                             lightMap={outputLightMap}
                           />
                           <AutoUV2 />
@@ -90,46 +80,36 @@ ReactDOM.render(
                         </mesh>
 
                         <mesh
-                          position={[0, -1.5, -1.5]}
+                          position={[-3.2, -0.8, 0]}
                           castShadow
                           receiveShadow
                         >
-                          <boxBufferGeometry
+                          <textBufferGeometry
                             attach="geometry"
-                            args={[2, 2, 2]}
+                            args={[
+                              'Light!',
+                              {
+                                font: helvetikerFont,
+                                size: 2,
+                                height: 1.5,
+                                curveSegments: 1
+                              }
+                            ]}
                           />
                           <meshLambertMaterial
                             attach="material"
-                            color="#0000ff"
-                            emissive="#0000ff"
-                            emissiveIntensity={0.25}
+                            color="#ffe020"
                             lightMap={outputLightMap}
                           />
-                          <AutoUV2 />
-                          <IrradianceSurface />
-                        </mesh>
 
-                        <mesh
-                          position={[0, -1.5, 1.5]}
-                          castShadow
-                          receiveShadow
-                        >
-                          <boxBufferGeometry
-                            attach="geometry"
-                            args={[2, 2, 2]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#ff0000"
-                            lightMap={outputLightMap}
-                          />
+                          <AutoIndex />
                           <AutoUV2 />
                           <IrradianceSurface />
                         </mesh>
 
                         <directionalLight
-                          intensity={1}
-                          position={[-2.5, 2.5, 4]}
+                          intensity={1.5}
+                          position={[-2, 2, 4]}
                           castShadow
                         >
                           <IrradianceLight />
