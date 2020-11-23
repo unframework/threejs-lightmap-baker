@@ -82,7 +82,7 @@ const IrradianceAtlasMapper: React.FC<{
             throw new Error('expected face index array');
           }
 
-          const faceVertexCount = indexAttr.count;
+          const faceVertexCount = indexAttr.array.length;
           const uv2Attr = buffer.attributes.uv2;
           const normalAttr = buffer.attributes.normal;
 

@@ -61,8 +61,8 @@ export const AutoSeam: React.FC = () => {
 
     const normalArray = buffer.attributes.normal.array;
 
-    // @todo for some reason this needs 3x the actual needed array size on instantiation
-    const indexAttr = new THREE.Uint16Attribute(faceCount * 3 * 3, 3);
+    const indexAttr = new THREE.Uint16BufferAttribute(faceCount * 3, 3);
+    indexAttr.count = faceCount * 3; // @todo without this the mesh does not show all faces
 
     for (let faceIndex = 0; faceIndex < faceCount; faceIndex += 1) {
       const vStart = faceIndex * 3;
@@ -74,8 +74,6 @@ export const AutoSeam: React.FC = () => {
     }
 
     buffer.setIndex(indexAttr);
-
-    console.log(indexAttr.array, faceCount * 3)
   }, []);
 
   return <group ref={groupRef} />;
