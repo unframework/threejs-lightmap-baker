@@ -6,19 +6,6 @@ import potpack, { PotPackItem } from 'potpack';
 
 import { atlasWidth, atlasHeight } from './IrradianceAtlasMapper';
 
-// return triangle edge canonical code as i1:i2 (in consistent winding order)
-function getEdgeCode(
-  indexList: ArrayLike<number>,
-  start: number,
-  edgeIndex: number,
-  flip: boolean
-) {
-  const a = indexList[start + (edgeIndex % 3)];
-  const b = indexList[start + ((edgeIndex + 1) % 3)];
-
-  return flip ? `${b}:${a}` : `${a}:${b}`;
-}
-
 const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
@@ -28,32 +15,54 @@ const tmpNormal = new THREE.Vector3();
 const tmpUAxis = new THREE.Vector3();
 const tmpVAxis = new THREE.Vector3();
 
-const tmpULocal = new THREE.Vector2();
-const tmpVLocal = new THREE.Vector2();
 const tmpWLocal = new THREE.Vector2();
 
 const tmpMinLocal = new THREE.Vector2();
 const tmpMaxLocal = new THREE.Vector2();
 
+function guessOrthogonalOrigin(
+  indexArray: ArrayLike<number>,
+  vStart: number,
+  posArray: ArrayLike<number>
+): number {
+  let minAbsDot = 1;
+  let minI = 0;
+
+  for (let i = 0; i < 3; i += 1) {
+    // for this ortho origin choice, compute defining edges
+    tmpOrigin.fromArray(posArray, indexArray[vStart + i] * 3);
+    tmpU.fromArray(posArray, indexArray[vStart + ((i + 2) % 3)] * 3);
+    tmpV.fromArray(posArray, indexArray[vStart + ((i + 1) % 3)] * 3);
+
+    tmpU.sub(tmpOrigin);
+    tmpV.sub(tmpOrigin);
+
+    // normalize and compute cross (cosine of angle)
+    tmpU.normalize();
+    tmpV.normalize();
+
+    const absDot = Math.abs(tmpU.dot(tmpV));
+
+    // compare with current minimum
+    if (minAbsDot > absDot) {
+      minAbsDot = absDot;
+      minI = i;
+    }
+  }
+
+  return minI;
+}
+
 interface AutoUVBox extends PotPackItem {
   uv2Attr: THREE.Float32BufferAttribute;
 
-  // direct index into attribute and local coords inside box
-  viOrigin: number;
-  vOtx: number;
-  vOty: number;
+  uAxis: THREE.Vector3;
+  vAxis: THREE.Vector3;
 
-  viU: number;
-  vUtx: number;
-  vUty: number;
-
-  viV: number;
-  vVtx: number;
-  vVty: number;
-
-  viW: number;
-  vWtx: number;
-  vWty: number;
+  posArray: ArrayLike<number>;
+  posIndices: number[];
+  posLocalX: number[];
+  posLocalY: number[];
 }
 
 const AutoUV2StagingContext = React.createContext<THREE.Mesh[] | null>(null);
@@ -123,6 +132,10 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       const posArray = buffer.attributes.position.array;
       const normalArray = buffer.attributes.normal.array;
 
+      const vertexBoxMap: (AutoUVBox | undefined)[] = new Array(
+        posArray.length / 3
+      );
+
       if (buffer.attributes.uv2) {
         throw new Error('uv2 attribute already exists');
       }
@@ -135,38 +148,36 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       buffer.setAttribute('uv2', uv2Attr);
 
       for (let vStart = 0; vStart < faceCount * 3; vStart += 3) {
-        const vNextStart = vStart + 3;
+        // see if this face shares a vertex with an existing layout box
+        let existingBox: AutoUVBox | undefined;
 
-        // detect quad
-        if (vNextStart < faceCount * 3) {
-          // encoded vertex index pairs
-          const curEdgeCodes = [
-            getEdgeCode(indexArray, vStart, 0, false),
-            getEdgeCode(indexArray, vStart, 1, false),
-            getEdgeCode(indexArray, vStart, 2, false)
-          ];
+        for (let i = 0; i < 3; i += 1) {
+          const possibleBox = vertexBoxMap[indexArray[vStart + i]];
 
-          // same but flipped (to reflect that here the edge is "walked" in opposite direction)
-          const nextEdgeCodes = [
-            getEdgeCode(indexArray, vNextStart, 0, true),
-            getEdgeCode(indexArray, vNextStart, 1, true),
-            getEdgeCode(indexArray, vNextStart, 2, true)
-          ];
+          if (!possibleBox) {
+            continue;
+          }
 
-          const sharedEdgeIndex = curEdgeCodes.findIndex(
-            (edgeCode) => nextEdgeCodes.indexOf(edgeCode) !== -1
-          );
+          if (existingBox && existingBox !== possibleBox) {
+            // @todo actually this may happen if same polygon's faces are defined non-consecutively?
+            throw new Error(
+              'multiple polygons share same vertex, make sure to separate vertex normals'
+            );
+          }
 
-          // decide which is the "origin" vertex
-          const oppositeEdgeIndex =
-            sharedEdgeIndex !== -1 ? sharedEdgeIndex : 1;
+          existingBox = possibleBox;
+        }
 
-          // U and V vertices are on the opposite edge to origin
-          const vU = vStart + oppositeEdgeIndex;
-          const vV = vStart + ((oppositeEdgeIndex + 1) % 3);
-          const vOrigin = vStart + ((oppositeEdgeIndex + 2) % 3);
+        // set up new layout box if needed
+        if (!existingBox) {
+          // @todo guess axis choice based on angle?
+          const originFI = guessOrthogonalOrigin(indexArray, vStart, posArray);
 
-          // get the non-shared edge vectors
+          const vOrigin = vStart + originFI;
+          const vU = vStart + ((originFI + 2) % 3); // prev in face
+          const vV = vStart + ((originFI + 1) % 3); // next in face
+
+          // get the plane-defining edge vectors
           tmpOrigin.fromArray(posArray, indexArray[vOrigin] * 3);
           tmpU.fromArray(posArray, indexArray[vU] * 3);
           tmpV.fromArray(posArray, indexArray[vV] * 3);
@@ -181,89 +192,94 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
           tmpUAxis.normalize();
           tmpVAxis.normalize();
 
-          // U and V vertex coords in local face plane
-          tmpULocal.set(tmpU.dot(tmpUAxis), tmpU.dot(tmpVAxis));
-          tmpVLocal.set(tmpV.dot(tmpUAxis), tmpV.dot(tmpVAxis));
-
-          // work on the fourth vertex if this is a quad
-          // @todo check if its normal matches
-          let vW = -1;
-          if (sharedEdgeIndex !== -1) {
-            const sharedEdgeCode = curEdgeCodes[sharedEdgeIndex];
-
-            // figure out which edge this is in next face
-            const nextEdgeIndex = nextEdgeCodes.indexOf(sharedEdgeCode);
-
-            if (nextEdgeIndex === -1) {
-              throw new Error('unexpected non-shared edge');
-            }
-
-            // the fourth vertex of the quad is the one opposite to shared edge in next face
-            vW = vNextStart + ((nextEdgeIndex + 2) % 3);
-
-            // compute local coords
-            tmpW.fromArray(posArray, indexArray[vW] * 3);
-            tmpW.sub(tmpOrigin);
-            tmpWLocal.set(tmpW.dot(tmpUAxis), tmpW.dot(tmpVAxis));
-          } else {
-            // not applicable, set to dummy coords
-            tmpWLocal.set(0, 0);
-          }
-
-          // compute min and max extents of origin, U and V local coords (and W if filled)
-          tmpMinLocal.set(0, 0);
-          tmpMinLocal.min(tmpULocal);
-          tmpMinLocal.min(tmpVLocal);
-          tmpMinLocal.min(tmpWLocal);
-
-          tmpMaxLocal.set(0, 0);
-          tmpMaxLocal.max(tmpULocal);
-          tmpMaxLocal.max(tmpVLocal);
-          tmpMaxLocal.max(tmpWLocal);
-
-          const realWidth = tmpMaxLocal.x - tmpMinLocal.x;
-          const realHeight = tmpMaxLocal.y - tmpMinLocal.y;
-
-          // texel box is aligned to texel grid
-          const boxWidthInTexels = Math.ceil(realWidth / lightmapTexelSize);
-          const boxHeightInTexels = Math.ceil(realHeight / lightmapTexelSize);
-
-          // layout box positioning is in texels
-          layoutBoxes.push({
+          existingBox = {
             x: 0, // filled later
             y: 0, // filled later
-            w: boxWidthInTexels + 2, // plus margins
-            h: boxHeightInTexels + 2, // plus margins
+            w: 0, // filled later
+            h: 0, // filled later
 
             uv2Attr,
 
-            // vertex local coords expressed as 0..1 inside texel box
-            viOrigin: indexArray[vOrigin],
-            vOtx: -tmpMinLocal.x / realWidth,
-            vOty: -tmpMinLocal.y / realHeight,
+            uAxis: tmpUAxis.clone(),
+            vAxis: tmpVAxis.clone(),
 
-            viU: indexArray[vU],
-            vUtx: (tmpULocal.x - tmpMinLocal.x) / realWidth,
-            vUty: (tmpULocal.y - tmpMinLocal.y) / realHeight,
+            posArray,
+            posIndices: [],
+            posLocalX: [],
+            posLocalY: []
+          };
 
-            viV: indexArray[vV],
-            vVtx: (tmpVLocal.x - tmpMinLocal.x) / realWidth,
-            vVty: (tmpVLocal.y - tmpMinLocal.y) / realHeight,
+          layoutBoxes.push(existingBox);
+        }
 
-            viW: vW === -1 ? -1 : indexArray[vW],
-            vWtx: (tmpWLocal.x - tmpMinLocal.x) / realWidth,
-            vWty: (tmpWLocal.y - tmpMinLocal.y) / realHeight
-          });
+        // add this face's vertices to the layout box local point set
+        // @todo warn if normals deviate too much
+        for (let i = 0; i < 3; i += 1) {
+          const index = indexArray[vStart + i];
 
-          // advance by one extra triangle on next cycle if faces share edge
-          // @todo process the second triangle
-          if (sharedEdgeIndex !== -1) {
-            vStart += 3;
+          if (vertexBoxMap[index]) {
+            continue;
           }
+
+          vertexBoxMap[index] = existingBox;
+          existingBox.posIndices.push(index);
+          existingBox.posLocalX.push(0); // filled later
+          existingBox.posLocalY.push(0); // filled later
         }
       }
     }
 
+    // fill in local coords and compute dimensions for layout boxes based on polygon point sets inside them
+    for (const layoutBox of layoutBoxes) {
+      const {
+        uAxis,
+        vAxis,
+        posArray,
+        posIndices,
+        posLocalX,
+        posLocalY
+      } = layoutBox;
+
+      // compute min and max extents of all coords
+      tmpMinLocal.set(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+      tmpMaxLocal.set(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
+
+      for (let i = 0; i < posIndices.length; i += 1) {
+        const index = posIndices[i];
+
+        tmpW.fromArray(posArray, index * 3);
+        tmpWLocal.set(tmpW.dot(uAxis), tmpW.dot(vAxis));
+
+        tmpMinLocal.min(tmpWLocal);
+        tmpMaxLocal.max(tmpWLocal);
+
+        posLocalX[i] = tmpWLocal.x;
+        posLocalY[i] = tmpWLocal.y;
+      }
+
+      const realWidth = tmpMaxLocal.x - tmpMinLocal.x;
+      const realHeight = tmpMaxLocal.y - tmpMinLocal.y;
+
+      if (realWidth < 0 || realHeight < 0) {
+        throw new Error('zero-point polygon?');
+      }
+
+      // texel box is aligned to texel grid
+      const boxWidthInTexels = Math.ceil(realWidth / lightmapTexelSize);
+      const boxHeightInTexels = Math.ceil(realHeight / lightmapTexelSize);
+
+      // layout box positioning is in texels
+      layoutBox.w = boxWidthInTexels + 2; // plus margins
+      layoutBox.h = boxHeightInTexels + 2; // plus margins
+
+      // make vertex local coords expressed as 0..1 inside texel box
+      for (let i = 0; i < posIndices.length; i += 1) {
+        posLocalX[i] = (posLocalX[i] - tmpMinLocal.x) / realWidth;
+        posLocalY[i] = (posLocalY[i] - tmpMinLocal.y) / realHeight;
+      }
+    }
+
+    // main layout magic
     const { w: layoutWidth, h: layoutHeight } = potpack(layoutBoxes);
 
     if (layoutWidth > atlasWidth || layoutHeight > atlasHeight) {
@@ -272,6 +288,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       );
     }
 
+    // based on layout box positions, fill in UV2 attribute data
     for (const layoutBox of layoutBoxes) {
       const {
         x,
@@ -279,18 +296,9 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
         w,
         h,
         uv2Attr,
-        viOrigin,
-        vOtx,
-        vOty,
-        viU,
-        vUtx,
-        vUty,
-        viV,
-        vVtx,
-        vVty,
-        viW,
-        vWtx,
-        vWty
+        posIndices,
+        posLocalX,
+        posLocalY
       } = layoutBox;
 
       // inner texel box without margins
@@ -300,29 +308,11 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       const ih = h - 2;
 
       // convert texel box placement into atlas UV coordinates
-      uv2Attr.setXY(
-        viOrigin,
-        (ix + vOtx * iw) / atlasWidth,
-        (iy + vOty * ih) / atlasHeight
-      );
-
-      uv2Attr.setXY(
-        viU,
-        (ix + vUtx * iw) / atlasWidth,
-        (iy + vUty * ih) / atlasHeight
-      );
-
-      uv2Attr.setXY(
-        viV,
-        (ix + vVtx * iw) / atlasWidth,
-        (iy + vVty * ih) / atlasHeight
-      );
-
-      if (viW !== -1) {
+      for (let i = 0; i < posIndices.length; i += 1) {
         uv2Attr.setXY(
-          viW,
-          (ix + vWtx * iw) / atlasWidth,
-          (iy + vWty * ih) / atlasHeight
+          posIndices[i],
+          (ix + posLocalX[i] * iw) / atlasWidth,
+          (iy + posLocalY[i] * ih) / atlasHeight
         );
       }
     }
