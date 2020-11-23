@@ -164,21 +164,23 @@ function clearOutputTexture(
   }
 
   // pre-fill with a test pattern
-  for (let i = 0; i < atlasSize; i++) {
-    const x = i % atlasWidth;
-    const y = Math.floor(i / atlasWidth);
+  // (nested loop to avoid tripping sandbox infinite loop detection)
+  for (let y = 0; y < atlasHeight; y += 1) {
+    const yStart = y * atlasWidth * 4;
 
-    const stride = i * 4;
+    for (let x = 0; x < atlasWidth; x += 1) {
+      const stride = yStart + x * 4;
 
-    const tileX = Math.floor(x / 4);
-    const tileY = Math.floor(y / 4);
+      const tileX = Math.floor(x / 4);
+      const tileY = Math.floor(y / 4);
 
-    const on = tileX % 2 === tileY % 2;
+      const on = tileX % 2 === tileY % 2;
 
-    data[stride] = on ? 0.2 : 0.8;
-    data[stride + 1] = 0.5;
-    data[stride + 2] = on ? 0.8 : 0.2;
-    data[stride + 3] = 0;
+      data[stride] = on ? 0.2 : 0.8;
+      data[stride + 1] = 0.5;
+      data[stride + 2] = on ? 0.8 : 0.2;
+      data[stride + 3] = 0;
+    }
   }
 }
 
