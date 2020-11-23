@@ -159,10 +159,23 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
           }
 
           if (existingBox && existingBox !== possibleBox) {
-            // @todo actually this may happen if same polygon's faces are defined non-consecutively?
-            throw new Error(
-              'multiple polygons share same vertex, make sure to separate vertex normals'
-            );
+            // absorb layout box into the other
+            // (this may happen if same polygon's faces are defined non-consecutively)
+            existingBox.posIndices.push(...possibleBox.posIndices);
+            existingBox.posLocalX.push(...possibleBox.posLocalX);
+            existingBox.posLocalY.push(...possibleBox.posLocalY);
+
+            // re-assign by-vertex lookup
+            for (const index of possibleBox.posIndices) {
+              vertexBoxMap[index] = existingBox;
+            }
+
+            // remove from main list
+            const removedBoxIndex = layoutBoxes.indexOf(possibleBox);
+            if (removedBoxIndex === -1) {
+              throw new Error('unexpected orphaned layout box');
+            }
+            layoutBoxes.splice(removedBoxIndex, 1);
           }
 
           existingBox = possibleBox;
