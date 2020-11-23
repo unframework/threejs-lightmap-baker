@@ -148,6 +148,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       buffer.setAttribute('uv2', uv2Attr);
 
       for (let vStart = 0; vStart < faceCount * 3; vStart += 3) {
+        // see if this face shares a vertex with an existing layout box
         let existingBox: AutoUVBox | undefined;
 
         for (let i = 0; i < 3; i += 1) {
@@ -158,6 +159,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
           }
 
           if (existingBox && existingBox !== possibleBox) {
+            // @todo actually this may happen if same polygon's faces are defined non-consecutively?
             throw new Error(
               'multiple polygons share same vertex, make sure to separate vertex normals'
             );
@@ -166,6 +168,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
           existingBox = possibleBox;
         }
 
+        // set up new layout box if needed
         if (!existingBox) {
           // @todo guess axis choice based on angle?
           const originFI = guessOrthogonalOrigin(indexArray, vStart, posArray);
@@ -209,6 +212,8 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
           layoutBoxes.push(existingBox);
         }
 
+        // add this face's vertices to the layout box local point set
+        // @todo warn if normals deviate too much
         for (let i = 0; i < 3; i += 1) {
           const index = indexArray[vStart + i];
 
@@ -218,12 +223,13 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
 
           vertexBoxMap[index] = existingBox;
           existingBox.posIndices.push(index);
-          existingBox.posLocalX.push(0);
-          existingBox.posLocalY.push(0);
+          existingBox.posLocalX.push(0); // filled later
+          existingBox.posLocalY.push(0); // filled later
         }
       }
     }
 
+    // fill in local coords and compute dimensions for layout boxes based on polygon point sets inside them
     for (const layoutBox of layoutBoxes) {
       const {
         uAxis,
@@ -273,6 +279,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       }
     }
 
+    // main layout magic
     const { w: layoutWidth, h: layoutHeight } = potpack(layoutBoxes);
 
     if (layoutWidth > atlasWidth || layoutHeight > atlasHeight) {
@@ -281,6 +288,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       );
     }
 
+    // based on layout box positions, fill in UV2 attribute data
     for (const layoutBox of layoutBoxes) {
       const {
         x,
