@@ -31,7 +31,7 @@ const LIGHT_MAP_RES = 128;
 ReactDOM.render(
   <Canvas
     colorManagement={false} // @todo reconsider
-    camera={{ position: [-6, -4, 2], up: [0, 0, 1] }}
+    camera={{ position: [-2, -4, 6], up: [0, 0, 1] }}
     shadowMap
     onCreated={({ gl }) => {
       gl.toneMapping = THREE.ACESFilmicToneMapping;
