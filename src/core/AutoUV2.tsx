@@ -20,6 +20,39 @@ const tmpWLocal = new THREE.Vector2();
 const tmpMinLocal = new THREE.Vector2();
 const tmpMaxLocal = new THREE.Vector2();
 
+function guessOrthogonalOrigin(
+  indexArray: ArrayLike<number>,
+  vStart: number,
+  posArray: ArrayLike<number>
+): number {
+  let minAbsDot = 1;
+  let minI = 0;
+
+  for (let i = 0; i < 3; i += 1) {
+    // for this ortho origin choice, compute defining edges
+    tmpOrigin.fromArray(posArray, indexArray[vStart + i] * 3);
+    tmpU.fromArray(posArray, indexArray[vStart + ((i + 2) % 3)] * 3);
+    tmpV.fromArray(posArray, indexArray[vStart + ((i + 1) % 3)] * 3);
+
+    tmpU.sub(tmpOrigin);
+    tmpV.sub(tmpOrigin);
+
+    // normalize and compute cross (cosine of angle)
+    tmpU.normalize();
+    tmpV.normalize();
+
+    const absDot = Math.abs(tmpU.dot(tmpV));
+
+    // compare with current minimum
+    if (minAbsDot > absDot) {
+      minAbsDot = absDot;
+      minI = i;
+    }
+  }
+
+  return minI;
+}
+
 interface AutoUVBox extends PotPackItem {
   uv2Attr: THREE.Float32BufferAttribute;
 
@@ -135,9 +168,11 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
 
         if (!existingBox) {
           // @todo guess axis choice based on angle?
-          const vU = vStart;
-          const vV = vStart + 2;
-          const vOrigin = vStart + 1;
+          const originFI = guessOrthogonalOrigin(indexArray, vStart, posArray);
+
+          const vOrigin = vStart + originFI;
+          const vU = vStart + ((originFI + 2) % 3); // prev in face
+          const vV = vStart + ((originFI + 1) % 3); // next in face
 
           // get the plane-defining edge vectors
           tmpOrigin.fromArray(posArray, indexArray[vOrigin] * 3);
