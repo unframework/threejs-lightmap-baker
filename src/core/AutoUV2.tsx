@@ -198,7 +198,7 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
             uv2Attr,
 
             uAxis: tmpUAxis.clone(),
-            vAxis: tmpUAxis.clone(),
+            vAxis: tmpVAxis.clone(),
 
             posArray,
             posIndices: [],
@@ -235,14 +235,14 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       } = layoutBox;
 
       // compute min and max extents of all coords
-      tmpMinLocal.set(0, 0);
-      tmpMaxLocal.set(0, 0);
+      tmpMinLocal.set(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY);
+      tmpMaxLocal.set(Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY);
 
       for (let i = 0; i < posIndices.length; i += 1) {
         const index = posIndices[i];
 
         tmpW.fromArray(posArray, index * 3);
-        tmpWLocal.set(tmpW.dot(tmpUAxis), tmpW.dot(tmpVAxis));
+        tmpWLocal.set(tmpW.dot(uAxis), tmpW.dot(vAxis));
 
         tmpMinLocal.min(tmpWLocal);
         tmpMaxLocal.max(tmpWLocal);
@@ -253,6 +253,10 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
 
       const realWidth = tmpMaxLocal.x - tmpMinLocal.x;
       const realHeight = tmpMaxLocal.y - tmpMinLocal.y;
+
+      if (realWidth < 0 || realHeight < 0) {
+        throw new Error('zero-point polygon?');
+      }
 
       // texel box is aligned to texel grid
       const boxWidthInTexels = Math.ceil(realWidth / lightmapTexelSize);
