@@ -46,12 +46,13 @@ const tmpV = new THREE.Vector3();
 
 const VERTEX_SHADER = `
   varying vec3 vFacePos;
+  uniform vec2 uvOffset;
 
   void main() {
     vFacePos = position;
 
     gl_Position = projectionMatrix * vec4(
-      uv, // UV is the actual position on map
+      uv + uvOffset, // UV is the actual position on map
       0,
       1.0
     );
@@ -73,17 +74,21 @@ const FRAGMENT_SHADER = `
 // and quadIndex is 1-based to distinguish from blank space
 // which allows to find original 3D position/normal/etc for that texel
 // (quad index is int stored as float, but precision should be good enough)
+// if lightmap is displayed in nearest-neighbour mode, default pixel-midpoint
+// sampling of rasterizer is kept as is (texel [0,0] is UV [0.5*pixelsize,0.5*pixelsize]),
+// otherwise the atlas is shifted by half-texel to make texel [0,0] actually match UV [0,0]
 // @todo consider stencil buffer, or just 8bit texture
-// @todo consider rounding to account for texel size
 const IrradianceAtlasMapper: React.FC<{
   width: number;
   height: number;
+  sampleIsMidpoint: boolean; // aka "lightmap is nearest-neighbour filter"
   lightSceneItems: WorkbenchSceneItem[];
   onComplete: (atlasMap: AtlasMap) => void;
-}> = ({ width, height, lightSceneItems, onComplete }) => {
+}> = ({ width, height, sampleIsMidpoint, lightSceneItems, onComplete }) => {
   // read value only on first render
   const widthRef = useRef(width);
   const heightRef = useRef(height);
+  const sampleIsMidpointRef = useRef(sampleIsMidpoint);
   const lightSceneItemsRef = useRef(lightSceneItems);
 
   // wait until next render to queue up data to render into atlas texture
@@ -217,9 +222,10 @@ const IrradianceAtlasMapper: React.FC<{
   }, []);
 
   const orthoTarget = useMemo(() => {
+    // set up rasterization with no frills
     return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
       type: THREE.FloatType,
-      magFilter: THREE.NearestFilter, // pixelate for debug display
+      magFilter: THREE.NearestFilter,
       minFilter: THREE.NearestFilter,
       depthBuffer: false,
       generateMipmaps: false
@@ -279,6 +285,18 @@ const IrradianceAtlasMapper: React.FC<{
     [inputItems]
   );
 
+  const uniformDefs = useMemo(
+    () => ({
+      uvOffset: {
+        value: new THREE.Vector2(
+          sampleIsMidpointRef.current ? 0 : 0.5 / widthRef.current,
+          sampleIsMidpointRef.current ? 0 : 0.5 / heightRef.current
+        )
+      }
+    }),
+    []
+  );
+
   return (
     <>
       {inputItems && !isComplete && (
@@ -297,6 +315,7 @@ const IrradianceAtlasMapper: React.FC<{
                   side={THREE.DoubleSide}
                   vertexShader={VERTEX_SHADER}
                   fragmentShader={FRAGMENT_SHADER}
+                  uniforms={uniformDefs}
                 />
               </mesh>
             );

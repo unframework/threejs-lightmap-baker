@@ -99,9 +99,10 @@ export function useLightProbe(
   const targetHeight = probeTargetSize * 2 * PROBE_BATCH_COUNT; // 2 tiles x batch count
 
   const probeTarget = useMemo(() => {
+    // set up rasterization with no frills
     return new THREE.WebGLRenderTarget(targetWidth, targetHeight, {
       type: THREE.FloatType,
-      magFilter: THREE.NearestFilter, // pixelate for debug display
+      magFilter: THREE.NearestFilter,
       minFilter: THREE.NearestFilter,
       generateMipmaps: false
     });

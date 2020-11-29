@@ -69,6 +69,7 @@ export default function IrradianceCompositor<
 >({
   lightMapWidth,
   lightMapHeight,
+  lightMapIsSmooth,
   baseOutput,
   factorOutputs,
   factorValues,
@@ -76,6 +77,7 @@ export default function IrradianceCompositor<
 }: React.PropsWithChildren<{
   lightMapWidth: number;
   lightMapHeight: number;
+  lightMapIsSmooth?: boolean;
   baseOutput: THREE.Texture | null | undefined;
   factorOutputs?: FactorMap | null;
   factorValues?: { [name in keyof FactorMap]: number | undefined };
@@ -86,6 +88,7 @@ export default function IrradianceCompositor<
   // read value only on first render
   const widthRef = useRef(lightMapWidth);
   const heightRef = useRef(lightMapHeight);
+  const isSmoothRef = useRef(lightMapIsSmooth);
 
   const orthoSceneRef = useRef<THREE.Scene>();
 
@@ -110,8 +113,8 @@ export default function IrradianceCompositor<
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
       type: THREE.FloatType,
-      magFilter: THREE.NearestFilter,
-      minFilter: THREE.NearestFilter,
+      magFilter: isSmoothRef.current ? THREE.LinearFilter : THREE.NearestFilter,
+      minFilter: isSmoothRef.current ? THREE.LinearFilter : THREE.NearestFilter,
       generateMipmaps: false
     });
   }, []);
