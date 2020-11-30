@@ -52,6 +52,10 @@ export function useIrradianceTexture(): THREE.Texture {
   return texture;
 }
 
+const LIGHTMAP_BG_COLOR = new THREE.Color('#000000'); // blank must be all zeroes (as one would expect)
+
+const tmpPrevClearColor = new THREE.Color();
+
 function createRendererTexture(
   atlasWidth: number,
   atlasHeight: number
@@ -269,10 +273,23 @@ export default function IrradianceCompositor<
       }
     }
 
-    gl.autoClear = true;
+    // save existing renderer state
+    tmpPrevClearColor.copy(gl.getClearColor());
+    const prevClearAlpha = gl.getClearAlpha();
+    const prevAutoClear = gl.autoClear;
+
+    // produce output
     gl.setRenderTarget(orthoTarget);
+
+    gl.setClearColor(LIGHTMAP_BG_COLOR, 1);
+    gl.autoClear = true;
+
     gl.render(orthoScene, orthoCamera);
+
+    // restore previous renderer state
     gl.setRenderTarget(null);
+    gl.setClearColor(tmpPrevClearColor, prevClearAlpha);
+    gl.autoClear = prevAutoClear;
   });
 
   return (

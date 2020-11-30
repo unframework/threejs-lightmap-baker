@@ -134,18 +134,15 @@ const IrradianceSurfaceManager: React.FC<{
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
       items: Object.values(workbenchStage.items).map((item) => {
-        const { mesh } = item;
+        const { material } = item;
 
-        // determine whether this material accepts a lightmap
+        // determine whether this material uses a lightmap
         // (doing this at time of snapshot rather than earlier)
-        const hasUV2 =
-          mesh.geometry instanceof THREE.Geometry
-            ? mesh.geometry.faceVertexUvs.length > 1
-            : !!mesh.geometry.attributes.uv2;
+        const needsLightMap = !!material.lightMap;
 
         return {
           ...item,
-          hasUV2
+          needsLightMap
         };
       }),
       lights: Object.values(workbenchStage.lights)

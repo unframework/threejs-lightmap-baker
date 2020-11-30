@@ -12,7 +12,11 @@ import {
 } from './IrradianceLightProbe';
 
 const MAX_PASSES = 2;
-const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
+
+// global conversion of display -> physical emissiveness
+// @todo this originally was 32 because emissive textures did not reflect enough scene light,
+// but making emissiveIntensity > 1 washed out the visible non-light-scene display colours
+const EMISSIVE_MULTIPLIER = 1;
 
 const tmpRgba = [0, 0, 0, 0];
 
@@ -28,6 +32,7 @@ export interface IrradianceStagingTimeline {
 }
 
 // @todo move into surface manager?
+// @todo correctly replicate shadowing parameters/etc
 function getLightProbeSceneElement(
   workbench: Workbench,
   lastTexture: THREE.Texture,
@@ -65,6 +70,8 @@ function getLightProbeSceneElement(
               intensity={dirLight.intensity}
               target={cloneTarget}
               castShadow
+              shadow-autoUpdate={false} // no need to update between frames
+              shadow-needsUpdate={true} // trigger one-time shadow map render
               shadow-camera-left={dirLight.shadow.camera.left}
               shadow-camera-right={dirLight.shadow.camera.right}
               shadow-camera-top={dirLight.shadow.camera.top}
@@ -75,7 +82,13 @@ function getLightProbeSceneElement(
       })}
 
       {lightSceneItems.map((item, itemIndex) => {
-        const { mesh, material, hasUV2, factorName, animationClip } = item;
+        const {
+          mesh,
+          material,
+          needsLightMap,
+          factorName,
+          animationClip
+        } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
         const cloneMesh = new THREE.Mesh(mesh.geometry);
@@ -118,7 +131,7 @@ function getLightProbeSceneElement(
                 // if output directly from visible scene's shader)
                 EMISSIVE_MULTIPLIER * activeEmissiveIntensity
               }
-              lightMap={hasUV2 ? lastTexture : undefined} // only light if has UV2
+              lightMap={needsLightMap ? lastTexture : undefined} // only set if expects lightmap normally
               toneMapped={false} // must output in raw linear space
             />
           </primitive>
@@ -230,6 +243,7 @@ function queueTexel(
 }
 
 // collect and combine pixel aggregate from rendered probe viewports
+// (this ignores the alpha channel from viewports)
 function readTexel(
   rgba: number[],
   readLightProbe: ProbeBatchReader,
