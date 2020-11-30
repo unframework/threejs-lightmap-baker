@@ -28,6 +28,7 @@ export interface IrradianceStagingTimeline {
 }
 
 // @todo move into surface manager?
+// @todo correctly replicate shadowing parameters/etc
 function getLightProbeSceneElement(
   workbench: Workbench,
   lastTexture: THREE.Texture,
@@ -65,6 +66,8 @@ function getLightProbeSceneElement(
               intensity={dirLight.intensity}
               target={cloneTarget}
               castShadow
+              shadow-autoUpdate={false} // no need to update between frames
+              shadow-needsUpdate={true} // trigger one-time shadow map render
               shadow-camera-left={dirLight.shadow.camera.left}
               shadow-camera-right={dirLight.shadow.camera.right}
               shadow-camera-top={dirLight.shadow.camera.top}
