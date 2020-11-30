@@ -2,6 +2,42 @@ import React, { useState, useMemo, useEffect, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
+const IrradianceRendererContext = React.createContext<{
+  baseTexture: THREE.Texture;
+  baseArray: Float32Array;
+
+  factorTextures: { [name: string]: THREE.Texture | undefined };
+  factorArrays: { [name: string]: Float32Array | undefined };
+} | null>(null);
+
+export function useIrradianceRendererData(
+  factorName: string | null
+): [THREE.Texture, Float32Array] {
+  const ctx = useContext(IrradianceRendererContext);
+  if (!ctx) {
+    throw new Error('must be placed under irradiance texture compositor');
+  }
+
+  const result = useMemo<[THREE.Texture, Float32Array]>(() => {
+    if (!factorName) {
+      return [ctx.baseTexture, ctx.baseArray];
+    }
+
+    const factorTexture = ctx.factorTextures[factorName];
+    const factorArray = ctx.factorArrays[factorName];
+
+    if (!factorTexture || !factorArray) {
+      throw new Error(
+        `unknown irradiance texture compositor factor: ${factorName}`
+      );
+    }
+
+    return [factorTexture, factorArray];
+  }, [ctx, factorName]);
+
+  return result;
+}
+
 const IrradianceTextureContext = React.createContext<THREE.Texture | null>(
   null
 );
@@ -176,6 +212,17 @@ export default function IrradianceCompositor<
     return result;
   }, [factorNames]);
 
+  // info for renderer instances
+  const rendererDataCtx = useMemo(
+    () => ({
+      baseTexture,
+      baseArray,
+      factorTextures,
+      factorArrays
+    }),
+    [baseTexture, baseArray, factorTextures, factorArrays]
+  );
+
   // compositor output
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
@@ -249,11 +296,13 @@ export default function IrradianceCompositor<
         ))}
       </scene>
 
-      <IrradianceTextureContext.Provider value={orthoTarget.texture}>
-        {typeof children === 'function'
-          ? children(orthoTarget.texture)
-          : children}
-      </IrradianceTextureContext.Provider>
+      <IrradianceRendererContext.Provider value={rendererDataCtx}>
+        <IrradianceTextureContext.Provider value={orthoTarget.texture}>
+          {typeof children === 'function'
+            ? children(orthoTarget.texture)
+            : children}
+        </IrradianceTextureContext.Provider>
+      </IrradianceRendererContext.Provider>
     </>
   );
 }

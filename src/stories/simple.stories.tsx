@@ -40,14 +40,13 @@ export const Main: Story = () => (
         autoStartDelayMs={10}
       >
         {(workbench) => (
-          <IrradianceRenderer workbench={workbench} factorName={null}>
-            {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor
-                lightMapWidth={LIGHT_MAP_RES}
-                lightMapHeight={LIGHT_MAP_RES}
-                baseOutput={baseLightTexture}
-              >
-                {(outputLightMap) => (
+          <IrradianceCompositor
+            lightMapWidth={LIGHT_MAP_RES}
+            lightMapHeight={LIGHT_MAP_RES}
+          >
+            {(outputLightMap) => (
+              <IrradianceRenderer workbench={workbench} factorName={null}>
+                {(baseLightTexture, probeTexture) => (
                   <AutoUV2Provider
                     lightMapWidth={LIGHT_MAP_RES}
                     lightMapHeight={LIGHT_MAP_RES}
@@ -135,9 +134,9 @@ export const Main: Story = () => (
                     </DebugOverlayScene>
                   </AutoUV2Provider>
                 )}
-              </IrradianceCompositor>
+              </IrradianceRenderer>
             )}
-          </IrradianceRenderer>
+          </IrradianceCompositor>
         )}
       </IrradianceSurfaceManager>
     </WorkManager>

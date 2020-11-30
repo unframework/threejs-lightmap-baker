@@ -2,9 +2,9 @@ import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { Workbench } from './IrradianceAtlasMapper';
 import { WorkManagerContext } from './WorkManager';
-import { MAX_ITEM_FACES, AtlasMap } from './IrradianceAtlasMapper';
+import { useIrradianceRendererData } from './IrradianceCompositor';
+import { Workbench, MAX_ITEM_FACES, AtlasMap } from './IrradianceAtlasMapper';
 import {
   ProbeBatchRenderer,
   ProbeBatchReader,
@@ -128,8 +128,8 @@ function getLightProbeSceneElement(
   );
 }
 
-// alpha channel stays at zero if not filled out yet
-function createOutputTexture(
+// applied inside the light probe scene
+function createTemporaryLightMapTexture(
   atlasWidth: number,
   atlasHeight: number
 ): [THREE.Texture, Float32Array] {
@@ -144,9 +144,8 @@ function createOutputTexture(
     THREE.FloatType
   );
 
-  // always use nearest filter because this is an intermediate texture
-  // used for compositing later
-  // @todo move this creation inside compositor and just consume the data array here
+  // use nearest filter inside the light probe scene for performance
+  // @todo allow tweaking?
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
@@ -286,10 +285,7 @@ const IrradianceRendererWorker: React.FC<{
   workbench: Workbench;
   factorName: string | null;
   time?: number;
-  onStart: (
-    lightMap: THREE.Texture,
-    debugLightProbeTexture: THREE.Texture
-  ) => void;
+  onStart: (debugLightProbeTexture: THREE.Texture) => void;
 }> = (props) => {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
@@ -306,7 +302,7 @@ const IrradianceRendererWorker: React.FC<{
   // output of the previous baking pass (applied to the light probe scene)
   const [previousOutput, previousOutputData] = useMemo(
     () =>
-      createOutputTexture(
+      createTemporaryLightMapTexture(
         workbenchRef.current.atlasMap.width,
         workbenchRef.current.atlasMap.height
       ),
@@ -321,19 +317,8 @@ const IrradianceRendererWorker: React.FC<{
 
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
-  const [activeOutput, activeOutputData] = useMemo(
-    () =>
-      createOutputTexture(
-        workbenchRef.current.atlasMap.width,
-        workbenchRef.current.atlasMap.height
-      ),
-    []
-  );
-  useEffect(
-    () => () => {
-      activeOutput.dispose();
-    },
-    [activeOutput]
+  const [activeOutput, activeOutputData] = useIrradianceRendererData(
+    factorNameRef.current
   );
 
   const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
@@ -543,8 +528,8 @@ const IrradianceRendererWorker: React.FC<{
 
   // report textures to parent
   useEffect(() => {
-    onStartRef.current(activeOutput, debugLightProbeTexture);
-  }, [activeOutput, debugLightProbeTexture]);
+    onStartRef.current(debugLightProbeTexture);
+  }, [debugLightProbeTexture]);
 
   return (
     <>
@@ -564,21 +549,17 @@ const IrradianceRenderer: React.FC<{
   factorName: string | null;
   time?: number;
   children: (
-    lightMap: THREE.Texture | null,
+    delme: THREE.Texture | null, // @todo remove
     debugLightProbeTexture: THREE.Texture | null
   ) => React.ReactElement | null;
 }> = ({ workbench, factorName, time, children }) => {
   const [output, setOutput] = useState<{
-    lightMap: THREE.Texture;
     debugLightProbeTexture: THREE.Texture;
   } | null>(null);
 
   return (
     <>
-      {children(
-        output && output.lightMap,
-        output && output.debugLightProbeTexture
-      )}
+      {children(null, output && output.debugLightProbeTexture)}
 
       {workbench && (
         <IrradianceRendererWorker
@@ -586,9 +567,8 @@ const IrradianceRenderer: React.FC<{
           workbench={workbench}
           factorName={factorName}
           time={time}
-          onStart={(lightMap, debugLightProbeTexture) => {
+          onStart={(debugLightProbeTexture) => {
             setOutput({
-              lightMap,
               debugLightProbeTexture
             });
           }}
