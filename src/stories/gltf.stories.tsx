@@ -193,13 +193,13 @@ export const Main: Story = () => (
             lightMapHeight={LIGHT_MAP_RES}
             textureFilter={THREE.NearestFilter}
           >
-            <IrradianceRenderer workbench={workbench}>
-              <DebugOverlayScene
-                atlasTexture={workbench && workbench.atlasMap.texture}
-              >
-                <MainScene onReady={startWorkbench} />
-              </DebugOverlayScene>
-            </IrradianceRenderer>
+            {workbench && <IrradianceRenderer workbench={workbench} />}
+
+            <DebugOverlayScene
+              atlasTexture={workbench && workbench.atlasMap.texture}
+            >
+              <MainScene onReady={startWorkbench} />
+            </DebugOverlayScene>
           </IrradianceCompositor>
         )}
       </IrradianceSurfaceManager>

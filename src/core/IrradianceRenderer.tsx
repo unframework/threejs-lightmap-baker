@@ -280,12 +280,14 @@ function readTexel(
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
-// internal renderer lifecycle instance
-const IrradianceRendererWorker: React.FC<{
+// individual renderer worker lifecycle instance
+// (in parent, key to workbench.id to restart on changes)
+// @todo report completed flag
+const IrradianceRenderer: React.FC<{
   workbench: Workbench;
   factorName?: string;
   time?: number;
-  onStart: (debugLightProbeTexture: THREE.Texture) => void;
+  onDebugLightProbe?: (debugLightProbeTexture: THREE.Texture) => void;
 }> = (props) => {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
@@ -293,11 +295,14 @@ const IrradianceRendererWorker: React.FC<{
     throw new Error('expected work manager');
   }
 
+  // read once
+  const workbenchRef = useRef(props.workbench);
+  const factorNameRef = useRef(props.factorName || null);
+  const animationTimeRef = useRef(props.time || 0);
+
   // wrap params in ref to avoid unintended re-triggering
-  const workbenchRef = useRef(props.workbench); // read once
-  const factorNameRef = useRef(props.factorName || null); // read once
-  const animationTimeRef = useRef(props.time || 0); // read once
-  const onStartRef = useRef(props.onStart);
+  const onDebugLightProbeRef = useRef(props.onDebugLightProbe);
+  onDebugLightProbeRef.current = props.onDebugLightProbe;
 
   // output of the previous baking pass (applied to the light probe scene)
   const [previousOutput, previousOutputData] = useMemo(
@@ -526,9 +531,11 @@ const IrradianceRendererWorker: React.FC<{
     );
   });
 
-  // report textures to parent
+  // report debug texture
   useEffect(() => {
-    onStartRef.current(debugLightProbeTexture);
+    if (onDebugLightProbeRef.current) {
+      onDebugLightProbeRef.current(debugLightProbeTexture);
+    }
   }, [debugLightProbeTexture]);
 
   return (
@@ -539,46 +546,6 @@ const IrradianceRendererWorker: React.FC<{
           React.cloneElement(lightSceneElement, {
             ref: lightSceneRef
           })}
-    </>
-  );
-};
-
-export type RendererChildFunction = (
-  debugLightProbeTexture: THREE.Texture | null
-) => React.ReactNode;
-
-// @todo report completed flag
-const IrradianceRenderer: React.FC<{
-  workbench: Workbench | null;
-  factorName?: string;
-  time?: number;
-  children: React.ReactNode | RendererChildFunction;
-}> = ({ workbench, factorName, time, children }) => {
-  const [output, setOutput] = useState<{
-    debugLightProbeTexture: THREE.Texture;
-  } | null>(null);
-
-  return (
-    <>
-      {typeof children === 'function'
-        ? (children as RendererChildFunction)(
-            output && output.debugLightProbeTexture
-          )
-        : children}
-
-      {workbench && (
-        <IrradianceRendererWorker
-          key={workbench.id} // re-create on change
-          workbench={workbench}
-          factorName={factorName}
-          time={time}
-          onStart={(debugLightProbeTexture) => {
-            setOutput({
-              debugLightProbeTexture
-            });
-          }}
-        />
-      )}
     </>
   );
 };

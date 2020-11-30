@@ -57,63 +57,57 @@ export const Main: Story = () => (
             lightMapHeight={LIGHT_MAP_RES}
           >
             {(outputLightMap) => (
-              <IrradianceRenderer workbench={workbench}>
-                <AutoUV2Provider
-                  lightMapWidth={LIGHT_MAP_RES}
-                  lightMapHeight={LIGHT_MAP_RES}
-                  lightMapWorldWidth={16}
+              <AutoUV2Provider
+                lightMapWidth={LIGHT_MAP_RES}
+                lightMapHeight={LIGHT_MAP_RES}
+                lightMapWorldWidth={16}
+              >
+                {workbench && <IrradianceRenderer workbench={workbench} />}
+
+                <DebugOverlayScene
+                  atlasTexture={workbench && workbench.atlasMap.texture}
                 >
-                  <DebugOverlayScene
-                    atlasTexture={workbench && workbench.atlasMap.texture}
-                  >
-                    <scene>
-                      <mesh position={[0, 0, -2]} receiveShadow>
-                        <planeBufferGeometry
-                          attach="geometry"
-                          args={[20, 20]}
-                        />
-                        <meshLambertMaterial
-                          attach="material"
-                          color="#808080"
-                        />
-                        <IrradianceSurface />
-                      </mesh>
+                  <scene>
+                    <mesh position={[0, 0, -2]} receiveShadow>
+                      <planeBufferGeometry attach="geometry" args={[20, 20]} />
+                      <meshLambertMaterial attach="material" color="#808080" />
+                      <IrradianceSurface />
+                    </mesh>
 
-                      <mesh position={[-2, -1, 0]} castShadow receiveShadow>
-                        <textBufferGeometry
-                          attach="geometry"
-                          args={[
-                            'Hi',
-                            {
-                              font: helvetikerFont,
-                              size: 4,
-                              height: 1.5,
-                              curveSegments: 1
-                            }
-                          ]}
-                        />
-                        <meshLambertMaterial
-                          attach="material"
-                          color="#c0c0c0"
-                          lightMap={outputLightMap}
-                        />
+                    <mesh position={[-2, -1, 0]} castShadow receiveShadow>
+                      <textBufferGeometry
+                        attach="geometry"
+                        args={[
+                          'Hi',
+                          {
+                            font: helvetikerFont,
+                            size: 4,
+                            height: 1.5,
+                            curveSegments: 1
+                          }
+                        ]}
+                      />
+                      <meshLambertMaterial
+                        attach="material"
+                        color="#c0c0c0"
+                        lightMap={outputLightMap}
+                      />
 
-                        <AutoIndex />
-                        <AutoUV2 />
-                        <IrradianceSurface />
-                      </mesh>
+                      <AutoIndex />
+                      <AutoUV2 />
+                      <IrradianceSurface />
+                    </mesh>
 
-                      <directionalLight
-                        intensity={1}
-                        position={[-2.5, 2.5, 4]}
-                        castShadow
-                      >
-                        <IrradianceLight />
-                      </directionalLight>
-                    </scene>
-                  </DebugOverlayScene>
-                </AutoUV2Provider>
-              </IrradianceRenderer>
+                    <directionalLight
+                      intensity={1}
+                      position={[-2.5, 2.5, 4]}
+                      castShadow
+                    >
+                      <IrradianceLight />
+                    </directionalLight>
+                  </scene>
+                </DebugOverlayScene>
+              </AutoUV2Provider>
             )}
           </IrradianceCompositor>
         )}

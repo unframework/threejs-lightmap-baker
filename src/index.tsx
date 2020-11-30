@@ -52,62 +52,62 @@ ReactDOM.render(
             lightMapHeight={LIGHT_MAP_RES}
           >
             {(outputLightMap) => (
-              <IrradianceRenderer workbench={workbench}>
-                <AutoUV2Provider
-                  lightMapWidth={LIGHT_MAP_RES}
-                  lightMapHeight={LIGHT_MAP_RES}
-                  lightMapWorldWidth={20}
+              <AutoUV2Provider
+                lightMapWidth={LIGHT_MAP_RES}
+                lightMapHeight={LIGHT_MAP_RES}
+                lightMapWorldWidth={20}
+              >
+                {workbench && <IrradianceRenderer workbench={workbench} />}
+
+                <DebugOverlayScene
+                  atlasTexture={workbench && workbench.atlasMap.texture}
                 >
-                  <DebugOverlayScene
-                    atlasTexture={workbench && workbench.atlasMap.texture}
-                  >
-                    <scene>
-                      <mesh position={[0, 0, -0.1]} receiveShadow>
-                        <planeBufferGeometry attach="geometry" args={[9, 5]} />
-                        <meshLambertMaterial
-                          attach="material"
-                          color="#ffffff"
-                          lightMap={outputLightMap}
-                        />
-                        <AutoUV2 />
-                        <IrradianceSurface />
-                      </mesh>
+                  <scene>
+                    <mesh position={[0, 0, -0.1]} receiveShadow>
+                      <planeBufferGeometry attach="geometry" args={[9, 5]} />
+                      <meshLambertMaterial
+                        attach="material"
+                        color="#ffffff"
+                        lightMap={outputLightMap}
+                      />
+                      <AutoUV2 />
+                      <IrradianceSurface />
+                    </mesh>
 
-                      <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
-                        <textBufferGeometry
-                          attach="geometry"
-                          args={[
-                            'Light!',
-                            {
-                              font: helvetikerFont,
-                              size: 2,
-                              height: 1.5,
-                              curveSegments: 1
-                            }
-                          ]}
-                        />
-                        <meshLambertMaterial
-                          attach="material"
-                          color="#ffe020"
-                          lightMap={outputLightMap}
-                        />
+                    <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
+                      <textBufferGeometry
+                        attach="geometry"
+                        args={[
+                          'Light!',
+                          {
+                            font: helvetikerFont,
+                            size: 2,
+                            height: 1.5,
+                            curveSegments: 1
+                          }
+                        ]}
+                      />
+                      <meshLambertMaterial
+                        attach="material"
+                        color="#ffe020"
+                        lightMap={outputLightMap}
+                      />
 
-                        <AutoIndex />
-                        <AutoUV2 />
-                        <IrradianceSurface />
-                      </mesh>
+                      <AutoIndex />
+                      <AutoUV2 />
+                      <IrradianceSurface />
+                    </mesh>
 
-                      <directionalLight
-                        intensity={1.5}
-                        position={[-2, 2, 4]}
-                        castShadow
-                      >
-                        <IrradianceLight />
-                      </directionalLight>
-                    </scene>
-                  </DebugOverlayScene>
-                </AutoUV2Provider>
-              </IrradianceRenderer>
+                    <directionalLight
+                      intensity={1.5}
+                      position={[-2, 2, 4]}
+                      castShadow
+                    >
+                      <IrradianceLight />
+                    </directionalLight>
+                  </scene>
+                </DebugOverlayScene>
+              </AutoUV2Provider>
             )}
           </IrradianceCompositor>
         )}
