@@ -12,7 +12,11 @@ import {
 } from './IrradianceLightProbe';
 
 const MAX_PASSES = 2;
-const EMISSIVE_MULTIPLIER = 32; // global conversion of display -> physical emissiveness
+
+// global conversion of display -> physical emissiveness
+// @todo this originally was 32 because emissive textures did not reflect enough scene light,
+// but making emissiveIntensity > 1 washed out the visible non-light-scene display colours
+const EMISSIVE_MULTIPLIER = 1;
 
 const tmpRgba = [0, 0, 0, 0];
 
