@@ -39,6 +39,9 @@ export interface Workbench {
 
 export const MAX_ITEM_FACES = 1000; // used for encoding item+face index in texture
 
+// can be arbitrary colour (empty pixels are ignored due to zero alpha)
+const ATLAS_BG_COLOR = new THREE.Color('#000000');
+
 // temp objects for computation
 const tmpNormal = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
@@ -256,12 +259,24 @@ const IrradianceAtlasMapper: React.FC<{
         return;
       }
 
+      // save existing renderer state
+      const prevClearColor = new THREE.Color();
+      prevClearColor.copy(gl.getClearColor());
+      const prevClearAlpha = gl.getClearAlpha();
+      const prevAutoClear = gl.autoClear;
+
       // produce the output
-      // @todo well-defined clear colour
-      gl.autoClear = true;
       gl.setRenderTarget(orthoTarget);
+
+      gl.setClearColor(ATLAS_BG_COLOR, 0); // alpha must be zero
+      gl.autoClear = true;
+
       gl.render(orthoScene, orthoCamera);
+
+      // restore previous renderer state
       gl.setRenderTarget(null);
+      gl.setClearColor(prevClearColor, prevClearAlpha);
+      gl.autoClear = prevAutoClear;
 
       gl.readRenderTargetPixels(
         orthoTarget,
