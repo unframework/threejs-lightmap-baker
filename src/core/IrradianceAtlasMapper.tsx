@@ -220,7 +220,7 @@ const IrradianceAtlasMapper: React.FC<{
   }, []);
 
   const orthoTarget = useMemo(() => {
-    // set up rasterization with no frills
+    // set up simple rasterization for pure data consumption
     return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
       type: THREE.FloatType,
       magFilter: THREE.NearestFilter,

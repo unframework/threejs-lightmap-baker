@@ -144,6 +144,9 @@ function createOutputTexture(
     THREE.FloatType
   );
 
+  // always use nearest filter because this is an intermediate texture
+  // used for compositing later
+  // @todo move this creation inside compositor and just consume the data array here
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
