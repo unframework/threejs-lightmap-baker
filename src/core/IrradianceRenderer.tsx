@@ -131,7 +131,7 @@ function getLightProbeSceneElement(
                 // if output directly from visible scene's shader)
                 EMISSIVE_MULTIPLIER * activeEmissiveIntensity
               }
-              lightMap={needsLightMap ? lastTexture : undefined} // only light if has UV2
+              lightMap={needsLightMap ? lastTexture : undefined} // only set if expects lightmap normally
               toneMapped={false} // must output in raw linear space
             />
           </primitive>
