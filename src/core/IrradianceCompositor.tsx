@@ -126,7 +126,7 @@ const CompositorLayerMaterial: React.FC<{
 
 export type LightMapConsumerChild = (
   outputLightMap: THREE.Texture
-) => React.ReactElement;
+) => React.ReactNode;
 
 export default function IrradianceCompositor<
   FactorValueMap extends { [name: string]: number }

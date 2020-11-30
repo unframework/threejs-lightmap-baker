@@ -107,7 +107,7 @@ const IrradianceSurfaceManager: React.FC<{
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
-  ) => React.ReactElement;
+  ) => React.ReactNode;
 }> = ({ lightMapWidth, lightMapHeight, autoStartDelayMs, children }) => {
   // read once
   const lightMapWidthRef = useRef(lightMapWidth);
