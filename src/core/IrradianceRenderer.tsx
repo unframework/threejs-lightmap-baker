@@ -78,7 +78,13 @@ function getLightProbeSceneElement(
       })}
 
       {lightSceneItems.map((item, itemIndex) => {
-        const { mesh, material, hasUV2, factorName, animationClip } = item;
+        const {
+          mesh,
+          material,
+          needsLightMap,
+          factorName,
+          animationClip
+        } = item;
 
         // new mesh instance reusing existing geometry object directly, while material is set later
         const cloneMesh = new THREE.Mesh(mesh.geometry);
@@ -121,7 +127,7 @@ function getLightProbeSceneElement(
                 // if output directly from visible scene's shader)
                 EMISSIVE_MULTIPLIER * activeEmissiveIntensity
               }
-              lightMap={hasUV2 ? lastTexture : undefined} // only light if has UV2
+              lightMap={needsLightMap ? lastTexture : undefined} // only light if has UV2
               toneMapped={false} // must output in raw linear space
             />
           </primitive>

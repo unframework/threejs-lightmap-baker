@@ -5,7 +5,7 @@ import * as THREE from 'three';
 export interface WorkbenchSceneItem {
   mesh: THREE.Mesh;
   material: THREE.MeshLambertMaterial;
-  hasUV2: boolean;
+  needsLightMap: boolean;
   factorName: string | null;
   animationClip: THREE.AnimationClip | null;
 }
@@ -98,7 +98,7 @@ const IrradianceAtlasMapper: React.FC<{
     // disposed during scene unmount
     setInputItems(
       lightSceneItemsRef.current
-        .filter(({ hasUV2 }) => hasUV2)
+        .filter(({ needsLightMap }) => needsLightMap)
         .map((item, itemIndex) => {
           const { mesh } = item;
           const buffer = mesh.geometry;
