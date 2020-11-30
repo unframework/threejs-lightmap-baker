@@ -46,54 +46,48 @@ export const Main: Story = () => (
           >
             {(outputLightMap) => (
               <IrradianceRenderer workbench={workbench}>
-                {(probeTexture) => (
-                  <AutoUV2Provider
-                    lightMapWidth={LIGHT_MAP_RES}
-                    lightMapHeight={LIGHT_MAP_RES}
-                    lightMapWorldWidth={16}
+                <AutoUV2Provider
+                  lightMapWidth={LIGHT_MAP_RES}
+                  lightMapHeight={LIGHT_MAP_RES}
+                  lightMapWorldWidth={16}
+                >
+                  <DebugOverlayScene
+                    atlasTexture={workbench && workbench.atlasMap.texture}
                   >
-                    <DebugOverlayScene
-                      atlasTexture={workbench && workbench.atlasMap.texture}
-                      probeTexture={probeTexture}
-                    >
-                      <scene>
-                        <mesh position={[0, 0, -2]} receiveShadow>
-                          <planeBufferGeometry
-                            attach="geometry"
-                            args={[20, 20]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#ffffff"
-                          />
-                          <IrradianceSurface />
-                        </mesh>
+                    <scene>
+                      <mesh position={[0, 0, -2]} receiveShadow>
+                        <planeBufferGeometry
+                          attach="geometry"
+                          args={[20, 20]}
+                        />
+                        <meshLambertMaterial
+                          attach="material"
+                          color="#ffffff"
+                        />
+                        <IrradianceSurface />
+                      </mesh>
 
-                        <mesh position={[0, 0, 0]} castShadow receiveShadow>
-                          <circleBufferGeometry
-                            attach="geometry"
-                            args={[2, 4]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#c0c0c0"
-                            lightMap={outputLightMap}
-                          />
-                          <AutoUV2 />
-                          <IrradianceSurface />
-                        </mesh>
+                      <mesh position={[0, 0, 0]} castShadow receiveShadow>
+                        <circleBufferGeometry attach="geometry" args={[2, 4]} />
+                        <meshLambertMaterial
+                          attach="material"
+                          color="#c0c0c0"
+                          lightMap={outputLightMap}
+                        />
+                        <AutoUV2 />
+                        <IrradianceSurface />
+                      </mesh>
 
-                        <directionalLight
-                          intensity={1}
-                          position={[-2.5, 2.5, 4]}
-                          castShadow
-                        >
-                          <IrradianceLight />
-                        </directionalLight>
-                      </scene>
-                    </DebugOverlayScene>
-                  </AutoUV2Provider>
-                )}
+                      <directionalLight
+                        intensity={1}
+                        position={[-2.5, 2.5, 4]}
+                        castShadow
+                      >
+                        <IrradianceLight />
+                      </directionalLight>
+                    </scene>
+                  </DebugOverlayScene>
+                </AutoUV2Provider>
               </IrradianceRenderer>
             )}
           </IrradianceCompositor>
