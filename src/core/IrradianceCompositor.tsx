@@ -1,4 +1,4 @@
-import React, { useMemo, useEffect, useContext, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -14,6 +14,31 @@ export function useIrradianceTexture(): THREE.Texture {
   }
 
   return texture;
+}
+
+function createRendererTexture(
+  atlasWidth: number,
+  atlasHeight: number
+): [THREE.Texture, Float32Array] {
+  const atlasSize = atlasWidth * atlasHeight;
+  const data = new Float32Array(4 * atlasSize);
+
+  const texture = new THREE.DataTexture(
+    data,
+    atlasWidth,
+    atlasHeight,
+    THREE.RGBAFormat,
+    THREE.FloatType
+  );
+
+  // always use nearest filter because this is an intermediate texture
+  // used for compositing later
+  // @todo move this creation inside compositor and just consume the data array here
+  texture.magFilter = THREE.NearestFilter;
+  texture.minFilter = THREE.NearestFilter;
+  texture.generateMipmaps = false;
+
+  return [texture, data];
 }
 
 const CompositorLayerMaterial: React.FC<{
@@ -65,22 +90,18 @@ const CompositorLayerMaterial: React.FC<{
 };
 
 export default function IrradianceCompositor<
-  FactorMap extends { [name: string]: THREE.Texture | null | undefined }
+  FactorValueMap extends { [name: string]: number }
 >({
   lightMapWidth,
   lightMapHeight,
   textureFilter,
-  baseOutput,
-  factorOutputs,
-  factorValues,
+  factors,
   children
 }: React.PropsWithChildren<{
   lightMapWidth: number;
   lightMapHeight: number;
   textureFilter?: THREE.TextureFilter;
-  baseOutput: THREE.Texture | null | undefined;
-  factorOutputs?: FactorMap | null;
-  factorValues?: { [name in keyof FactorMap]: number | undefined };
+  factors?: FactorValueMap;
   children:
     | ((outputLightMap: THREE.Texture) => React.ReactElement)
     | React.ReactElement;
@@ -92,24 +113,70 @@ export default function IrradianceCompositor<
 
   const orthoSceneRef = useRef<THREE.Scene>();
 
-  // fall back to empty object if no factors given
-  const realFactorOutputs = useMemo(() => factorOutputs || ({} as FactorMap), [
-    factorOutputs
-  ]);
+  // read factor names once
+  const [factorNames] = useState<Array<keyof FactorValueMap>>(() =>
+    factors ? Object.keys(factors) : []
+  );
 
+  // incoming base rendered texture (filled elsewhere)
+  const [baseTexture, baseArray] = useMemo(
+    () => createRendererTexture(widthRef.current, heightRef.current),
+    []
+  );
+  useEffect(
+    () => () => {
+      baseTexture.dispose();
+    },
+    [baseTexture]
+  );
+
+  // incoming extra rendered factors textures (filled elsewhere)
+  const [factorTextures, factorArrays] = useMemo<
+    [
+      Record<keyof FactorValueMap, THREE.Texture>,
+      Record<keyof FactorValueMap, Float32Array>
+    ]
+  >(() => {
+    const textures = {} as Record<keyof FactorValueMap, THREE.Texture>;
+    const arrays = {} as Record<keyof FactorValueMap, Float32Array>;
+
+    for (const key of factorNames) {
+      const [texture, array] = createRendererTexture(
+        widthRef.current,
+        heightRef.current
+      );
+
+      textures[key] = texture;
+      arrays[key] = array;
+    }
+
+    return [textures, arrays];
+  }, [factorNames]);
+  useEffect(
+    () => () => {
+      for (const texture of Object.values(factorTextures)) {
+        texture.dispose();
+      }
+    },
+    [factorTextures]
+  );
+
+  // refs to all the corresponding materials
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
   const factorMaterialRefMap = useMemo(() => {
     // createRef assumes null as default value (not undefined)
-    const result = {} as {
-      [name: string]: React.MutableRefObject<THREE.ShaderMaterial | null>;
-    };
+    const result = {} as Record<
+      keyof FactorValueMap,
+      React.MutableRefObject<THREE.ShaderMaterial | null>
+    >;
 
-    for (const key of Object.keys(realFactorOutputs)) {
+    for (const key of factorNames) {
       result[key] = React.createRef<THREE.ShaderMaterial>();
     }
     return result;
-  }, [realFactorOutputs]);
+  }, [factorNames]);
 
+  // compositor output
   const orthoTarget = useMemo(() => {
     return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
       type: THREE.FloatType,
@@ -127,6 +194,7 @@ export default function IrradianceCompositor<
     [orthoTarget]
   );
 
+  // compositing render
   const orthoCamera = useMemo(() => {
     return new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
   }, []);
@@ -144,9 +212,9 @@ export default function IrradianceCompositor<
       baseMaterialRef.current.uniforms.multiplier.value = 1;
     }
 
-    for (const factorName in realFactorOutputs) {
+    for (const factorName of factorNames) {
       const factorMaterialRef = factorMaterialRefMap[factorName];
-      const multiplier = factorValues && factorValues[factorName];
+      const multiplier = factors && factors[factorName];
 
       if (factorMaterialRef.current && multiplier) {
         factorMaterialRef.current.uniforms.multiplier.value = multiplier;
@@ -162,30 +230,23 @@ export default function IrradianceCompositor<
   return (
     <>
       <scene ref={orthoSceneRef}>
-        {baseOutput && (
-          <mesh>
+        <mesh>
+          <planeBufferGeometry attach="geometry" args={[2, 2]} />
+          <CompositorLayerMaterial
+            map={baseTexture}
+            materialRef={baseMaterialRef}
+          />
+        </mesh>
+
+        {Object.keys(factorTextures).map((factorName) => (
+          <mesh key={factorName}>
             <planeBufferGeometry attach="geometry" args={[2, 2]} />
             <CompositorLayerMaterial
-              map={baseOutput}
-              materialRef={baseMaterialRef}
+              map={factorTextures[factorName]}
+              materialRef={factorMaterialRefMap[factorName]}
             />
           </mesh>
-        )}
-
-        {Object.keys(realFactorOutputs).map((factorName) => {
-          const factorOutput = realFactorOutputs[factorName];
-          return (
-            factorOutput && (
-              <mesh key={factorName}>
-                <planeBufferGeometry attach="geometry" args={[2, 2]} />
-                <CompositorLayerMaterial
-                  map={factorOutput}
-                  materialRef={factorMaterialRefMap[factorName]}
-                />
-              </mesh>
-            )
-          );
-        })}
+        ))}
       </scene>
 
       <IrradianceTextureContext.Provider value={orthoTarget.texture}>
