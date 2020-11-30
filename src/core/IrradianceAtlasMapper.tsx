@@ -81,14 +81,12 @@ const FRAGMENT_SHADER = `
 const IrradianceAtlasMapper: React.FC<{
   width: number;
   height: number;
-  sampleIsMidpoint: boolean; // aka "lightmap is nearest-neighbour filter"
   lightSceneItems: WorkbenchSceneItem[];
   onComplete: (atlasMap: AtlasMap) => void;
-}> = ({ width, height, sampleIsMidpoint, lightSceneItems, onComplete }) => {
+}> = ({ width, height, lightSceneItems, onComplete }) => {
   // read value only on first render
   const widthRef = useRef(width);
   const heightRef = useRef(height);
-  const sampleIsMidpointRef = useRef(sampleIsMidpoint);
   const lightSceneItemsRef = useRef(lightSceneItems);
 
   // wait until next render to queue up data to render into atlas texture
@@ -285,18 +283,6 @@ const IrradianceAtlasMapper: React.FC<{
     [inputItems]
   );
 
-  const uniformDefs = useMemo(
-    () => ({
-      uvOffset: {
-        value: new THREE.Vector2(
-          sampleIsMidpointRef.current ? 0 : 0.5 / widthRef.current,
-          sampleIsMidpointRef.current ? 0 : 0.5 / heightRef.current
-        )
-      }
-    }),
-    []
-  );
-
   return (
     <>
       {inputItems && !isComplete && (
@@ -315,7 +301,6 @@ const IrradianceAtlasMapper: React.FC<{
                   side={THREE.DoubleSide}
                   vertexShader={VERTEX_SHADER}
                   fragmentShader={FRAGMENT_SHADER}
-                  uniforms={uniformDefs}
                 />
               </mesh>
             );

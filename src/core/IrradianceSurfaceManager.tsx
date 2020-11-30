@@ -103,27 +103,18 @@ export function useLightRegister(
 const IrradianceSurfaceManager: React.FC<{
   lightMapWidth: number;
   lightMapHeight: number;
-  lightMapIsSmooth?: boolean;
   autoStartDelayMs?: number;
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactElement;
-}> = ({
-  lightMapWidth,
-  lightMapHeight,
-  lightMapIsSmooth,
-  autoStartDelayMs,
-  children
-}) => {
+}> = ({ lightMapWidth, lightMapHeight, autoStartDelayMs, children }) => {
   // wrap in ref to avoid re-triggering
   // @todo don't bother re-reading on later renders (for consistency with other tools)
   const lightMapWidthRef = useRef(lightMapWidth);
   lightMapWidthRef.current = lightMapWidth;
   const lightMapHeightRef = useRef(lightMapHeight);
   lightMapHeightRef.current = lightMapHeight;
-  const lightMapIsSmoothRef = useRef(lightMapIsSmooth);
-  lightMapIsSmoothRef.current = lightMapIsSmooth;
 
   // collect current available meshes/lights
   const workbenchStage = useMemo(
@@ -139,7 +130,6 @@ const IrradianceSurfaceManager: React.FC<{
     id: number; // for refresh
     atlasWidth: number;
     atlasHeight: number;
-    isSmooth: boolean;
     items: WorkbenchSceneItem[];
     lights: WorkbenchSceneLight[];
   } | null>(null);
@@ -150,7 +140,6 @@ const IrradianceSurfaceManager: React.FC<{
       id: prev ? prev.id + 1 : 1,
       atlasWidth: lightMapWidthRef.current,
       atlasHeight: lightMapHeightRef.current,
-      isSmooth: lightMapIsSmoothRef.current,
       items: Object.values(workbenchStage.items).map((item) => {
         const { mesh } = item;
 
@@ -214,7 +203,6 @@ const IrradianceSurfaceManager: React.FC<{
           key={workbenchBasics.id} // re-create for new workbench
           width={workbenchBasics.atlasWidth} // read from snapshot
           height={workbenchBasics.atlasHeight}
-          sampleIsMidpoint={!workbenchBasics.isSmooth}
           lightSceneItems={workbenchBasics.items}
           onComplete={atlasMapHandler}
         />
