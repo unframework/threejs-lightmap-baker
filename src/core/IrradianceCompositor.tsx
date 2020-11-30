@@ -11,7 +11,7 @@ const IrradianceRendererContext = React.createContext<{
 } | null>(null);
 
 export function useIrradianceRendererData(
-  factorName?: string
+  factorName: string | null
 ): [THREE.Texture, Float32Array] {
   const ctx = useContext(IrradianceRendererContext);
   if (!ctx) {

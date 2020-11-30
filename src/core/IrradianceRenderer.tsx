@@ -295,7 +295,7 @@ const IrradianceRendererWorker: React.FC<{
 
   // wrap params in ref to avoid unintended re-triggering
   const workbenchRef = useRef(props.workbench); // read once
-  const factorNameRef = useRef(props.factorName); // read once
+  const factorNameRef = useRef(props.factorName || null); // read once
   const animationTimeRef = useRef(props.time || 0); // read once
   const onStartRef = useRef(props.onStart);
 
