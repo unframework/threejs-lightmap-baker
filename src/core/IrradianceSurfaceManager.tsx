@@ -107,14 +107,11 @@ const IrradianceSurfaceManager: React.FC<{
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
-  ) => React.ReactElement;
+  ) => React.ReactNode;
 }> = ({ lightMapWidth, lightMapHeight, autoStartDelayMs, children }) => {
-  // wrap in ref to avoid re-triggering
-  // @todo don't bother re-reading on later renders (for consistency with other tools)
+  // read once
   const lightMapWidthRef = useRef(lightMapWidth);
-  lightMapWidthRef.current = lightMapWidth;
   const lightMapHeightRef = useRef(lightMapHeight);
-  lightMapHeightRef.current = lightMapHeight;
 
   // collect current available meshes/lights
   const workbenchStage = useMemo(
@@ -128,8 +125,6 @@ const IrradianceSurfaceManager: React.FC<{
   // basic snapshot triggered by start handler
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
-    atlasWidth: number;
-    atlasHeight: number;
     items: WorkbenchSceneItem[];
     lights: WorkbenchSceneLight[];
   } | null>(null);
@@ -138,8 +133,6 @@ const IrradianceSurfaceManager: React.FC<{
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
-      atlasWidth: lightMapWidthRef.current,
-      atlasHeight: lightMapHeightRef.current,
       items: Object.values(workbenchStage.items).map((item) => {
         const { mesh } = item;
 
@@ -201,8 +194,8 @@ const IrradianceSurfaceManager: React.FC<{
       {workbenchBasics && (
         <IrradianceAtlasMapper
           key={workbenchBasics.id} // re-create for new workbench
-          width={workbenchBasics.atlasWidth} // read from snapshot
-          height={workbenchBasics.atlasHeight}
+          width={lightMapWidthRef.current} // read from initial snapshot
+          height={lightMapHeightRef.current} // read from initial snapshot
           lightSceneItems={workbenchBasics.items}
           onComplete={atlasMapHandler}
         />

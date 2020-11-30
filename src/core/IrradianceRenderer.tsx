@@ -2,9 +2,9 @@ import React, { useEffect, useState, useMemo, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { Workbench } from './IrradianceAtlasMapper';
 import { WorkManagerContext } from './WorkManager';
-import { MAX_ITEM_FACES, AtlasMap } from './IrradianceAtlasMapper';
+import { useIrradianceRendererData } from './IrradianceCompositor';
+import { Workbench, MAX_ITEM_FACES, AtlasMap } from './IrradianceAtlasMapper';
 import {
   ProbeBatchRenderer,
   ProbeBatchReader,
@@ -128,8 +128,8 @@ function getLightProbeSceneElement(
   );
 }
 
-// alpha channel stays at zero if not filled out yet
-function createOutputTexture(
+// applied inside the light probe scene
+function createTemporaryLightMapTexture(
   atlasWidth: number,
   atlasHeight: number
 ): [THREE.Texture, Float32Array] {
@@ -144,9 +144,8 @@ function createOutputTexture(
     THREE.FloatType
   );
 
-  // always use nearest filter because this is an intermediate texture
-  // used for compositing later
-  // @todo move this creation inside compositor and just consume the data array here
+  // use nearest filter inside the light probe scene for performance
+  // @todo allow tweaking?
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
@@ -281,15 +280,14 @@ function readTexel(
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
-// internal renderer lifecycle instance
-const IrradianceRendererWorker: React.FC<{
+// individual renderer worker lifecycle instance
+// (in parent, key to workbench.id to restart on changes)
+// @todo report completed flag
+const IrradianceRenderer: React.FC<{
   workbench: Workbench;
-  factorName: string | null;
+  factorName?: string;
   time?: number;
-  onStart: (
-    lightMap: THREE.Texture,
-    debugLightProbeTexture: THREE.Texture
-  ) => void;
+  onDebugLightProbe?: (debugLightProbeTexture: THREE.Texture) => void;
 }> = (props) => {
   // get the work manager hook
   const useWorkManager = useContext(WorkManagerContext);
@@ -297,16 +295,19 @@ const IrradianceRendererWorker: React.FC<{
     throw new Error('expected work manager');
   }
 
+  // read once
+  const workbenchRef = useRef(props.workbench);
+  const factorNameRef = useRef(props.factorName || null);
+  const animationTimeRef = useRef(props.time || 0);
+
   // wrap params in ref to avoid unintended re-triggering
-  const workbenchRef = useRef(props.workbench); // read once
-  const factorNameRef = useRef(props.factorName); // read once
-  const animationTimeRef = useRef(props.time || 0); // read once
-  const onStartRef = useRef(props.onStart);
+  const onDebugLightProbeRef = useRef(props.onDebugLightProbe);
+  onDebugLightProbeRef.current = props.onDebugLightProbe;
 
   // output of the previous baking pass (applied to the light probe scene)
   const [previousOutput, previousOutputData] = useMemo(
     () =>
-      createOutputTexture(
+      createTemporaryLightMapTexture(
         workbenchRef.current.atlasMap.width,
         workbenchRef.current.atlasMap.height
       ),
@@ -321,19 +322,8 @@ const IrradianceRendererWorker: React.FC<{
 
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
-  const [activeOutput, activeOutputData] = useMemo(
-    () =>
-      createOutputTexture(
-        workbenchRef.current.atlasMap.width,
-        workbenchRef.current.atlasMap.height
-      ),
-    []
-  );
-  useEffect(
-    () => () => {
-      activeOutput.dispose();
-    },
-    [activeOutput]
+  const [activeOutput, activeOutputData] = useIrradianceRendererData(
+    factorNameRef.current
   );
 
   const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
@@ -541,10 +531,12 @@ const IrradianceRendererWorker: React.FC<{
     );
   });
 
-  // report textures to parent
+  // report debug texture
   useEffect(() => {
-    onStartRef.current(activeOutput, debugLightProbeTexture);
-  }, [activeOutput, debugLightProbeTexture]);
+    if (onDebugLightProbeRef.current) {
+      onDebugLightProbeRef.current(debugLightProbeTexture);
+    }
+  }, [debugLightProbeTexture]);
 
   return (
     <>
@@ -554,46 +546,6 @@ const IrradianceRendererWorker: React.FC<{
           React.cloneElement(lightSceneElement, {
             ref: lightSceneRef
           })}
-    </>
-  );
-};
-
-// @todo report completed flag
-const IrradianceRenderer: React.FC<{
-  workbench: Workbench | null;
-  factorName: string | null;
-  time?: number;
-  children: (
-    lightMap: THREE.Texture | null,
-    debugLightProbeTexture: THREE.Texture | null
-  ) => React.ReactElement | null;
-}> = ({ workbench, factorName, time, children }) => {
-  const [output, setOutput] = useState<{
-    lightMap: THREE.Texture;
-    debugLightProbeTexture: THREE.Texture;
-  } | null>(null);
-
-  return (
-    <>
-      {children(
-        output && output.lightMap,
-        output && output.debugLightProbeTexture
-      )}
-
-      {workbench && (
-        <IrradianceRendererWorker
-          key={workbench.id} // re-create on change
-          workbench={workbench}
-          factorName={factorName}
-          time={time}
-          onStart={(lightMap, debugLightProbeTexture) => {
-            setOutput({
-              lightMap,
-              debugLightProbeTexture
-            });
-          }}
-        />
-      )}
     </>
   );
 };

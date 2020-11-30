@@ -40,104 +40,80 @@ export const Main: Story = () => (
         autoStartDelayMs={10}
       >
         {(workbench) => (
-          <IrradianceRenderer workbench={workbench} factorName={null}>
-            {(baseLightTexture, probeTexture) => (
-              <IrradianceCompositor
+          <IrradianceCompositor
+            lightMapWidth={LIGHT_MAP_RES}
+            lightMapHeight={LIGHT_MAP_RES}
+          >
+            {(outputLightMap) => (
+              <AutoUV2Provider
                 lightMapWidth={LIGHT_MAP_RES}
                 lightMapHeight={LIGHT_MAP_RES}
-                baseOutput={baseLightTexture}
+                lightMapWorldWidth={32}
               >
-                {(outputLightMap) => (
-                  <AutoUV2Provider
-                    lightMapWidth={LIGHT_MAP_RES}
-                    lightMapHeight={LIGHT_MAP_RES}
-                    lightMapWorldWidth={32}
-                  >
-                    <DebugOverlayScene
-                      atlasTexture={workbench && workbench.atlasMap.texture}
-                      probeTexture={probeTexture}
+                {workbench && <IrradianceRenderer workbench={workbench} />}
+
+                <DebugOverlayScene
+                  atlasTexture={workbench && workbench.atlasMap.texture}
+                >
+                  <scene>
+                    <mesh position={[0, 0, -3]} receiveShadow>
+                      <planeBufferGeometry attach="geometry" args={[20, 20]} />
+                      <meshLambertMaterial
+                        attach="material"
+                        color="#808080"
+                        lightMap={outputLightMap}
+                      />
+                      <AutoUV2 />
+                      <IrradianceSurface />
+                    </mesh>
+
+                    <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
+                      <boxBufferGeometry attach="geometry" args={[2, 2, 5]} />
+                      <meshLambertMaterial
+                        attach="material"
+                        color="#c0c0c0"
+                        lightMap={outputLightMap}
+                      />
+                      <AutoUV2 />
+                      <IrradianceSurface />
+                    </mesh>
+
+                    <mesh position={[0, -1.5, -1.5]} castShadow receiveShadow>
+                      <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+                      <meshLambertMaterial
+                        attach="material"
+                        color="#0000ff"
+                        emissive="#0000ff"
+                        emissiveIntensity={0.25}
+                        lightMap={outputLightMap}
+                      />
+                      <AutoUV2 />
+                      <IrradianceSurface />
+                    </mesh>
+
+                    <mesh position={[0, -1.5, 1.5]} castShadow receiveShadow>
+                      <boxBufferGeometry attach="geometry" args={[2, 2, 2]} />
+                      <meshLambertMaterial
+                        attach="material"
+                        color="#ff0000"
+                        lightMap={outputLightMap}
+                      />
+                      <AutoUV2 />
+                      <IrradianceSurface />
+                    </mesh>
+
+                    <directionalLight
+                      intensity={1}
+                      position={[-2.5, 2.5, 4]}
+                      castShadow
                     >
-                      <scene>
-                        <mesh position={[0, 0, -3]} receiveShadow>
-                          <planeBufferGeometry
-                            attach="geometry"
-                            args={[20, 20]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#808080"
-                            lightMap={outputLightMap}
-                          />
-                          <AutoUV2 />
-                          <IrradianceSurface />
-                        </mesh>
-
-                        <mesh position={[0, 1.5, 0]} castShadow receiveShadow>
-                          <boxBufferGeometry
-                            attach="geometry"
-                            args={[2, 2, 5]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#c0c0c0"
-                            lightMap={outputLightMap}
-                          />
-                          <AutoUV2 />
-                          <IrradianceSurface />
-                        </mesh>
-
-                        <mesh
-                          position={[0, -1.5, -1.5]}
-                          castShadow
-                          receiveShadow
-                        >
-                          <boxBufferGeometry
-                            attach="geometry"
-                            args={[2, 2, 2]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#0000ff"
-                            emissive="#0000ff"
-                            emissiveIntensity={0.25}
-                            lightMap={outputLightMap}
-                          />
-                          <AutoUV2 />
-                          <IrradianceSurface />
-                        </mesh>
-
-                        <mesh
-                          position={[0, -1.5, 1.5]}
-                          castShadow
-                          receiveShadow
-                        >
-                          <boxBufferGeometry
-                            attach="geometry"
-                            args={[2, 2, 2]}
-                          />
-                          <meshLambertMaterial
-                            attach="material"
-                            color="#ff0000"
-                            lightMap={outputLightMap}
-                          />
-                          <AutoUV2 />
-                          <IrradianceSurface />
-                        </mesh>
-
-                        <directionalLight
-                          intensity={1}
-                          position={[-2.5, 2.5, 4]}
-                          castShadow
-                        >
-                          <IrradianceLight />
-                        </directionalLight>
-                      </scene>
-                    </DebugOverlayScene>
-                  </AutoUV2Provider>
-                )}
-              </IrradianceCompositor>
+                      <IrradianceLight />
+                    </directionalLight>
+                  </scene>
+                </DebugOverlayScene>
+              </AutoUV2Provider>
             )}
-          </IrradianceRenderer>
+          </IrradianceCompositor>
         )}
       </IrradianceSurfaceManager>
     </WorkManager>
