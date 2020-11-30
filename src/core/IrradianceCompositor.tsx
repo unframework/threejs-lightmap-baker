@@ -269,6 +269,7 @@ export default function IrradianceCompositor<
       }
     }
 
+    // @todo proper clear colour
     gl.autoClear = true;
     gl.setRenderTarget(orthoTarget);
     gl.render(orthoScene, orthoCamera);

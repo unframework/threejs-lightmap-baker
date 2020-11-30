@@ -239,6 +239,7 @@ function queueTexel(
 }
 
 // collect and combine pixel aggregate from rendered probe viewports
+// (this ignores the alpha channel from viewports)
 function readTexel(
   rgba: number[],
   readLightProbe: ProbeBatchReader,

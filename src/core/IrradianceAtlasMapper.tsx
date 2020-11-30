@@ -257,6 +257,7 @@ const IrradianceAtlasMapper: React.FC<{
       }
 
       // produce the output
+      // @todo well-defined clear colour
       gl.autoClear = true;
       gl.setRenderTarget(orthoTarget);
       gl.render(orthoScene, orthoCamera);

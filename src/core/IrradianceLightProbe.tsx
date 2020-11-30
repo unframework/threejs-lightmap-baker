@@ -11,7 +11,9 @@ const tmpNormal = new THREE.Vector3();
 const tmpLookAt = new THREE.Vector3();
 
 const tmpProbeBox = new THREE.Vector4();
-const tmpPrevViewport = new THREE.Vector4();
+const tmpPrevClearColor = new THREE.Color();
+
+const PROBE_BG_COLOR = new THREE.Color('#000000');
 
 export const PROBE_BATCH_COUNT = 8;
 
@@ -165,14 +167,22 @@ export function useLightProbe(
     batchItemCallback,
     batchResultCallback
   ) {
-    gl.getCurrentViewport(tmpPrevViewport);
+    // save existing renderer state
+    tmpPrevClearColor.copy(gl.getClearColor());
+    const prevClearAlpha = gl.getClearAlpha();
+    const prevAutoClear = gl.autoClear;
+
+    // set up render target for overall clearing
+    // (bypassing setViewport means that the renderer conveniently preserves previous state)
+    probeTarget.scissorTest = true;
+    probeTarget.scissor.set(0, 0, targetWidth, targetHeight);
+    probeTarget.viewport.set(0, 0, targetWidth, targetHeight);
     gl.setRenderTarget(probeTarget);
     gl.autoClear = false;
 
     // clear entire area
-    gl.setScissorTest(true);
-    gl.setScissor(0, 0, targetWidth, targetHeight);
-    gl.clear();
+    gl.setClearColor(PROBE_BG_COLOR, 1);
+    gl.clear(true, true, false);
 
     for (let batchItem = 0; batchItem < PROBE_BATCH_COUNT; batchItem += 1) {
       batchTexels[batchItem] = undefined;
@@ -216,69 +226,84 @@ export function useLightProbe(
         tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
 
         setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
-        gl.setViewport(
+        probeTarget.viewport.set(
           0,
           batchOffsetY + probeTargetSize,
           probeTargetSize,
           probeTargetSize
         );
-        gl.setScissor(
+        probeTarget.scissor.set(
           0,
           batchOffsetY + probeTargetSize,
           probeTargetSize,
           probeTargetSize
         );
+        gl.setRenderTarget(probeTarget); // propagate latest target params
         gl.render(lightScene, probeCam);
 
         // sides only need the upper half of rendered view, so we set scissor accordingly
         setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, 1);
-        gl.setViewport(0, batchOffsetY, probeTargetSize, probeTargetSize);
-        gl.setScissor(0, batchOffsetY + halfSize, probeTargetSize, halfSize);
+        probeTarget.viewport.set(
+          0,
+          batchOffsetY,
+          probeTargetSize,
+          probeTargetSize
+        );
+        probeTarget.scissor.set(
+          0,
+          batchOffsetY + halfSize,
+          probeTargetSize,
+          halfSize
+        );
+        gl.setRenderTarget(probeTarget); // propagate latest target params
         gl.render(lightScene, probeCam);
 
         setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU, -1);
-        gl.setViewport(
+        probeTarget.viewport.set(
           probeTargetSize,
           batchOffsetY,
           probeTargetSize,
           probeTargetSize
         );
-        gl.setScissor(
+        probeTarget.scissor.set(
           probeTargetSize,
           batchOffsetY + halfSize,
           probeTargetSize,
           halfSize
         );
+        gl.setRenderTarget(probeTarget); // propagate latest target params
         gl.render(lightScene, probeCam);
 
         setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, 1);
-        gl.setViewport(
+        probeTarget.viewport.set(
           probeTargetSize * 2,
           batchOffsetY,
           probeTargetSize,
           probeTargetSize
         );
-        gl.setScissor(
+        probeTarget.scissor.set(
           probeTargetSize * 2,
           batchOffsetY + halfSize,
           probeTargetSize,
           halfSize
         );
+        gl.setRenderTarget(probeTarget); // propagate latest target params
         gl.render(lightScene, probeCam);
 
         setUpProbeSide(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpV, -1);
-        gl.setViewport(
+        probeTarget.viewport.set(
           probeTargetSize * 3,
           batchOffsetY,
           probeTargetSize,
           probeTargetSize
         );
-        gl.setScissor(
+        probeTarget.scissor.set(
           probeTargetSize * 3,
           batchOffsetY + halfSize,
           probeTargetSize,
           halfSize
         );
+        gl.setRenderTarget(probeTarget); // propagate latest target params
         gl.render(lightScene, probeCam);
       });
 
@@ -298,10 +323,10 @@ export function useLightProbe(
       probeData
     );
 
-    gl.setScissorTest(false);
-    gl.setViewport(tmpPrevViewport);
-    gl.autoClear = true;
-    gl.setRenderTarget(null);
+    // restore renderer state
+    gl.setRenderTarget(null); // this restores original scissor/viewport
+    gl.setClearColor(tmpPrevClearColor, prevClearAlpha);
+    gl.autoClear = prevAutoClear;
 
     // if something was rendered, send off the data for consumption
     for (let batchItem = 0; batchItem < PROBE_BATCH_COUNT; batchItem += 1) {
