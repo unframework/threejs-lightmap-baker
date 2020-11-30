@@ -543,15 +543,16 @@ const IrradianceRendererWorker: React.FC<{
   );
 };
 
+export type RendererChildFunction = (
+  debugLightProbeTexture: THREE.Texture | null
+) => React.ReactNode;
+
 // @todo report completed flag
 const IrradianceRenderer: React.FC<{
   workbench: Workbench | null;
   factorName: string | null;
   time?: number;
-  children: (
-    delme: THREE.Texture | null, // @todo remove
-    debugLightProbeTexture: THREE.Texture | null
-  ) => React.ReactElement | null;
+  children: React.ReactNode | RendererChildFunction;
 }> = ({ workbench, factorName, time, children }) => {
   const [output, setOutput] = useState<{
     debugLightProbeTexture: THREE.Texture;
@@ -559,7 +560,11 @@ const IrradianceRenderer: React.FC<{
 
   return (
     <>
-      {children(null, output && output.debugLightProbeTexture)}
+      {typeof children === 'function'
+        ? (children as RendererChildFunction)(
+            output && output.debugLightProbeTexture
+          )
+        : children}
 
       {workbench && (
         <IrradianceRendererWorker

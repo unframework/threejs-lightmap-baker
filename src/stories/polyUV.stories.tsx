@@ -46,7 +46,7 @@ export const Main: Story = () => (
           >
             {(outputLightMap) => (
               <IrradianceRenderer workbench={workbench} factorName={null}>
-                {(baseLightTexture, probeTexture) => (
+                {(probeTexture) => (
                   <AutoUV2Provider
                     lightMapWidth={LIGHT_MAP_RES}
                     lightMapHeight={LIGHT_MAP_RES}
