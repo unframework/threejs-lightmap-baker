@@ -74,9 +74,10 @@ const FRAGMENT_SHADER = `
 // and quadIndex is 1-based to distinguish from blank space
 // which allows to find original 3D position/normal/etc for that texel
 // (quad index is int stored as float, but precision should be good enough)
-// if lightmap is displayed in nearest-neighbour mode, default pixel-midpoint
-// sampling of rasterizer is kept as is (texel [0,0] is UV [0.5*pixelsize,0.5*pixelsize]),
-// otherwise the atlas is shifted by half-texel to make texel [0,0] actually match UV [0,0]
+// NOTE: each atlas texture sample corresponds to the position of
+// the physical midpoint of the corresponding rendered texel
+// (e.g. if lightmap was shown pixelated); this works well
+// with either bilinear or nearest filtering
 // @todo consider stencil buffer, or just 8bit texture
 const IrradianceAtlasMapper: React.FC<{
   width: number;
