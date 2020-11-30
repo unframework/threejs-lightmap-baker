@@ -11,7 +11,7 @@ const IrradianceRendererContext = React.createContext<{
 } | null>(null);
 
 export function useIrradianceRendererData(
-  factorName: string | null
+  factorName?: string
 ): [THREE.Texture, Float32Array] {
   const ctx = useContext(IrradianceRendererContext);
   if (!ctx) {
@@ -69,7 +69,6 @@ function createRendererTexture(
 
   // always use nearest filter because this is an intermediate texture
   // used for compositing later
-  // @todo move this creation inside compositor and just consume the data array here
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;

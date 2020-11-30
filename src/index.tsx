@@ -52,7 +52,7 @@ ReactDOM.render(
             lightMapHeight={LIGHT_MAP_RES}
           >
             {(outputLightMap) => (
-              <IrradianceRenderer workbench={workbench} factorName={null}>
+              <IrradianceRenderer workbench={workbench}>
                 {(probeTexture) => (
                   <AutoUV2Provider
                     lightMapWidth={LIGHT_MAP_RES}

@@ -283,7 +283,7 @@ const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 // internal renderer lifecycle instance
 const IrradianceRendererWorker: React.FC<{
   workbench: Workbench;
-  factorName: string | null;
+  factorName?: string;
   time?: number;
   onStart: (debugLightProbeTexture: THREE.Texture) => void;
 }> = (props) => {
@@ -550,7 +550,7 @@ export type RendererChildFunction = (
 // @todo report completed flag
 const IrradianceRenderer: React.FC<{
   workbench: Workbench | null;
-  factorName: string | null;
+  factorName?: string;
   time?: number;
   children: React.ReactNode | RendererChildFunction;
 }> = ({ workbench, factorName, time, children }) => {
