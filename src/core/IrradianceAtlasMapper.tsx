@@ -44,14 +44,41 @@ const tmpNormal = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
+const VERTEX_SHADER = `
+  varying vec3 vFacePos;
+  uniform vec2 uvOffset;
+
+  void main() {
+    vFacePos = position;
+
+    gl_Position = projectionMatrix * vec4(
+      uv + uvOffset, // UV is the actual position on map
+      0,
+      1.0
+    );
+  }
+`;
+
+const FRAGMENT_SHADER = `
+  varying vec3 vFacePos;
+
+  void main() {
+    // encode the face information in map
+    gl_FragColor = vec4(vFacePos.xyz, 1.0);
+  }
+`;
+
 // write out original face geometry info into the atlas map
 // each texel corresponds to: (quadX, quadY, quadIndex)
 // where quadX and quadY are 0..1 representing a spot in the original quad
 // and quadIndex is 1-based to distinguish from blank space
 // which allows to find original 3D position/normal/etc for that texel
 // (quad index is int stored as float, but precision should be good enough)
+// NOTE: each atlas texture sample corresponds to the position of
+// the physical midpoint of the corresponding rendered texel
+// (e.g. if lightmap was shown pixelated); this works well
+// with either bilinear or nearest filtering
 // @todo consider stencil buffer, or just 8bit texture
-// @todo consider rounding to account for texel size
 const IrradianceAtlasMapper: React.FC<{
   width: number;
   height: number;
@@ -194,9 +221,10 @@ const IrradianceAtlasMapper: React.FC<{
   }, []);
 
   const orthoTarget = useMemo(() => {
+    // set up simple rasterization for pure data consumption
     return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
       type: THREE.FloatType,
-      magFilter: THREE.NearestFilter, // pixelate for debug display
+      magFilter: THREE.NearestFilter,
       minFilter: THREE.NearestFilter,
       depthBuffer: false,
       generateMipmaps: false
@@ -218,29 +246,6 @@ const IrradianceAtlasMapper: React.FC<{
   const orthoData = useMemo(() => {
     return new Float32Array(widthRef.current * heightRef.current * 4);
   }, []);
-
-  // disposed during scene unmount
-  const vertexShader = `
-    varying vec3 vFacePos;
-
-    void main() {
-      vFacePos = position;
-
-      gl_Position = projectionMatrix * vec4(
-        uv, // UV is the actual position on map
-        0,
-        1.0
-      );
-    }
-  `;
-  const fragmentShader = `
-    varying vec3 vFacePos;
-
-    void main() {
-      // encode the face information in map
-      gl_FragColor = vec4(vFacePos.xyz, 1.0);
-    }
-  `;
 
   // render the output as needed
   const { gl } = useThree();
@@ -295,8 +300,8 @@ const IrradianceAtlasMapper: React.FC<{
                 <shaderMaterial
                   attach="material"
                   side={THREE.DoubleSide}
-                  vertexShader={vertexShader}
-                  fragmentShader={fragmentShader}
+                  vertexShader={VERTEX_SHADER}
+                  fragmentShader={FRAGMENT_SHADER}
                 />
               </mesh>
             );

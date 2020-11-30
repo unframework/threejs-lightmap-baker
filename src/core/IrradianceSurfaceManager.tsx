@@ -110,6 +110,7 @@ const IrradianceSurfaceManager: React.FC<{
   ) => React.ReactElement;
 }> = ({ lightMapWidth, lightMapHeight, autoStartDelayMs, children }) => {
   // wrap in ref to avoid re-triggering
+  // @todo don't bother re-reading on later renders (for consistency with other tools)
   const lightMapWidthRef = useRef(lightMapWidth);
   lightMapWidthRef.current = lightMapWidth;
   const lightMapHeightRef = useRef(lightMapHeight);

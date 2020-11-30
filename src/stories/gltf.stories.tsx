@@ -193,6 +193,7 @@ export const Main: Story = () => (
               <IrradianceCompositor
                 lightMapWidth={LIGHT_MAP_RES}
                 lightMapHeight={LIGHT_MAP_RES}
+                textureFilter={THREE.NearestFilter}
                 baseOutput={baseLightTexture}
               >
                 <DebugOverlayScene

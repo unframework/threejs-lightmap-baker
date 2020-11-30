@@ -63,7 +63,7 @@ export const Main: Story = () => (
                   <AutoUV2Provider
                     lightMapWidth={LIGHT_MAP_RES}
                     lightMapHeight={LIGHT_MAP_RES}
-                    lightMapWorldWidth={8}
+                    lightMapWorldWidth={16}
                   >
                     <DebugOverlayScene
                       atlasTexture={workbench && workbench.atlasMap.texture}
@@ -78,7 +78,6 @@ export const Main: Story = () => (
                           <meshLambertMaterial
                             attach="material"
                             color="#808080"
-                            lightMap={outputLightMap}
                           />
                           <IrradianceSurface />
                         </mesh>
@@ -87,11 +86,11 @@ export const Main: Story = () => (
                           <textBufferGeometry
                             attach="geometry"
                             args={[
-                              'H',
+                              'Hi',
                               {
                                 font: helvetikerFont,
-                                size: 2,
-                                height: 0.5,
+                                size: 4,
+                                height: 1.5,
                                 curveSegments: 1
                               }
                             ]}
