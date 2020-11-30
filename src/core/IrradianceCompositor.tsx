@@ -124,6 +124,10 @@ const CompositorLayerMaterial: React.FC<{
   );
 };
 
+export type LightMapConsumerChild = (
+  outputLightMap: THREE.Texture
+) => React.ReactElement;
+
 export default function IrradianceCompositor<
   FactorValueMap extends { [name: string]: number }
 >({
@@ -137,9 +141,7 @@ export default function IrradianceCompositor<
   lightMapHeight: number;
   textureFilter?: THREE.TextureFilter;
   factors?: FactorValueMap;
-  children:
-    | ((outputLightMap: THREE.Texture) => React.ReactElement)
-    | React.ReactElement;
+  children: LightMapConsumerChild | React.ReactNode;
 }>): React.ReactElement {
   // read value only on first render
   const widthRef = useRef(lightMapWidth);
@@ -298,7 +300,7 @@ export default function IrradianceCompositor<
       <IrradianceRendererContext.Provider value={rendererDataCtx}>
         <IrradianceTextureContext.Provider value={orthoTarget.texture}>
           {typeof children === 'function'
-            ? children(orthoTarget.texture)
+            ? (children as LightMapConsumerChild)(orthoTarget.texture)
             : children}
         </IrradianceTextureContext.Provider>
       </IrradianceRendererContext.Provider>
