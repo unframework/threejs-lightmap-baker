@@ -45,7 +45,8 @@ export type ProbeBatcher = (
   batchResultCallback: (batchIndex: number, reader: ProbeBatchReader) => void
 ) => void;
 
-function setBlendedNormal(
+// "raw" means that output is not normalized (not necessary for now)
+function setBlendedNormalRaw(
   out: THREE.Vector3,
   normalArray: ArrayLike<number>,
   faceVertexBase: number,
@@ -241,7 +242,7 @@ export function useLightProbe(
 
         // compute normal and cardinal directions
         // (done per texel for linear interpolation of normals)
-        setBlendedNormal(tmpNormal, normalArray, faceVertexBase, pU, pV);
+        setBlendedNormalRaw(tmpNormal, normalArray, faceVertexBase, pU, pV);
 
         // use consistent "left" and "up" directions based on just the normal
         if (tmpNormal.x === 0 && tmpNormal.y === 0) {
