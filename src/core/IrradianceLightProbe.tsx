@@ -13,6 +13,9 @@ const tmpLookAt = new THREE.Vector3();
 const tmpProbeBox = new THREE.Vector4();
 const tmpPrevClearColor = new THREE.Color();
 
+// used inside blending function
+const tmpNormalOther = new THREE.Vector3();
+
 const PROBE_BG_COLOR = new THREE.Color('#000000');
 
 export const PROBE_BATCH_COUNT = 8;
@@ -41,6 +44,22 @@ export type ProbeBatcher = (
   batchItemCallback: (renderer: ProbeBatchRenderer) => void,
   batchResultCallback: (batchIndex: number, reader: ProbeBatchReader) => void
 ) => void;
+
+function setBlendedNormal(
+  out: THREE.Vector3,
+  normalArray: ArrayLike<number>,
+  faceVertexBase: number,
+  pU: number,
+  pV: number
+) {
+  out.fromArray(normalArray, faceVertexBase * 3);
+
+  tmpNormalOther.fromArray(normalArray, (faceVertexBase + 1) * 3);
+  out.lerp(tmpNormalOther, pU);
+
+  tmpNormalOther.fromArray(normalArray, (faceVertexBase + 2) * 3);
+  out.lerp(tmpNormalOther, pV);
+}
 
 function setUpProbeUp(
   probeCam: THREE.Camera,
@@ -220,11 +239,24 @@ export function useLightProbe(
         tmpOrigin.addScaledVector(tmpU, pU);
         tmpOrigin.addScaledVector(tmpV, pV);
 
-        // get precomputed normal and cardinal directions
-        tmpNormal.fromArray(normalArray, faceVertexBase * 3);
-        tmpU.fromArray(normalArray, (faceVertexBase + 1) * 3);
-        tmpV.fromArray(normalArray, (faceVertexBase + 2) * 3);
+        // compute normal and cardinal directions
+        // (done per texel for linear interpolation of normals)
+        setBlendedNormal(tmpNormal, normalArray, faceVertexBase, pU, pV);
 
+        // use consistent "left" and "up" directions based on just the normal
+        if (tmpNormal.x === 0 && tmpNormal.y === 0) {
+          tmpU.set(1, 0, 0);
+        } else {
+          tmpU.set(0, 0, 1);
+        }
+
+        tmpV.crossVectors(tmpNormal, tmpU);
+        tmpV.normalize();
+
+        tmpU.crossVectors(tmpNormal, tmpV);
+        tmpU.normalize();
+
+        // proceed with the renders
         setUpProbeUp(probeCam, originalMesh, tmpOrigin, tmpNormal, tmpU);
         probeTarget.viewport.set(
           0,

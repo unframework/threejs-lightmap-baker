@@ -154,45 +154,13 @@ const IrradianceAtlasMapper: React.FC<{
               indexData[faceVertexIndex]
             );
 
-            // store normal and compute cardinal directions for later
-            if (faceMod === 0) {
-              // source data should specify normals correctly (since winding order is unknown)
-              atlasNormalAttr.copyAt(
-                faceVertexIndex,
-                normalAttr,
-                indexData[faceVertexIndex]
-              );
+            atlasNormalAttr.copyAt(
+              faceVertexIndex,
+              normalAttr,
+              indexData[faceVertexIndex]
+            );
 
-              tmpNormal.fromArray(atlasNormalAttr.array, faceVertexIndex * 3);
-
-              // use consistent "left" and "up" directions based on just the normal
-              if (tmpNormal.x === 0 && tmpNormal.y === 0) {
-                tmpU.set(1, 0, 0);
-              } else {
-                tmpU.set(0, 0, 1);
-              }
-
-              tmpV.crossVectors(tmpNormal, tmpU);
-              tmpV.normalize();
-
-              tmpU.crossVectors(tmpNormal, tmpV);
-              tmpU.normalize();
-
-              atlasNormalAttr.setXYZ(
-                faceVertexIndex + 1,
-                tmpU.x,
-                tmpU.y,
-                tmpU.z
-              );
-              atlasNormalAttr.setXYZ(
-                faceVertexIndex + 2,
-                tmpV.x,
-                tmpV.y,
-                tmpV.z
-              );
-            }
-
-            // positioning in face
+            // position of vertex in face: (0,0), (0,1) or (1,0)
             const facePosX = faceMod & 1;
             const facePosY = (faceMod & 2) >> 1;
 
