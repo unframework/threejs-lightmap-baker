@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2020-now Nick Matantsev
+ * Licensed under the MIT license
+ */
+
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 

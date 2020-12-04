@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2020-now Nick Matantsev
+ * Licensed under the MIT license
+ */
+
 import React, { useState, useMemo, useEffect, useContext, useRef } from 'react';
 import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';

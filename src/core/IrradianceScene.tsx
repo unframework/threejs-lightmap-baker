@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2020-now Nick Matantsev
+ * Licensed under the MIT license
+ */
+
 import React from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
