@@ -518,22 +518,22 @@ const IrradianceRenderer: React.FC<{
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
           const totalTexelCount = atlasWidth * atlasHeight;
 
-          // allow for skipping a certain amount of empty texels
-          const maxCounter = Math.min(
-            totalTexelCount,
-            passTexelCounter[0] + 100
-          );
-
           renderLightProbeBatch(
             gl,
             lightScene,
             (renderBatchItem) => {
+              // allow for skipping a certain amount of empty texels
+              const maxCounter = Math.min(
+                totalTexelCount,
+                passTexelCounter[0] + 100
+              );
+
               // keep trying texels until non-empty one is found
               while (passTexelCounter[0] < maxCounter) {
                 const texelIndex = passTexelCounter[0];
 
                 // always update texel count
-                passTexelCounter[0] = texelIndex + 1;
+                passTexelCounter[0] += 1;
 
                 if (!queueTexel(atlasMap, texelIndex, renderBatchItem)) {
                   continue;
