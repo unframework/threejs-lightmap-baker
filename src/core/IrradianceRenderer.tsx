@@ -306,14 +306,14 @@ function storeLightMapValue(
   atlasWidth: number,
   totalTexelCount: number,
   texelIndex: number,
-  activeOutputData: Float32Array,
+  combinedOutputData: Float32Array,
   layerOutputData: Float32Array,
   isAdditive: boolean
 ) {
   // read existing texel value (if adding)
   const mainOffTexelBase = texelIndex * 4;
   if (isAdditive) {
-    tmpRgbaAdder.fromArray(activeOutputData, mainOffTexelBase);
+    tmpRgbaAdder.fromArray(combinedOutputData, mainOffTexelBase);
     tmpRgbaAdder.add(tmpRgba);
   } else {
     tmpRgbaAdder.copy(tmpRgba);
@@ -323,7 +323,7 @@ function storeLightMapValue(
   tmpRgbaAdder.w = 1; // reset alpha to 1 to indicate filled pixel
 
   // main texel write
-  tmpRgbaAdder.toArray(activeOutputData, mainOffTexelBase);
+  tmpRgbaAdder.toArray(combinedOutputData, mainOffTexelBase);
   tmpRgba.toArray(layerOutputData, mainOffTexelBase);
 
   // propagate combined value to 3x3 brush area
@@ -348,7 +348,7 @@ function storeLightMapValue(
 
     if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
       // no need to separately read existing value for brush-propagated texels
-      tmpRgbaAdder.toArray(activeOutputData, offTexelBase);
+      tmpRgbaAdder.toArray(combinedOutputData, offTexelBase);
       tmpRgba.toArray(layerOutputData, offTexelBase);
     }
   }
@@ -380,7 +380,7 @@ const IrradianceRenderer: React.FC<{
 
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
-  const [activeOutput, activeOutputData] = useIrradianceRendererData(
+  const [combinedOutput, combinedOutputData] = useIrradianceRendererData(
     factorNameRef.current
   );
 
@@ -464,10 +464,10 @@ const IrradianceRenderer: React.FC<{
       clearOutputTexture(
         atlasMap.width,
         atlasMap.height,
-        activeOutputData,
+        combinedOutputData,
         withTestPattern
       );
-      activeOutput.needsUpdate = true;
+      combinedOutput.needsUpdate = true;
     }
 
     setProcessingState((prev) => {
@@ -480,7 +480,7 @@ const IrradianceRenderer: React.FC<{
         passesRemaining: prev.passesRemaining - 1
       };
     });
-  }, [withTestPattern, processingState, activeOutput, activeOutputData]);
+  }, [withTestPattern, processingState, combinedOutput, combinedOutputData]);
 
   const probeTargetSize = 16;
   const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
@@ -544,11 +544,11 @@ const IrradianceRenderer: React.FC<{
                 atlasWidth,
                 totalTexelCount,
                 texelIndex,
-                activeOutputData,
+                combinedOutputData,
                 layerOutputData,
                 previousOutput ? true : false // directly overwrite any test pattern if first pass
               );
-              activeOutput.needsUpdate = true;
+              combinedOutput.needsUpdate = true;
               layerOutput.needsUpdate = true;
             }
           );
