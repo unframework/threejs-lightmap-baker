@@ -361,14 +361,23 @@ const IrradianceRenderer: React.FC<{
     // perform main fill in separate tick for responsiveness
     setTimeout(() => {
       const originalSequence = new Array<number>(totalTexelCount);
-      for (let i = 0; i < totalTexelCount; i += 1) {
-        originalSequence[i] = i;
+
+      // nested loop to avoid tripping sandbox infinite loop detection
+      for (let i = 0; i < atlasHeight; i += 1) {
+        for (let j = 0; j < atlasWidth; j += 1) {
+          const index = i * atlasWidth + j;
+          originalSequence[index] = index;
+        }
       }
 
-      for (let i = 0; i < totalTexelCount; i += 1) {
-        const randomIndex = Math.random() * originalSequence.length;
-        const sequenceElement = originalSequence.splice(randomIndex, 1)[0];
-        result[i] = sequenceElement;
+      // nested loop to avoid tripping sandbox infinite loop detection
+      for (let i = 0; i < atlasHeight; i += 1) {
+        for (let j = 0; j < atlasWidth; j += 1) {
+          const index = i * atlasWidth + j;
+          const randomIndex = Math.random() * originalSequence.length;
+          const sequenceElement = originalSequence.splice(randomIndex, 1)[0];
+          result[index] = sequenceElement;
+        }
       }
     }, 0);
 
