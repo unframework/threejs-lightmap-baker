@@ -15,7 +15,6 @@ import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
-import { useIrradianceTexture } from './core/IrradianceCompositor';
 import { AutoUV2, AutoUV2Provider } from './core/AutoUV2';
 import { AutoIndex } from './core/AutoIndex';
 import DebugControls from './stories/DebugControls';
@@ -40,79 +39,79 @@ ReactDOM.render(
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <WorkManager>
-      <IrradianceSurfaceManager
-        lightMapWidth={LIGHT_MAP_RES}
-        lightMapHeight={LIGHT_MAP_RES}
-        autoStartDelayMs={10}
-      >
-        {(workbench) => (
-          <IrradianceCompositor
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-          >
-            {(outputLightMap) => (
-              <AutoUV2Provider
-                lightMapWidth={LIGHT_MAP_RES}
-                lightMapHeight={LIGHT_MAP_RES}
-                lightMapWorldWidth={20}
-              >
+    <IrradianceSurfaceManager
+      lightMapWidth={LIGHT_MAP_RES}
+      lightMapHeight={LIGHT_MAP_RES}
+      autoStartDelayMs={10}
+    >
+      {(workbench) => (
+        <IrradianceCompositor
+          lightMapWidth={LIGHT_MAP_RES}
+          lightMapHeight={LIGHT_MAP_RES}
+        >
+          {(outputLightMap) => (
+            <AutoUV2Provider
+              lightMapWidth={LIGHT_MAP_RES}
+              lightMapHeight={LIGHT_MAP_RES}
+              lightMapWorldWidth={20}
+            >
+              <WorkManager>
                 {workbench && <IrradianceRenderer workbench={workbench} />}
+              </WorkManager>
 
-                <DebugOverlayScene
-                  atlasTexture={workbench && workbench.atlasMap.texture}
-                >
-                  <scene>
-                    <mesh position={[0, 0, -0.1]} receiveShadow>
-                      <planeBufferGeometry attach="geometry" args={[9, 5]} />
-                      <meshLambertMaterial
-                        attach="material"
-                        color="#ffffff"
-                        lightMap={outputLightMap}
-                      />
-                      <AutoUV2 />
-                      <IrradianceSurface />
-                    </mesh>
+              <DebugOverlayScene
+                atlasTexture={workbench && workbench.atlasMap.texture}
+              >
+                <scene>
+                  <mesh position={[0, 0, -0.1]} receiveShadow>
+                    <planeBufferGeometry attach="geometry" args={[9, 5]} />
+                    <meshLambertMaterial
+                      attach="material"
+                      color="#ffffff"
+                      lightMap={outputLightMap}
+                    />
+                    <AutoUV2 />
+                    <IrradianceSurface />
+                  </mesh>
 
-                    <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
-                      <textBufferGeometry
-                        attach="geometry"
-                        args={[
-                          'Light!',
-                          {
-                            font: helvetikerFont,
-                            size: 2,
-                            height: 1.5,
-                            curveSegments: 1
-                          }
-                        ]}
-                      />
-                      <meshLambertMaterial
-                        attach="material"
-                        color="#ffe020"
-                        lightMap={outputLightMap}
-                      />
+                  <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
+                    <textBufferGeometry
+                      attach="geometry"
+                      args={[
+                        'Light!',
+                        {
+                          font: helvetikerFont,
+                          size: 2,
+                          height: 1.5,
+                          curveSegments: 1
+                        }
+                      ]}
+                    />
+                    <meshLambertMaterial
+                      attach="material"
+                      color="#ffe020"
+                      lightMap={outputLightMap}
+                    />
 
-                      <AutoIndex />
-                      <AutoUV2 />
-                      <IrradianceSurface />
-                    </mesh>
+                    <AutoIndex />
+                    <AutoUV2 />
+                    <IrradianceSurface />
+                  </mesh>
 
-                    <directionalLight
-                      intensity={1.5}
-                      position={[-2, 2, 4]}
-                      castShadow
-                    >
-                      <IrradianceLight />
-                    </directionalLight>
-                  </scene>
-                </DebugOverlayScene>
-              </AutoUV2Provider>
-            )}
-          </IrradianceCompositor>
-        )}
-      </IrradianceSurfaceManager>
-    </WorkManager>
+                  <directionalLight
+                    intensity={1.5}
+                    position={[-2, 2, 4]}
+                    castShadow
+                  >
+                    <IrradianceLight />
+                  </directionalLight>
+                </scene>
+              </DebugOverlayScene>
+            </AutoUV2Provider>
+          )}
+        </IrradianceCompositor>
+      )}
+    </IrradianceSurfaceManager>
 
     <DebugControls />
   </Canvas>,
