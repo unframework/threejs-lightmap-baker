@@ -413,12 +413,18 @@ const IrradianceRenderer: React.FC<{
     }
 
     // copy completed data
-    const [previousOutput, previousOutputData] = createTemporaryLightMapTexture(
-      workbenchRef.current.atlasMap.width,
-      workbenchRef.current.atlasMap.height
-    );
-    previousOutputData.set(activeOutputData);
-    previousOutput.needsUpdate = true;
+    const hasPreviousData = passesRemaining === MAX_PASSES;
+    const [previousOutput, previousOutputData] = hasPreviousData
+      ? []
+      : createTemporaryLightMapTexture(
+          workbenchRef.current.atlasMap.width,
+          workbenchRef.current.atlasMap.height
+        );
+
+    if (previousOutput && previousOutputData) {
+      previousOutputData.set(activeOutputData);
+      previousOutput.needsUpdate = true;
+    }
 
     // reset output (re-create test pattern only on base)
     // @todo do this only when needing to show debug output?
