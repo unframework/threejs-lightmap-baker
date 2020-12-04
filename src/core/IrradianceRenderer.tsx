@@ -23,7 +23,8 @@ const MAX_PASSES = 2;
 // but making emissiveIntensity > 1 washed out the visible non-light-scene display colours
 const EMISSIVE_MULTIPLIER = 1;
 
-const tmpRgba = [0, 0, 0, 0];
+const tmpRgba = new THREE.Vector4();
+const tmpRgbaAdder = new THREE.Vector4();
 
 export interface IrradianceStagingTimelineMesh {
   uuid: string;
@@ -51,7 +52,8 @@ function createLightProbeSceneElement(
       key={`light-scene-${Math.random()}`} // ensure scene is fully re-created @todo why?
     >
       {lightSceneLights.map(({ dirLight, factorName }) => {
-        if (factorName !== activeFactorName) {
+        // no lights if after first pass
+        if (lastTexture || factorName !== activeFactorName) {
           return null;
         }
 
@@ -289,24 +291,41 @@ function readTexel(
     }
   });
 
-  rgba[0] = r / totalDivider;
-  rgba[1] = g / totalDivider;
-  rgba[2] = b / totalDivider;
-  rgba[3] = 1; // always set alpha to indicate filled pixel
+  // alpha is set later
+  rgba.x = r / totalDivider;
+  rgba.y = g / totalDivider;
+  rgba.z = b / totalDivider;
 }
 
 // offsets for 3x3 brush
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
+function storeArrayValue(
+  offset: number,
+  activeOutputData: Float32Array,
+  isAdditive: boolean
+) {
+  if (isAdditive) {
+    tmpRgbaAdder.fromArray(activeOutputData, offset);
+    tmpRgbaAdder.add(tmpRgba);
+  } else {
+    tmpRgbaAdder.copy(tmpRgba);
+  }
+
+  tmpRgbaAdder.w = 1; // always reset alpha to 1 to indicate filled pixel
+  tmpRgbaAdder.toArray(activeOutputData, offset);
+}
+
 function storeLightMapValue(
   atlasData: Float32Array,
   atlasWidth: number,
   totalTexelCount: number,
   texelIndex: number,
-  activeOutputData: Float32Array
+  activeOutputData: Float32Array,
+  isAdditive: boolean
 ) {
-  activeOutputData.set(tmpRgba, texelIndex * 4);
+  storeArrayValue(texelIndex * 4, activeOutputData, isAdditive);
 
   // propagate value to 3x3 brush area
   const texelX = texelIndex % atlasWidth;
@@ -328,7 +347,7 @@ function storeLightMapValue(
     const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
 
     if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
-      activeOutputData.set(tmpRgba, offTexelBase);
+      storeArrayValue(offTexelBase, activeOutputData, isAdditive);
     }
   }
 }
@@ -435,15 +454,19 @@ const IrradianceRenderer: React.FC<{
       workbenchRef.current.atlasMap.height
     );
 
-    // reset upstream output (re-create test pattern only on base)
+    // on first pass only, blank out upstream output (write test pattern only on base)
+    // this is not really needed if not showing a test pattern, since texel writes are not
+    // additive on first pass anyway
     // @todo do this only when needing to show debug output?
-    clearOutputTexture(
-      atlasMap.width,
-      atlasMap.height,
-      activeOutputData,
-      withTestPattern
-    );
-    activeOutput.needsUpdate = true;
+    if (!processingState.layerOutput) {
+      clearOutputTexture(
+        atlasMap.width,
+        atlasMap.height,
+        activeOutputData,
+        withTestPattern
+      );
+      activeOutput.needsUpdate = true;
+    }
 
     setProcessingState((prev) => {
       return {
@@ -476,6 +499,7 @@ const IrradianceRenderer: React.FC<{
 
           const {
             passTexelCounter,
+            previousOutput,
             layerOutput,
             layerOutputData
           } = processingState;
@@ -512,23 +536,26 @@ const IrradianceRenderer: React.FC<{
             (texelIndex, readLightProbe) => {
               readTexel(tmpRgba, readLightProbe, probePixelAreaLookup);
 
-              // store computed illumination value
+              // add this layer's illumination contribution to upstream output
               storeLightMapValue(
                 atlasMap.data,
                 atlasWidth,
                 totalTexelCount,
                 texelIndex,
-                activeOutputData
+                activeOutputData,
+                previousOutput ? true : false // directly overwrite any test pattern if first pass
               );
-              storeLightMapValue(
-                atlasMap.data,
-                atlasWidth,
-                totalTexelCount,
-                texelIndex,
-                layerOutputData
-              );
-
               activeOutput.needsUpdate = true;
+
+              // store just this layer's illumination contribution for next pass
+              storeLightMapValue(
+                atlasMap.data,
+                atlasWidth,
+                totalTexelCount,
+                texelIndex,
+                layerOutputData,
+                false
+              );
               layerOutput.needsUpdate = true;
             }
           );
