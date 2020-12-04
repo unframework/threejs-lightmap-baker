@@ -385,14 +385,11 @@ const IrradianceRenderer: React.FC<{
   );
 
   const lightSceneRef = useRef<THREE.Scene>();
-  const [
-    lightSceneElement,
-    setLightSceneElement
-  ] = useState<React.ReactElement | null>(null);
 
   const [processingState, setProcessingState] = useState(() => {
     return {
       previousLayerOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
+      lightSceneElement: null as React.ReactElement | null, // light scene contents
       layerOutput: undefined as THREE.Texture | undefined, // current pass's output
       layerOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
@@ -400,18 +397,6 @@ const IrradianceRenderer: React.FC<{
       passesRemaining: MAX_PASSES
     };
   });
-
-  // create light scene in separate render tick
-  useEffect(() => {
-    setLightSceneElement(
-      createLightProbeSceneElement(
-        workbenchRef.current,
-        processingState.previousLayerOutput,
-        factorNameRef.current,
-        animationTimeRef.current
-      )
-    );
-  }, [processingState.previousLayerOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {
@@ -467,6 +452,7 @@ const IrradianceRenderer: React.FC<{
     setProcessingState((prev) => {
       return {
         previousLayerOutput: prev.layerOutput, // previous pass's output
+        lightSceneElement: null, // will be created in another tick
         layerOutput,
         layerOutputData,
         passTexelCounter: [0],
@@ -474,6 +460,26 @@ const IrradianceRenderer: React.FC<{
         passesRemaining: prev.passesRemaining - 1
       };
     });
+
+    // create light scene in separate render tick (might help responsiveness)
+    setTimeout(() => {
+      setProcessingState((prev) => {
+        // extra check just in case
+        if (prev.passComplete) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          lightSceneElement: createLightProbeSceneElement(
+            workbenchRef.current,
+            prev.previousLayerOutput,
+            factorNameRef.current,
+            animationTimeRef.current
+          )
+        };
+      });
+    }, 0);
   }, [processingState, combinedOutput, combinedOutputData]);
 
   const probeTargetSize = 16;
@@ -609,8 +615,8 @@ const IrradianceRenderer: React.FC<{
     <>
       {outputIsComplete
         ? null
-        : lightSceneElement &&
-          React.cloneElement(lightSceneElement, {
+        : processingState.lightSceneElement &&
+          React.cloneElement(processingState.lightSceneElement, {
             ref: lightSceneRef
           })}
     </>
