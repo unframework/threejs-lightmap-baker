@@ -424,6 +424,14 @@ const IrradianceRenderer: React.FC<{
       if (processingState.layerOutput) {
         processingState.layerOutput.dispose();
       }
+
+      // also dereference large data objects to help free up memory
+      setProcessingState((prev) => {
+        if (!prev.lightSceneElement && !prev.layerOutputData) {
+          return prev;
+        }
+        return { ...prev, lightSceneElement: null, layerOutputData: undefined };
+      });
       return;
     }
 
