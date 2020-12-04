@@ -173,39 +173,6 @@ function createTemporaryLightMapTexture(
   return [texture, data];
 }
 
-function clearOutputTexture(
-  atlasWidth: number,
-  atlasHeight: number,
-  data: Float32Array,
-  withTestPattern?: boolean
-) {
-  const atlasSize = atlasWidth * atlasHeight;
-
-  if (!withTestPattern) {
-    data.fill(0);
-  }
-
-  // pre-fill with a test pattern
-  // (nested loop to avoid tripping sandbox infinite loop detection)
-  for (let y = 0; y < atlasHeight; y += 1) {
-    const yStart = y * atlasWidth * 4;
-
-    for (let x = 0; x < atlasWidth; x += 1) {
-      const stride = yStart + x * 4;
-
-      const tileX = Math.floor(x / 4);
-      const tileY = Math.floor(y / 4);
-
-      const on = tileX % 2 === tileY % 2;
-
-      data[stride] = on ? 0.2 : 0.8;
-      data[stride + 1] = 0.5;
-      data[stride + 2] = on ? 0.8 : 0.2;
-      data[stride + 3] = 0;
-    }
-  }
-}
-
 function queueTexel(
   atlasMap: AtlasMap,
   texelIndex: number,
@@ -384,6 +351,39 @@ const IrradianceRenderer: React.FC<{
     factorNameRef.current
   );
 
+  const texelPickMap = useMemo(() => {
+    const { atlasMap } = workbenchRef.current;
+    const { width: atlasWidth, height: atlasHeight } = atlasMap;
+    const totalTexelCount = atlasWidth * atlasHeight;
+
+    const result = new Array<number>(totalTexelCount);
+
+    // perform main fill in separate tick for responsiveness
+    setTimeout(() => {
+      const originalSequence = new Array<number>(totalTexelCount);
+
+      // nested loop to avoid tripping sandbox infinite loop detection
+      for (let i = 0; i < atlasHeight; i += 1) {
+        for (let j = 0; j < atlasWidth; j += 1) {
+          const index = i * atlasWidth + j;
+          originalSequence[index] = index;
+        }
+      }
+
+      // nested loop to avoid tripping sandbox infinite loop detection
+      for (let i = 0; i < atlasHeight; i += 1) {
+        for (let j = 0; j < atlasWidth; j += 1) {
+          const index = i * atlasWidth + j;
+          const randomIndex = Math.random() * originalSequence.length;
+          const sequenceElement = originalSequence.splice(randomIndex, 1)[0];
+          result[index] = sequenceElement;
+        }
+      }
+    }, 0);
+
+    return result;
+  }, []);
+
   const lightSceneRef = useRef<THREE.Scene>();
 
   const [processingState, setProcessingState] = useState(() => {
@@ -440,22 +440,6 @@ const IrradianceRenderer: React.FC<{
       workbenchRef.current.atlasMap.width,
       workbenchRef.current.atlasMap.height
     );
-
-    // on first pass only, blank out upstream output (write test pattern only on base)
-    // this is not really needed if not showing a test pattern, since texel writes are not
-    // additive on first pass anyway
-    // @todo do this only when needing to show debug output?
-    if (!processingState.layerOutput) {
-      const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
-
-      clearOutputTexture(
-        atlasMap.width,
-        atlasMap.height,
-        combinedOutputData,
-        withTestPattern
-      );
-      combinedOutput.needsUpdate = true;
-    }
 
     setProcessingState((prev) => {
       return {
@@ -518,24 +502,35 @@ const IrradianceRenderer: React.FC<{
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
           const totalTexelCount = atlasWidth * atlasHeight;
 
-          // allow for skipping a certain amount of empty texels
-          const maxCounter = Math.min(
-            totalTexelCount,
-            passTexelCounter[0] + 100
-          );
+          // wait for lookup map to be built up
+          if (texelPickMap.length !== totalTexelCount) {
+            return;
+          }
 
           renderLightProbeBatch(
             gl,
             lightScene,
             (renderBatchItem) => {
+              // allow for skipping a certain amount of empty texels
+              const maxCounter = Math.min(
+                totalTexelCount,
+                passTexelCounter[0] + 100
+              );
+
               // keep trying texels until non-empty one is found
               while (passTexelCounter[0] < maxCounter) {
-                const texelIndex = passTexelCounter[0];
+                const currentCounter = passTexelCounter[0];
 
                 // always update texel count
-                passTexelCounter[0] = texelIndex + 1;
+                passTexelCounter[0] += 1;
 
-                if (!queueTexel(atlasMap, texelIndex, renderBatchItem)) {
+                if (
+                  !queueTexel(
+                    atlasMap,
+                    texelPickMap[currentCounter],
+                    renderBatchItem
+                  )
+                ) {
                   continue;
                 }
 
