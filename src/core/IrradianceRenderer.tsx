@@ -173,39 +173,6 @@ function createTemporaryLightMapTexture(
   return [texture, data];
 }
 
-function clearOutputTexture(
-  atlasWidth: number,
-  atlasHeight: number,
-  data: Float32Array,
-  withTestPattern?: boolean
-) {
-  const atlasSize = atlasWidth * atlasHeight;
-
-  if (!withTestPattern) {
-    data.fill(0);
-  }
-
-  // pre-fill with a test pattern
-  // (nested loop to avoid tripping sandbox infinite loop detection)
-  for (let y = 0; y < atlasHeight; y += 1) {
-    const yStart = y * atlasWidth * 4;
-
-    for (let x = 0; x < atlasWidth; x += 1) {
-      const stride = yStart + x * 4;
-
-      const tileX = Math.floor(x / 4);
-      const tileY = Math.floor(y / 4);
-
-      const on = tileX % 2 === tileY % 2;
-
-      data[stride] = on ? 0.2 : 0.8;
-      data[stride + 1] = 0.5;
-      data[stride + 2] = on ? 0.8 : 0.2;
-      data[stride + 3] = 0;
-    }
-  }
-}
-
 function queueTexel(
   atlasMap: AtlasMap,
   texelIndex: number,
@@ -464,23 +431,6 @@ const IrradianceRenderer: React.FC<{
       workbenchRef.current.atlasMap.width,
       workbenchRef.current.atlasMap.height
     );
-
-    // on first pass only, blank out upstream output (write test pattern only on base)
-    // this is not really needed if not showing a test pattern, since texel writes are not
-    // additive on first pass anyway
-    // @todo do this only when needing to show debug output?
-    // @todo move to compositor setup
-    if (!processingState.layerOutput) {
-      const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
-
-      clearOutputTexture(
-        atlasMap.width,
-        atlasMap.height,
-        combinedOutputData,
-        withTestPattern
-      );
-      combinedOutput.needsUpdate = true;
-    }
 
     setProcessingState((prev) => {
       return {

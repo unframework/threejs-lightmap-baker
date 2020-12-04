@@ -63,7 +63,8 @@ const tmpPrevClearColor = new THREE.Color();
 
 function createRendererTexture(
   atlasWidth: number,
-  atlasHeight: number
+  atlasHeight: number,
+  withTestPattern?: boolean
 ): [THREE.Texture, Float32Array] {
   const atlasSize = atlasWidth * atlasHeight;
   const data = new Float32Array(4 * atlasSize);
@@ -81,6 +82,28 @@ function createRendererTexture(
   texture.magFilter = THREE.NearestFilter;
   texture.minFilter = THREE.NearestFilter;
   texture.generateMipmaps = false;
+
+  // pre-fill with a test pattern
+  // (nested loop to avoid tripping sandbox infinite loop detection)
+  if (withTestPattern) {
+    for (let y = 0; y < atlasHeight; y += 1) {
+      const yStart = y * atlasWidth * 4;
+
+      for (let x = 0; x < atlasWidth; x += 1) {
+        const stride = yStart + x * 4;
+
+        const tileX = Math.floor(x / 4);
+        const tileY = Math.floor(y / 4);
+
+        const on = tileX % 2 === tileY % 2;
+
+        data[stride] = on ? 0.2 : 0.8;
+        data[stride + 1] = 0.5;
+        data[stride + 2] = on ? 0.8 : 0.2;
+        data[stride + 3] = 0;
+      }
+    }
+  }
 
   return [texture, data];
 }
@@ -166,7 +189,7 @@ export default function IrradianceCompositor<
 
   // incoming base rendered texture (filled elsewhere)
   const [baseTexture, baseArray] = useMemo(
-    () => createRendererTexture(widthRef.current, heightRef.current),
+    () => createRendererTexture(widthRef.current, heightRef.current, true),
     []
   );
   useEffect(
@@ -177,6 +200,7 @@ export default function IrradianceCompositor<
   );
 
   // incoming extra rendered factors textures (filled elsewhere)
+  // not including a test pattern here to avoid additive colour artifacts
   const [factorTextures, factorArrays] = useMemo<
     [
       Record<keyof FactorValueMap, THREE.Texture>,
