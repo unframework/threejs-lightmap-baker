@@ -384,8 +384,6 @@ const IrradianceRenderer: React.FC<{
     factorNameRef.current
   );
 
-  const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
-
   const lightSceneRef = useRef<THREE.Scene>();
   const [
     lightSceneElement,
@@ -461,6 +459,8 @@ const IrradianceRenderer: React.FC<{
     // additive on first pass anyway
     // @todo do this only when needing to show debug output?
     if (!processingState.layerOutput) {
+      const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
+
       clearOutputTexture(
         atlasMap.width,
         atlasMap.height,
@@ -480,7 +480,7 @@ const IrradianceRenderer: React.FC<{
         passesRemaining: prev.passesRemaining - 1
       };
     });
-  }, [withTestPattern, processingState, combinedOutput, combinedOutputData]);
+  }, [processingState, combinedOutput, combinedOutputData]);
 
   const probeTargetSize = 16;
   const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
