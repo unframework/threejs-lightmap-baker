@@ -301,22 +301,6 @@ function readTexel(
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
 
-function storeArrayValue(
-  offset: number,
-  activeOutputData: Float32Array,
-  isAdditive: boolean
-) {
-  if (isAdditive) {
-    tmpRgbaAdder.fromArray(activeOutputData, offset);
-    tmpRgbaAdder.add(tmpRgba);
-  } else {
-    tmpRgbaAdder.copy(tmpRgba);
-  }
-
-  tmpRgbaAdder.w = 1; // always reset alpha to 1 to indicate filled pixel
-  tmpRgbaAdder.toArray(activeOutputData, offset);
-}
-
 function storeLightMapValue(
   atlasData: Float32Array,
   atlasWidth: number,
@@ -325,9 +309,20 @@ function storeLightMapValue(
   activeOutputData: Float32Array,
   isAdditive: boolean
 ) {
-  storeArrayValue(texelIndex * 4, activeOutputData, isAdditive);
+  // read existing texel value (if adding)
+  if (isAdditive) {
+    tmpRgbaAdder.fromArray(activeOutputData, texelIndex * 4);
+    tmpRgbaAdder.add(tmpRgba);
+  } else {
+    tmpRgbaAdder.copy(tmpRgba);
+  }
 
-  // propagate value to 3x3 brush area
+  tmpRgbaAdder.w = 1; // reset alpha to 1 to indicate filled pixel
+
+  // main texel write
+  tmpRgbaAdder.toArray(activeOutputData, texelIndex * 4);
+
+  // propagate combined value to 3x3 brush area
   const texelX = texelIndex % atlasWidth;
   const texelRowStart = texelIndex - texelX;
 
@@ -342,12 +337,14 @@ function storeLightMapValue(
 
     // fill texel if it will not/did not receive real computed data otherwise;
     // also ensure strong neighbour values (not diagonal) take precedence
+    // @todo this makes it so that only first pass's output is stored
     const offTexelFaceEnc = atlasData[offTexelBase + 2];
     const isStrongNeighbour = offX === 0 || offY === 0;
     const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
 
     if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
-      storeArrayValue(offTexelBase, activeOutputData, isAdditive);
+      // no need to separately read existing value for brush-propagated texels
+      tmpRgbaAdder.toArray(activeOutputData, offTexelBase);
     }
   }
 }
