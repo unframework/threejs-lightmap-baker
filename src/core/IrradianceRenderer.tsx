@@ -401,16 +401,6 @@ const IrradianceRenderer: React.FC<{
     };
   });
 
-  useEffect(
-    () => () => {
-      // clean up unused texture when it changes
-      if (processingState.previousOutput) {
-        processingState.previousOutput.dispose();
-      }
-    },
-    [processingState.previousOutput]
-  );
-
   // create light scene in separate render tick
   useEffect(() => {
     setLightSceneElement(
