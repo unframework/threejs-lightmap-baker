@@ -374,6 +374,8 @@ const IrradianceRenderer: React.FC<{
   const [processingState, setProcessingState] = useState(() => {
     return {
       previousOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
+      layerOutput: undefined as THREE.Texture | undefined, // current pass's output
+      layerOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
       passComplete: true, // this triggers new pass on next render
       passesRemaining: MAX_PASSES
@@ -405,28 +407,35 @@ const IrradianceRenderer: React.FC<{
   // kick off new pass when current one is complete
   useEffect(() => {
     const { atlasMap } = workbenchRef.current;
-    const { passComplete, passesRemaining } = processingState;
+    const { passComplete, passesRemaining, previousOutput } = processingState;
 
-    // check if we need to set up new pass
-    if (!passComplete || passesRemaining === 0) {
+    // check if there is anything to do
+    if (!passComplete) {
       return;
     }
 
-    // copy completed data
-    const hasPreviousData = passesRemaining === MAX_PASSES;
-    const [previousOutput, previousOutputData] = hasPreviousData
-      ? []
-      : createTemporaryLightMapTexture(
-          workbenchRef.current.atlasMap.width,
-          workbenchRef.current.atlasMap.height
-        );
-
-    if (previousOutput && previousOutputData) {
-      previousOutputData.set(activeOutputData);
-      previousOutput.needsUpdate = true;
+    // always clean up previous texture
+    if (previousOutput) {
+      previousOutput.dispose();
     }
 
-    // reset output (re-create test pattern only on base)
+    // check if a new pass has to be set up
+    if (passesRemaining === 0) {
+      // on final pass, discard the active layer output texture too
+      // (on previous passes it lives on as "previousOutput")
+      if (processingState.layerOutput) {
+        processingState.layerOutput.dispose();
+      }
+      return;
+    }
+
+    // set up a new output texture for new pass
+    const [layerOutput, layerOutputData] = createTemporaryLightMapTexture(
+      workbenchRef.current.atlasMap.width,
+      workbenchRef.current.atlasMap.height
+    );
+
+    // reset upstream output (re-create test pattern only on base)
     // @todo do this only when needing to show debug output?
     clearOutputTexture(
       atlasMap.width,
@@ -438,7 +447,9 @@ const IrradianceRenderer: React.FC<{
 
     setProcessingState((prev) => {
       return {
-        previousOutput,
+        previousOutput: prev.layerOutput, // previous pass's output
+        layerOutput,
+        layerOutputData,
         passTexelCounter: [0],
         passComplete: false,
         passesRemaining: prev.passesRemaining - 1
@@ -463,7 +474,11 @@ const IrradianceRenderer: React.FC<{
             return; // nothing to do yet
           }
 
-          const { passTexelCounter } = processingState;
+          const {
+            passTexelCounter,
+            layerOutput,
+            layerOutputData
+          } = processingState;
 
           const { atlasMap } = workbenchRef.current;
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
@@ -505,8 +520,16 @@ const IrradianceRenderer: React.FC<{
                 texelIndex,
                 activeOutputData
               );
+              storeLightMapValue(
+                atlasMap.data,
+                atlasWidth,
+                totalTexelCount,
+                texelIndex,
+                layerOutputData
+              );
 
               activeOutput.needsUpdate = true;
+              layerOutput.needsUpdate = true;
             }
           );
 
