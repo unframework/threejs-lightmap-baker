@@ -384,6 +384,30 @@ const IrradianceRenderer: React.FC<{
     factorNameRef.current
   );
 
+  const texelPickMap = useMemo(() => {
+    const { atlasMap } = workbenchRef.current;
+    const { width: atlasWidth, height: atlasHeight } = atlasMap;
+    const totalTexelCount = atlasWidth * atlasHeight;
+
+    const result = new Array<number>(totalTexelCount);
+
+    // perform main fill in separate tick for responsiveness
+    setTimeout(() => {
+      const originalSequence = new Array<number>(totalTexelCount);
+      for (let i = 0; i < totalTexelCount; i += 1) {
+        originalSequence[i] = i;
+      }
+
+      for (let i = 0; i < totalTexelCount; i += 1) {
+        const randomIndex = Math.random() * originalSequence.length;
+        const sequenceElement = originalSequence.splice(randomIndex, 1)[0];
+        result[i] = sequenceElement;
+      }
+    }, 0);
+
+    return result;
+  }, []);
+
   const lightSceneRef = useRef<THREE.Scene>();
 
   const [processingState, setProcessingState] = useState(() => {
@@ -445,6 +469,7 @@ const IrradianceRenderer: React.FC<{
     // this is not really needed if not showing a test pattern, since texel writes are not
     // additive on first pass anyway
     // @todo do this only when needing to show debug output?
+    // @todo move to compositor setup
     if (!processingState.layerOutput) {
       const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
 
@@ -518,6 +543,11 @@ const IrradianceRenderer: React.FC<{
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
           const totalTexelCount = atlasWidth * atlasHeight;
 
+          // wait for lookup map to be built up
+          if (texelPickMap.length !== totalTexelCount) {
+            return;
+          }
+
           renderLightProbeBatch(
             gl,
             lightScene,
@@ -530,12 +560,18 @@ const IrradianceRenderer: React.FC<{
 
               // keep trying texels until non-empty one is found
               while (passTexelCounter[0] < maxCounter) {
-                const texelIndex = passTexelCounter[0];
+                const currentCounter = passTexelCounter[0];
 
                 // always update texel count
                 passTexelCounter[0] += 1;
 
-                if (!queueTexel(atlasMap, texelIndex, renderBatchItem)) {
+                if (
+                  !queueTexel(
+                    atlasMap,
+                    texelPickMap[currentCounter],
+                    renderBatchItem
+                  )
+                ) {
                   continue;
                 }
 
