@@ -23,7 +23,8 @@ const MAX_PASSES = 2;
 // but making emissiveIntensity > 1 washed out the visible non-light-scene display colours
 const EMISSIVE_MULTIPLIER = 1;
 
-const tmpRgba = [0, 0, 0, 0];
+const tmpRgba = new THREE.Vector4();
+const tmpRgbaAdder = new THREE.Vector4();
 
 export interface IrradianceStagingTimelineMesh {
   uuid: string;
@@ -38,9 +39,9 @@ export interface IrradianceStagingTimeline {
 
 // @todo move into surface manager?
 // @todo correctly replicate shadowing parameters/etc
-function getLightProbeSceneElement(
+function createLightProbeSceneElement(
   workbench: Workbench,
-  lastTexture: THREE.Texture,
+  lastTexture: THREE.Texture | undefined,
   activeFactorName: string | null,
   animationTime: number
 ) {
@@ -51,7 +52,8 @@ function getLightProbeSceneElement(
       key={`light-scene-${Math.random()}`} // ensure scene is fully re-created @todo why?
     >
       {lightSceneLights.map(({ dirLight, factorName }) => {
-        if (factorName !== activeFactorName) {
+        // no lights if after first pass
+        if (lastTexture || factorName !== activeFactorName) {
           return null;
         }
 
@@ -289,15 +291,68 @@ function readTexel(
     }
   });
 
-  rgba[0] = r / totalDivider;
-  rgba[1] = g / totalDivider;
-  rgba[2] = b / totalDivider;
-  rgba[3] = 1;
+  // alpha is set later
+  rgba.x = r / totalDivider;
+  rgba.y = g / totalDivider;
+  rgba.z = b / totalDivider;
 }
 
 // offsets for 3x3 brush
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
+
+function storeLightMapValue(
+  atlasData: Float32Array,
+  atlasWidth: number,
+  totalTexelCount: number,
+  texelIndex: number,
+  combinedOutputData: Float32Array,
+  layerOutputData: Float32Array,
+  isAdditive: boolean
+) {
+  // read existing texel value (if adding)
+  const mainOffTexelBase = texelIndex * 4;
+  if (isAdditive) {
+    tmpRgbaAdder.fromArray(combinedOutputData, mainOffTexelBase);
+    tmpRgbaAdder.add(tmpRgba);
+  } else {
+    tmpRgbaAdder.copy(tmpRgba);
+  }
+
+  tmpRgba.w = 1; // reset alpha to 1 to indicate filled pixel
+  tmpRgbaAdder.w = 1; // reset alpha to 1 to indicate filled pixel
+
+  // main texel write
+  tmpRgbaAdder.toArray(combinedOutputData, mainOffTexelBase);
+  tmpRgba.toArray(layerOutputData, mainOffTexelBase);
+
+  // propagate combined value to 3x3 brush area
+  const texelX = texelIndex % atlasWidth;
+  const texelRowStart = texelIndex - texelX;
+
+  for (let offDir = 0; offDir < 8; offDir += 1) {
+    const offX = offDirX[offDir];
+    const offY = offDirY[offDir];
+
+    const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
+    const offRowStart =
+      (totalTexelCount + texelRowStart + offY * atlasWidth) % totalTexelCount;
+    const offTexelBase = (offRowStart + offRowX) * 4;
+
+    // fill texel if it will not/did not receive real computed data otherwise;
+    // also ensure strong neighbour values (not diagonal) take precedence
+    // (using layer output data to check for past writes since it is re-initialized per pass)
+    const offTexelFaceEnc = atlasData[offTexelBase + 2];
+    const isStrongNeighbour = offX === 0 || offY === 0;
+    const isUnfilled = layerOutputData[offTexelBase + 3] === 0;
+
+    if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
+      // no need to separately read existing value for brush-propagated texels
+      tmpRgbaAdder.toArray(combinedOutputData, offTexelBase);
+      tmpRgba.toArray(layerOutputData, offTexelBase);
+    }
+  }
+}
 
 // individual renderer worker lifecycle instance
 // (in parent, key to workbench.id to restart on changes)
@@ -323,95 +378,117 @@ const IrradianceRenderer: React.FC<{
   const onDebugLightProbeRef = useRef(props.onDebugLightProbe);
   onDebugLightProbeRef.current = props.onDebugLightProbe;
 
-  // output of the previous baking pass (applied to the light probe scene)
-  const [previousOutput, previousOutputData] = useMemo(
-    () =>
-      createTemporaryLightMapTexture(
-        workbenchRef.current.atlasMap.width,
-        workbenchRef.current.atlasMap.height
-      ),
-    []
-  );
-  useEffect(
-    () => () => {
-      previousOutput.dispose();
-    },
-    [previousOutput]
-  );
-
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
-  const [activeOutput, activeOutputData] = useIrradianceRendererData(
+  const [combinedOutput, combinedOutputData] = useIrradianceRendererData(
     factorNameRef.current
   );
 
-  const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
-
   const lightSceneRef = useRef<THREE.Scene>();
-  const [
-    lightSceneElement,
-    setLightSceneElement
-  ] = useState<React.ReactElement | null>(null);
 
   const [processingState, setProcessingState] = useState(() => {
     return {
+      previousLayerOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
+      lightSceneElement: null as React.ReactElement | null, // light scene contents
+      layerOutput: undefined as THREE.Texture | undefined, // current pass's output
+      layerOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
       passComplete: true, // this triggers new pass on next render
       passesRemaining: MAX_PASSES
     };
   });
 
-  // create light scene in separate render tick
-  useEffect(() => {
-    setLightSceneElement(
-      getLightProbeSceneElement(
-        workbenchRef.current,
-        previousOutput,
-        factorNameRef.current,
-        animationTimeRef.current
-      )
-    );
-  }, [previousOutput]);
-
   // kick off new pass when current one is complete
   useEffect(() => {
     const { atlasMap } = workbenchRef.current;
-    const { passComplete, passesRemaining } = processingState;
+    const {
+      passComplete,
+      passesRemaining,
+      previousLayerOutput
+    } = processingState;
 
-    // check if we need to set up new pass
-    if (!passComplete || passesRemaining === 0) {
+    // check if there is anything to do
+    if (!passComplete) {
       return;
     }
 
-    // copy completed data
-    previousOutputData.set(activeOutputData);
-    previousOutput.needsUpdate = true;
+    // always clean up previous texture
+    if (previousLayerOutput) {
+      previousLayerOutput.dispose();
+    }
 
-    // reset output (re-create test pattern only on base)
-    // @todo do this only when needing to show debug output?
-    clearOutputTexture(
-      atlasMap.width,
-      atlasMap.height,
-      activeOutputData,
-      withTestPattern
+    // check if a new pass has to be set up
+    if (passesRemaining === 0) {
+      // on final pass, discard the active layer output texture too
+      // (on previous passes it lives on as "previousLayerOutput")
+      if (processingState.layerOutput) {
+        processingState.layerOutput.dispose();
+      }
+
+      // also dereference large data objects to help free up memory
+      setProcessingState((prev) => {
+        if (!prev.lightSceneElement && !prev.layerOutputData) {
+          return prev;
+        }
+        return { ...prev, lightSceneElement: null, layerOutputData: undefined };
+      });
+      return;
+    }
+
+    // set up a new output texture for new pass
+    const [layerOutput, layerOutputData] = createTemporaryLightMapTexture(
+      workbenchRef.current.atlasMap.width,
+      workbenchRef.current.atlasMap.height
     );
-    activeOutput.needsUpdate = true;
+
+    // on first pass only, blank out upstream output (write test pattern only on base)
+    // this is not really needed if not showing a test pattern, since texel writes are not
+    // additive on first pass anyway
+    // @todo do this only when needing to show debug output?
+    if (!processingState.layerOutput) {
+      const withTestPattern = factorNameRef.current === null; // only base factor gets pattern
+
+      clearOutputTexture(
+        atlasMap.width,
+        atlasMap.height,
+        combinedOutputData,
+        withTestPattern
+      );
+      combinedOutput.needsUpdate = true;
+    }
 
     setProcessingState((prev) => {
       return {
+        previousLayerOutput: prev.layerOutput, // previous pass's output
+        lightSceneElement: null, // will be created in another tick
+        layerOutput,
+        layerOutputData,
         passTexelCounter: [0],
         passComplete: false,
         passesRemaining: prev.passesRemaining - 1
       };
     });
-  }, [
-    withTestPattern,
-    processingState,
-    previousOutput,
-    previousOutputData,
-    activeOutput,
-    activeOutputData
-  ]);
+
+    // create light scene in separate render tick (might help responsiveness)
+    setTimeout(() => {
+      setProcessingState((prev) => {
+        // extra check just in case
+        if (prev.passComplete) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          lightSceneElement: createLightProbeSceneElement(
+            workbenchRef.current,
+            prev.previousLayerOutput,
+            factorNameRef.current,
+            animationTimeRef.current
+          )
+        };
+      });
+    }, 0);
+  }, [processingState, combinedOutput, combinedOutputData]);
 
   const probeTargetSize = 16;
   const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
@@ -430,7 +507,12 @@ const IrradianceRenderer: React.FC<{
             return; // nothing to do yet
           }
 
-          const { passTexelCounter } = processingState;
+          const {
+            passTexelCounter,
+            previousLayerOutput,
+            layerOutput,
+            layerOutputData
+          } = processingState;
 
           const { atlasMap } = workbenchRef.current;
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
@@ -464,38 +546,18 @@ const IrradianceRenderer: React.FC<{
             (texelIndex, readLightProbe) => {
               readTexel(tmpRgba, readLightProbe, probePixelAreaLookup);
 
-              // store computed illumination value
-              activeOutputData.set(tmpRgba, texelIndex * 4);
-
-              // propagate value to 3x3 brush area
-              const texelX = texelIndex % atlasWidth;
-              const texelRowStart = texelIndex - texelX;
-
-              for (let offDir = 0; offDir < 8; offDir += 1) {
-                const offX = offDirX[offDir];
-                const offY = offDirY[offDir];
-
-                const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
-                const offRowStart =
-                  (totalTexelCount + texelRowStart + offY * atlasWidth) %
-                  totalTexelCount;
-                const offTexelBase = (offRowStart + offRowX) * 4;
-
-                // fill texel if it will not/did not receive real computed data otherwise;
-                // also ensure strong neighbour values (not diagonal) take precedence
-                const offTexelFaceEnc = atlasMap.data[offTexelBase + 2];
-                const isStrongNeighbour = offX === 0 || offY === 0;
-                const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
-
-                if (
-                  offTexelFaceEnc === 0 &&
-                  (isStrongNeighbour || isUnfilled)
-                ) {
-                  activeOutputData.set(tmpRgba, offTexelBase);
-                }
-              }
-
-              activeOutput.needsUpdate = true;
+              // add this pass's illumination contribution to upstream output and current isolated layer
+              storeLightMapValue(
+                atlasMap.data,
+                atlasWidth,
+                totalTexelCount,
+                texelIndex,
+                combinedOutputData,
+                layerOutputData,
+                previousLayerOutput ? true : false // directly overwrite any test pattern if first pass
+              );
+              combinedOutput.needsUpdate = true;
+              layerOutput.needsUpdate = true;
             }
           );
 
@@ -561,8 +623,8 @@ const IrradianceRenderer: React.FC<{
     <>
       {outputIsComplete
         ? null
-        : lightSceneElement &&
-          React.cloneElement(lightSceneElement, {
+        : processingState.lightSceneElement &&
+          React.cloneElement(processingState.lightSceneElement, {
             ref: lightSceneRef
           })}
     </>
