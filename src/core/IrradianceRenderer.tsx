@@ -307,20 +307,24 @@ function storeLightMapValue(
   totalTexelCount: number,
   texelIndex: number,
   activeOutputData: Float32Array,
+  layerOutputData: Float32Array,
   isAdditive: boolean
 ) {
   // read existing texel value (if adding)
+  const mainOffTexelBase = texelIndex * 4;
   if (isAdditive) {
-    tmpRgbaAdder.fromArray(activeOutputData, texelIndex * 4);
+    tmpRgbaAdder.fromArray(activeOutputData, mainOffTexelBase);
     tmpRgbaAdder.add(tmpRgba);
   } else {
     tmpRgbaAdder.copy(tmpRgba);
   }
 
+  tmpRgba.w = 1; // reset alpha to 1 to indicate filled pixel
   tmpRgbaAdder.w = 1; // reset alpha to 1 to indicate filled pixel
 
   // main texel write
-  tmpRgbaAdder.toArray(activeOutputData, texelIndex * 4);
+  tmpRgbaAdder.toArray(activeOutputData, mainOffTexelBase);
+  tmpRgba.toArray(layerOutputData, mainOffTexelBase);
 
   // propagate combined value to 3x3 brush area
   const texelX = texelIndex % atlasWidth;
@@ -337,14 +341,15 @@ function storeLightMapValue(
 
     // fill texel if it will not/did not receive real computed data otherwise;
     // also ensure strong neighbour values (not diagonal) take precedence
-    // @todo this makes it so that only first pass's output is stored
+    // (using layer output data to check for past writes since it is re-initialized per pass)
     const offTexelFaceEnc = atlasData[offTexelBase + 2];
     const isStrongNeighbour = offX === 0 || offY === 0;
-    const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
+    const isUnfilled = layerOutputData[offTexelBase + 3] === 0;
 
     if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
       // no need to separately read existing value for brush-propagated texels
       tmpRgbaAdder.toArray(activeOutputData, offTexelBase);
+      tmpRgba.toArray(layerOutputData, offTexelBase);
     }
   }
 }
@@ -533,26 +538,17 @@ const IrradianceRenderer: React.FC<{
             (texelIndex, readLightProbe) => {
               readTexel(tmpRgba, readLightProbe, probePixelAreaLookup);
 
-              // add this layer's illumination contribution to upstream output
+              // add this pass's illumination contribution to upstream output and current isolated layer
               storeLightMapValue(
                 atlasMap.data,
                 atlasWidth,
                 totalTexelCount,
                 texelIndex,
                 activeOutputData,
+                layerOutputData,
                 previousOutput ? true : false // directly overwrite any test pattern if first pass
               );
               activeOutput.needsUpdate = true;
-
-              // store just this layer's illumination contribution for next pass
-              storeLightMapValue(
-                atlasMap.data,
-                atlasWidth,
-                totalTexelCount,
-                texelIndex,
-                layerOutputData,
-                false
-              );
               layerOutput.needsUpdate = true;
             }
           );
