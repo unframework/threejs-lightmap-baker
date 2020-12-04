@@ -244,10 +244,6 @@ export function useLightProbe(
         // (done per texel for linear interpolation of normals)
         setBlendedNormalRaw(tmpNormal, normalArray, faceVertexBase, pU, pV);
 
-        tmpNormalOther.copy(tmpNormal);
-        tmpNormalOther.setLength(0.1);
-        tmpOrigin.add(tmpNormalOther);
-
         // use consistent "left" and "up" directions based on just the normal
         if (tmpNormal.x === 0 && tmpNormal.y === 0) {
           tmpU.set(1, 0, 0);
