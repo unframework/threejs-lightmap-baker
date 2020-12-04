@@ -38,9 +38,9 @@ export interface IrradianceStagingTimeline {
 
 // @todo move into surface manager?
 // @todo correctly replicate shadowing parameters/etc
-function getLightProbeSceneElement(
+function createLightProbeSceneElement(
   workbench: Workbench,
-  lastTexture: THREE.Texture,
+  lastTexture: THREE.Texture | undefined,
   activeFactorName: string | null,
   animationTime: number
 ) {
@@ -292,12 +292,46 @@ function readTexel(
   rgba[0] = r / totalDivider;
   rgba[1] = g / totalDivider;
   rgba[2] = b / totalDivider;
-  rgba[3] = 1;
+  rgba[3] = 1; // always set alpha to indicate filled pixel
 }
 
 // offsets for 3x3 brush
 const offDirX = [1, 1, 0, -1, -1, -1, 0, 1];
 const offDirY = [0, 1, 1, 1, 0, -1, -1, -1];
+
+function storeLightMapValue(
+  atlasData: Float32Array,
+  atlasWidth: number,
+  totalTexelCount: number,
+  texelIndex: number,
+  activeOutputData: Float32Array
+) {
+  activeOutputData.set(tmpRgba, texelIndex * 4);
+
+  // propagate value to 3x3 brush area
+  const texelX = texelIndex % atlasWidth;
+  const texelRowStart = texelIndex - texelX;
+
+  for (let offDir = 0; offDir < 8; offDir += 1) {
+    const offX = offDirX[offDir];
+    const offY = offDirY[offDir];
+
+    const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
+    const offRowStart =
+      (totalTexelCount + texelRowStart + offY * atlasWidth) % totalTexelCount;
+    const offTexelBase = (offRowStart + offRowX) * 4;
+
+    // fill texel if it will not/did not receive real computed data otherwise;
+    // also ensure strong neighbour values (not diagonal) take precedence
+    const offTexelFaceEnc = atlasData[offTexelBase + 2];
+    const isStrongNeighbour = offX === 0 || offY === 0;
+    const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
+
+    if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
+      activeOutputData.set(tmpRgba, offTexelBase);
+    }
+  }
+}
 
 // individual renderer worker lifecycle instance
 // (in parent, key to workbench.id to restart on changes)
@@ -323,22 +357,6 @@ const IrradianceRenderer: React.FC<{
   const onDebugLightProbeRef = useRef(props.onDebugLightProbe);
   onDebugLightProbeRef.current = props.onDebugLightProbe;
 
-  // output of the previous baking pass (applied to the light probe scene)
-  const [previousOutput, previousOutputData] = useMemo(
-    () =>
-      createTemporaryLightMapTexture(
-        workbenchRef.current.atlasMap.width,
-        workbenchRef.current.atlasMap.height
-      ),
-    []
-  );
-  useEffect(
-    () => () => {
-      previousOutput.dispose();
-    },
-    [previousOutput]
-  );
-
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
   const [activeOutput, activeOutputData] = useIrradianceRendererData(
@@ -355,23 +373,34 @@ const IrradianceRenderer: React.FC<{
 
   const [processingState, setProcessingState] = useState(() => {
     return {
+      previousOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
       passTexelCounter: [0], // directly changed in place to avoid re-renders
       passComplete: true, // this triggers new pass on next render
       passesRemaining: MAX_PASSES
     };
   });
 
+  useEffect(
+    () => () => {
+      // clean up unused texture when it changes
+      if (processingState.previousOutput) {
+        processingState.previousOutput.dispose();
+      }
+    },
+    [processingState.previousOutput]
+  );
+
   // create light scene in separate render tick
   useEffect(() => {
     setLightSceneElement(
-      getLightProbeSceneElement(
+      createLightProbeSceneElement(
         workbenchRef.current,
-        previousOutput,
+        processingState.previousOutput,
         factorNameRef.current,
         animationTimeRef.current
       )
     );
-  }, [previousOutput]);
+  }, [processingState.previousOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {
@@ -384,6 +413,10 @@ const IrradianceRenderer: React.FC<{
     }
 
     // copy completed data
+    const [previousOutput, previousOutputData] = createTemporaryLightMapTexture(
+      workbenchRef.current.atlasMap.width,
+      workbenchRef.current.atlasMap.height
+    );
     previousOutputData.set(activeOutputData);
     previousOutput.needsUpdate = true;
 
@@ -399,19 +432,13 @@ const IrradianceRenderer: React.FC<{
 
     setProcessingState((prev) => {
       return {
+        previousOutput,
         passTexelCounter: [0],
         passComplete: false,
         passesRemaining: prev.passesRemaining - 1
       };
     });
-  }, [
-    withTestPattern,
-    processingState,
-    previousOutput,
-    previousOutputData,
-    activeOutput,
-    activeOutputData
-  ]);
+  }, [withTestPattern, processingState, activeOutput, activeOutputData]);
 
   const probeTargetSize = 16;
   const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
@@ -465,35 +492,13 @@ const IrradianceRenderer: React.FC<{
               readTexel(tmpRgba, readLightProbe, probePixelAreaLookup);
 
               // store computed illumination value
-              activeOutputData.set(tmpRgba, texelIndex * 4);
-
-              // propagate value to 3x3 brush area
-              const texelX = texelIndex % atlasWidth;
-              const texelRowStart = texelIndex - texelX;
-
-              for (let offDir = 0; offDir < 8; offDir += 1) {
-                const offX = offDirX[offDir];
-                const offY = offDirY[offDir];
-
-                const offRowX = (atlasWidth + texelX + offX) % atlasWidth;
-                const offRowStart =
-                  (totalTexelCount + texelRowStart + offY * atlasWidth) %
-                  totalTexelCount;
-                const offTexelBase = (offRowStart + offRowX) * 4;
-
-                // fill texel if it will not/did not receive real computed data otherwise;
-                // also ensure strong neighbour values (not diagonal) take precedence
-                const offTexelFaceEnc = atlasMap.data[offTexelBase + 2];
-                const isStrongNeighbour = offX === 0 || offY === 0;
-                const isUnfilled = activeOutputData[offTexelBase + 3] === 0;
-
-                if (
-                  offTexelFaceEnc === 0 &&
-                  (isStrongNeighbour || isUnfilled)
-                ) {
-                  activeOutputData.set(tmpRgba, offTexelBase);
-                }
-              }
+              storeLightMapValue(
+                atlasMap.data,
+                atlasWidth,
+                totalTexelCount,
+                texelIndex,
+                activeOutputData
+              );
 
               activeOutput.needsUpdate = true;
             }
