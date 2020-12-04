@@ -392,7 +392,7 @@ const IrradianceRenderer: React.FC<{
 
   const [processingState, setProcessingState] = useState(() => {
     return {
-      previousOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
+      previousLayerOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
       layerOutput: undefined as THREE.Texture | undefined, // current pass's output
       layerOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
@@ -406,17 +406,21 @@ const IrradianceRenderer: React.FC<{
     setLightSceneElement(
       createLightProbeSceneElement(
         workbenchRef.current,
-        processingState.previousOutput,
+        processingState.previousLayerOutput,
         factorNameRef.current,
         animationTimeRef.current
       )
     );
-  }, [processingState.previousOutput]);
+  }, [processingState.previousLayerOutput]);
 
   // kick off new pass when current one is complete
   useEffect(() => {
     const { atlasMap } = workbenchRef.current;
-    const { passComplete, passesRemaining, previousOutput } = processingState;
+    const {
+      passComplete,
+      passesRemaining,
+      previousLayerOutput
+    } = processingState;
 
     // check if there is anything to do
     if (!passComplete) {
@@ -424,14 +428,14 @@ const IrradianceRenderer: React.FC<{
     }
 
     // always clean up previous texture
-    if (previousOutput) {
-      previousOutput.dispose();
+    if (previousLayerOutput) {
+      previousLayerOutput.dispose();
     }
 
     // check if a new pass has to be set up
     if (passesRemaining === 0) {
       // on final pass, discard the active layer output texture too
-      // (on previous passes it lives on as "previousOutput")
+      // (on previous passes it lives on as "previousLayerOutput")
       if (processingState.layerOutput) {
         processingState.layerOutput.dispose();
       }
@@ -462,7 +466,7 @@ const IrradianceRenderer: React.FC<{
 
     setProcessingState((prev) => {
       return {
-        previousOutput: prev.layerOutput, // previous pass's output
+        previousLayerOutput: prev.layerOutput, // previous pass's output
         layerOutput,
         layerOutputData,
         passTexelCounter: [0],
@@ -491,7 +495,7 @@ const IrradianceRenderer: React.FC<{
 
           const {
             passTexelCounter,
-            previousOutput,
+            previousLayerOutput,
             layerOutput,
             layerOutputData
           } = processingState;
@@ -536,7 +540,7 @@ const IrradianceRenderer: React.FC<{
                 texelIndex,
                 combinedOutputData,
                 layerOutputData,
-                previousOutput ? true : false // directly overwrite any test pattern if first pass
+                previousLayerOutput ? true : false // directly overwrite any test pattern if first pass
               );
               combinedOutput.needsUpdate = true;
               layerOutput.needsUpdate = true;
