@@ -94,7 +94,7 @@ export function useLightRegister(
 
     // register display item
     lights[uuid] = {
-      dirLight: light,
+      light,
       factorName: factorNameRef.current
     };
 

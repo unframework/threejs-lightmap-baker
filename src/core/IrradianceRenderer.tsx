@@ -51,23 +51,29 @@ function createLightProbeScene(
 
   // first pass (no previous input texture), add lights
   if (!lastTexture) {
-    for (const { dirLight, factorName } of lightSceneLights) {
+    for (const { light, factorName } of lightSceneLights) {
       // no lights if after first pass
       if (factorName !== activeFactorName) {
         return null;
       }
 
-      const cloneLight = dirLight.clone();
-      const cloneTarget = cloneLight.target;
+      const lightTarget =
+        light instanceof THREE.DirectionalLight ? light.target : null;
+
+      const cloneLight = light.clone();
+      const cloneTarget =
+        cloneLight instanceof THREE.DirectionalLight ? cloneLight.target : null;
 
       // apply world transform (we don't bother re-creating scene hierarchy)
-      cloneLight.matrix.copy(dirLight.matrixWorld);
+      cloneLight.matrix.copy(light.matrixWorld);
       cloneLight.matrixAutoUpdate = false;
-      cloneTarget.matrix.copy(dirLight.target.matrixWorld);
-      cloneTarget.matrixAutoUpdate = false;
-
       scene.add(cloneLight);
-      scene.add(cloneTarget);
+
+      if (lightTarget && cloneTarget) {
+        cloneTarget.matrix.copy(lightTarget.matrixWorld);
+        cloneTarget.matrixAutoUpdate = false;
+        scene.add(cloneTarget);
+      }
     }
   }
 

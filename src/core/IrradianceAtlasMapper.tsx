@@ -16,7 +16,7 @@ export interface WorkbenchSceneItem {
 }
 
 export interface WorkbenchSceneLight {
-  dirLight: THREE.DirectionalLight;
+  light: THREE.Light;
   factorName: string | null;
 }
 
