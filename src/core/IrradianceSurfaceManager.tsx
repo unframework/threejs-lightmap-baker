@@ -24,7 +24,7 @@ import IrradianceAtlasMapper, {
 
 interface WorkbenchStagingItem {
   mesh: THREE.Mesh;
-  material: THREE.MeshLambertMaterial;
+  material: WorkbenchMaterialType;
   factorName: string | null;
   animationClip: THREE.AnimationClip | null;
 }
