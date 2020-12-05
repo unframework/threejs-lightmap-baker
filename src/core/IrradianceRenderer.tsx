@@ -39,7 +39,7 @@ export interface IrradianceStagingTimeline {
 
 // @todo move into surface manager?
 // @todo correctly replicate shadowing parameters/etc
-function createLightProbeSceneElement(
+function createLightProbeScene(
   workbench: Workbench,
   lastTexture: THREE.Texture | undefined,
   activeFactorName: string | null,
@@ -47,104 +47,68 @@ function createLightProbeSceneElement(
 ) {
   const { lightSceneItems, lightSceneLights } = workbench;
 
-  return (
-    <scene
-      key={`light-scene-${Math.random()}`} // ensure scene is fully re-created @todo why?
-    >
-      {lightSceneLights.map(({ dirLight, factorName }) => {
-        // no lights if after first pass
-        if (lastTexture || factorName !== activeFactorName) {
-          return null;
-        }
+  const scene = new THREE.Scene();
 
-        const cloneLight = new THREE.DirectionalLight();
-        const cloneTarget = cloneLight.target;
+  // first pass (no previous input texture), add lights
+  if (!lastTexture) {
+    for (const { dirLight, factorName } of lightSceneLights) {
+      // no lights if after first pass
+      if (factorName !== activeFactorName) {
+        return null;
+      }
 
-        // apply world transform (we don't bother re-creating scene hierarchy)
-        cloneLight.matrix.copy(dirLight.matrixWorld);
-        cloneLight.matrixAutoUpdate = false;
-        cloneTarget.matrix.copy(dirLight.target.matrixWorld);
-        cloneTarget.matrixAutoUpdate = false;
+      const cloneLight = dirLight.clone();
+      const cloneTarget = cloneLight.target;
 
-        // @todo assert that original light casts shadows, etc
-        return (
-          <React.Fragment key={dirLight.uuid}>
-            <primitive object={cloneTarget} />
+      // apply world transform (we don't bother re-creating scene hierarchy)
+      cloneLight.matrix.copy(dirLight.matrixWorld);
+      cloneLight.matrixAutoUpdate = false;
+      cloneTarget.matrix.copy(dirLight.target.matrixWorld);
+      cloneTarget.matrixAutoUpdate = false;
 
-            <primitive
-              object={cloneLight}
-              color={dirLight.color}
-              intensity={dirLight.intensity}
-              castShadow={dirLight.castShadow}
-              shadow-autoUpdate={false} // no need to update between frames
-              shadow-needsUpdate={true} // trigger one-time shadow map render
-              shadow-camera-left={dirLight.shadow.camera.left}
-              shadow-camera-right={dirLight.shadow.camera.right}
-              shadow-camera-top={dirLight.shadow.camera.top}
-              shadow-camera-bottom={dirLight.shadow.camera.bottom}
-            />
-          </React.Fragment>
-        );
-      })}
+      scene.add(cloneLight);
+      scene.add(cloneTarget);
+    }
+  }
 
-      {lightSceneItems.map((item, itemIndex) => {
-        const {
-          mesh,
-          material,
-          needsLightMap,
-          factorName,
-          animationClip
-        } = item;
+  for (const item of lightSceneItems) {
+    const { mesh, material, needsLightMap, factorName, animationClip } = item;
 
-        // new mesh instance reusing existing geometry object directly, while material is set later
-        const cloneMesh = new THREE.Mesh(mesh.geometry);
+    // new mesh instance reusing existing geometry object directly, while material is set later
+    const cloneMesh = new THREE.Mesh(mesh.geometry);
+    cloneMesh.castShadow = mesh.castShadow;
+    cloneMesh.receiveShadow = mesh.receiveShadow;
 
-        if (animationClip) {
-          // source parameters from animation, if given
-          // @todo copy parent transform
-          const mixer = new THREE.AnimationMixer(cloneMesh);
-          const action = mixer.clipAction(animationClip);
-          action.play();
-          mixer.setTime(animationTime);
-        } else {
-          // apply world transform (we don't bother re-creating scene hierarchy)
-          cloneMesh.matrix.copy(mesh.matrixWorld);
-          cloneMesh.matrixAutoUpdate = false;
-        }
+    const cloneMaterial = material.clone();
+    cloneMaterial.toneMapped = false; // must output in raw linear space
+    cloneMaterial.lightMap = (needsLightMap && lastTexture) || null; // only set if expects lightmap normally
 
-        // remove emissive effect if active factor does not match
-        const activeEmissiveIntensity =
-          factorName === activeFactorName ? material.emissiveIntensity : 0;
+    if (animationClip) {
+      // source parameters from animation, if given
+      // @todo copy parent transform
+      const mixer = new THREE.AnimationMixer(cloneMesh);
+      const action = mixer.clipAction(animationClip);
+      action.play();
+      mixer.setTime(animationTime);
+    } else {
+      // apply world transform (we don't bother re-creating scene hierarchy)
+      cloneMesh.matrix.copy(mesh.matrixWorld);
+      cloneMesh.matrixAutoUpdate = false;
+    }
 
-        // let the object be auto-disposed of
-        // @todo properly clone shadow props
-        return (
-          <primitive
-            object={cloneMesh}
-            key={itemIndex}
-            castShadow={mesh.castShadow}
-            receiveShadow={mesh.receiveShadow}
-          >
-            <meshLambertMaterial
-              attach="material"
-              color={material.color}
-              map={material.map}
-              emissive={material.emissive}
-              emissiveMap={material.emissiveMap}
-              emissiveIntensity={
-                // apply physics multiplier to any display emissive quantity
-                // (emission needs to be strong for bounces to work, but that would wash out colours
-                // if output directly from visible scene's shader)
-                EMISSIVE_MULTIPLIER * activeEmissiveIntensity
-              }
-              lightMap={needsLightMap ? lastTexture : undefined} // only set if expects lightmap normally
-              toneMapped={false} // must output in raw linear space
-            />
-          </primitive>
-        );
-      })}
-    </scene>
-  );
+    // remove emissive effect if active factor does not match
+    const activeEmissiveIntensity =
+      factorName === activeFactorName ? material.emissiveIntensity : 0;
+
+    cloneMaterial.emissiveIntensity =
+      activeEmissiveIntensity * EMISSIVE_MULTIPLIER;
+
+    cloneMesh.material = cloneMaterial;
+
+    scene.add(cloneMesh);
+  }
+
+  return scene;
 }
 
 // applied inside the light probe scene
@@ -388,7 +352,7 @@ const IrradianceRenderer: React.FC<{
   const [processingState, setProcessingState] = useState(() => {
     return {
       previousLayerOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
-      lightSceneElement: null as React.ReactElement | null, // light scene contents
+      lightScene: null as THREE.Scene | null, // light scene contents
       layerOutput: undefined as THREE.Texture | undefined, // current pass's output
       layerOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
@@ -426,10 +390,10 @@ const IrradianceRenderer: React.FC<{
 
       // also dereference large data objects to help free up memory
       setProcessingState((prev) => {
-        if (!prev.lightSceneElement && !prev.layerOutputData) {
+        if (!prev.lightScene && !prev.layerOutputData) {
           return prev;
         }
-        return { ...prev, lightSceneElement: null, layerOutputData: undefined };
+        return { ...prev, lightScene: null, layerOutputData: undefined };
       });
       return;
     }
@@ -443,7 +407,7 @@ const IrradianceRenderer: React.FC<{
     setProcessingState((prev) => {
       return {
         previousLayerOutput: prev.layerOutput, // previous pass's output
-        lightSceneElement: null, // will be created in another tick
+        lightScene: null, // will be created in another tick
         layerOutput,
         layerOutputData,
         passTexelCounter: [0],
@@ -462,7 +426,7 @@ const IrradianceRenderer: React.FC<{
 
         return {
           ...prev,
-          lightSceneElement: createLightProbeSceneElement(
+          lightScene: createLightProbeScene(
             workbenchRef.current,
             prev.previousLayerOutput,
             factorNameRef.current,
@@ -485,17 +449,17 @@ const IrradianceRenderer: React.FC<{
     outputIsComplete
       ? null
       : (gl) => {
-          const lightScene = lightSceneRef.current;
-          if (!lightScene) {
-            return; // nothing to do yet
-          }
-
           const {
+            lightScene,
             passTexelCounter,
             previousLayerOutput,
             layerOutput,
             layerOutputData
           } = processingState;
+
+          if (!lightScene) {
+            return; // nothing to do yet
+          }
 
           const { atlasMap } = workbenchRef.current;
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
@@ -621,10 +585,13 @@ const IrradianceRenderer: React.FC<{
     <>
       {outputIsComplete
         ? null
-        : processingState.lightSceneElement &&
-          React.cloneElement(processingState.lightSceneElement, {
-            ref: lightSceneRef
-          })}
+        : processingState.lightScene && (
+            // this should dispose of scene on unmount
+            <primitive
+              key={processingState.passesRemaining} // key to current pass
+              object={processingState.lightScene}
+            />
+          )}
     </>
   );
 };
