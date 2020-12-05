@@ -133,6 +133,11 @@ function createLightProbeScene(
     cloneMaterial.vertexColors = material.vertexColors;
     cloneMaterial.visible = material.visible;
 
+    // turn off any shininess
+    if (cloneMaterial instanceof THREE.MeshPhongMaterial) {
+      cloneMaterial.shininess = 0; // no need to change default specular colour
+    }
+
     // mandatory material settings for light scene display
     cloneMaterial.toneMapped = false; // must output in raw linear space
     cloneMaterial.lightMap = (needsLightMap && lastTexture) || null; // only set if expects lightmap normally
