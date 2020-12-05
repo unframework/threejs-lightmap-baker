@@ -218,7 +218,7 @@ function queueTexel(
 // collect and combine pixel aggregate from rendered probe viewports
 // (this ignores the alpha channel from viewports)
 function readTexel(
-  rgba: number[],
+  rgba: THREE.Vector4,
   readLightProbe: ProbeBatchReader,
   probePixelAreaLookup: number[]
 ) {
@@ -504,6 +504,10 @@ const IrradianceRenderer: React.FC<{
           // wait for lookup map to be built up
           if (texelPickMap.length !== totalTexelCount) {
             return;
+          }
+
+          if (!layerOutputData || !layerOutput) {
+            throw new Error('unexpected missing output');
           }
 
           renderLightProbeBatch(
