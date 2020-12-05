@@ -16,7 +16,6 @@ import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
 import { AutoUV2, AutoUV2Provider } from './core/AutoUV2';
-import { AutoIndex } from './core/AutoIndex';
 import DebugControls from './stories/DebugControls';
 import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
@@ -93,7 +92,6 @@ ReactDOM.render(
                       lightMap={outputLightMap}
                     />
 
-                    <AutoIndex />
                     <AutoUV2 />
                     <IrradianceSurface />
                   </mesh>
