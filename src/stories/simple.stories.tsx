@@ -48,7 +48,7 @@ export const Main: Story = () => (
               <AutoUV2Provider
                 lightMapWidth={LIGHT_MAP_RES}
                 lightMapHeight={LIGHT_MAP_RES}
-                lightMapWorldWidth={32}
+                lightMapTexelSize={0.5}
               >
                 {workbench && <IrradianceRenderer workbench={workbench} />}
 

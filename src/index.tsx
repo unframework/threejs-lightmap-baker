@@ -53,7 +53,7 @@ ReactDOM.render(
             <AutoUV2Provider
               lightMapWidth={LIGHT_MAP_RES}
               lightMapHeight={LIGHT_MAP_RES}
-              lightMapWorldWidth={20}
+              lightMapTexelSize={0.15}
             >
               <WorkManager>
                 {workbench && <IrradianceRenderer workbench={workbench} />}
