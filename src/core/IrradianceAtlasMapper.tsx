@@ -15,8 +15,10 @@ export interface WorkbenchSceneItem {
   animationClip: THREE.AnimationClip | null;
 }
 
+export type WorkbenchLightType = THREE.SpotLight | THREE.DirectionalLight;
+
 export interface WorkbenchSceneLight {
-  light: THREE.Light;
+  light: WorkbenchLightType;
   factorName: string | null;
 }
 

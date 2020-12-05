@@ -17,6 +17,7 @@ import IrradianceAtlasMapper, {
   Workbench,
   WorkbenchSceneItem,
   WorkbenchSceneLight,
+  WorkbenchLightType,
   AtlasMap
 } from './IrradianceAtlasMapper';
 
@@ -78,7 +79,7 @@ export function useMeshRegister(
 }
 
 export function useLightRegister(
-  light: THREE.DirectionalLight | null,
+  light: WorkbenchLightType | null,
   factorName: string | null
 ) {
   const { lights } = useWorkbenchStagingContext();

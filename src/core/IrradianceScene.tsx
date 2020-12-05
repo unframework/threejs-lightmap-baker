@@ -54,8 +54,12 @@ export const IrradianceLight: React.FC<{
 
   const light = groupRef.current && groupRef.current.parent;
 
-  if (light && !(light instanceof THREE.DirectionalLight)) {
-    throw new Error('only directional lights are supported');
+  if (
+    light &&
+    !(light instanceof THREE.SpotLight) &&
+    !(light instanceof THREE.DirectionalLight)
+  ) {
+    throw new Error('only spot/directional lights are supported');
   }
 
   // @todo dynamic light factor update
