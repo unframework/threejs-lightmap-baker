@@ -58,7 +58,7 @@ function createLightProbeSceneElement(
         }
 
         const cloneLight = new THREE.DirectionalLight();
-        const cloneTarget = new THREE.Object3D();
+        const cloneTarget = cloneLight.target;
 
         // apply world transform (we don't bother re-creating scene hierarchy)
         cloneLight.matrix.copy(dirLight.matrixWorld);
@@ -75,8 +75,7 @@ function createLightProbeSceneElement(
               object={cloneLight}
               color={dirLight.color}
               intensity={dirLight.intensity}
-              target={cloneTarget}
-              castShadow
+              castShadow={dirLight.castShadow}
               shadow-autoUpdate={false} // no need to update between frames
               shadow-needsUpdate={true} // trigger one-time shadow map render
               shadow-camera-left={dirLight.shadow.camera.left}
@@ -123,8 +122,8 @@ function createLightProbeSceneElement(
           <primitive
             object={cloneMesh}
             key={itemIndex}
-            castShadow
-            receiveShadow
+            castShadow={mesh.castShadow}
+            receiveShadow={mesh.receiveShadow}
           >
             <meshLambertMaterial
               attach="material"
