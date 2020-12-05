@@ -85,7 +85,55 @@ function createLightProbeScene(
     cloneMesh.castShadow = mesh.castShadow;
     cloneMesh.receiveShadow = mesh.receiveShadow;
 
-    const cloneMaterial = material.clone();
+    // instantiate a simple equivalent vertex- or pixel-based material
+    const cloneMaterial =
+      material instanceof THREE.MeshLambertMaterial
+        ? new THREE.MeshLambertMaterial()
+        : new THREE.MeshPhongMaterial();
+
+    // copy non-specular flat look properties
+    // NOTE: we also copy some of the more esoteric display controls, trusting that
+    // the developer knows what they are doing (stencil settings are skipped because there
+    // is definitely no stencil in light probe rendering)
+    cloneMaterial.alphaMap = material.alphaMap;
+    cloneMaterial.alphaTest = material.alphaTest;
+    cloneMaterial.aoMap = material.aoMap;
+    cloneMaterial.aoMapIntensity = material.aoMapIntensity;
+    cloneMaterial.blendDst = material.blendDst;
+    cloneMaterial.blendDstAlpha = material.blendDstAlpha;
+    cloneMaterial.blendEquation = material.blendEquation;
+    cloneMaterial.blendEquationAlpha = material.blendEquationAlpha;
+    cloneMaterial.blending = material.blending;
+    cloneMaterial.blendSrc = material.blendSrc;
+    cloneMaterial.blendSrcAlpha = material.blendSrcAlpha;
+    cloneMaterial.clipIntersection = material.clipIntersection;
+    cloneMaterial.clippingPlanes = material.clippingPlanes;
+    cloneMaterial.clipShadows = material.clipShadows;
+    cloneMaterial.color = material.color;
+    cloneMaterial.colorWrite = material.colorWrite;
+    cloneMaterial.depthFunc = material.depthFunc;
+    cloneMaterial.depthTest = material.depthTest;
+    cloneMaterial.depthWrite = material.depthWrite;
+    cloneMaterial.dithering = material.dithering;
+    cloneMaterial.emissive = material.emissive;
+    cloneMaterial.emissiveIntensity = material.emissiveIntensity;
+    cloneMaterial.emissiveMap = material.emissiveMap;
+    cloneMaterial.flatShading = material.flatShading;
+    cloneMaterial.fog = material.fog;
+    cloneMaterial.map = material.map;
+    cloneMaterial.morphNormals = material.morphNormals;
+    cloneMaterial.morphTargets = material.morphTargets;
+    cloneMaterial.opacity = material.opacity;
+    cloneMaterial.precision = material.precision;
+    cloneMaterial.premultipliedAlpha = material.premultipliedAlpha;
+    cloneMaterial.shadowSide = material.shadowSide;
+    cloneMaterial.side = material.side;
+    cloneMaterial.skinning = material.skinning;
+    cloneMaterial.transparent = material.transparent;
+    cloneMaterial.vertexColors = material.vertexColors;
+    cloneMaterial.visible = material.visible;
+
+    // mandatory material settings for light scene display
     cloneMaterial.toneMapped = false; // must output in raw linear space
     cloneMaterial.lightMap = (needsLightMap && lastTexture) || null; // only set if expects lightmap normally
 
