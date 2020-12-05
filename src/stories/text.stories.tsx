@@ -34,7 +34,7 @@ const FontLoader: React.FC = () => {
 export const Main: Story = () => (
   <Canvas
     colorManagement={false} // @todo reconsider
-    camera={{ position: [-6, -4, 2], up: [0, 0, 1] }}
+    camera={{ position: [-6, -4, 4], up: [0, 0, 1] }}
     shadowMap
     onCreated={({ gl }) => {
       gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -70,7 +70,7 @@ export const Main: Story = () => (
                   <scene>
                     <mesh position={[0, 0, -2]} receiveShadow>
                       <planeBufferGeometry attach="geometry" args={[20, 20]} />
-                      <meshLambertMaterial attach="material" color="#808080" />
+                      <meshPhongMaterial attach="material" color="#808080" />
                       <IrradianceSurface />
                     </mesh>
 
@@ -87,7 +87,7 @@ export const Main: Story = () => (
                           }
                         ]}
                       />
-                      <meshLambertMaterial
+                      <meshPhongMaterial
                         attach="material"
                         color="#c0c0c0"
                         lightMap={outputLightMap}
@@ -98,13 +98,16 @@ export const Main: Story = () => (
                       <IrradianceSurface />
                     </mesh>
 
-                    <directionalLight
-                      intensity={1}
-                      position={[-2.5, 2.5, 4]}
+                    <spotLight
+                      angle={0.75}
+                      distance={25}
+                      intensity={2}
+                      penumbra={0.5}
+                      position={[-8, 8, 8]}
                       castShadow
                     >
                       <IrradianceLight />
-                    </directionalLight>
+                    </spotLight>
                   </scene>
                 </DebugOverlayScene>
               </AutoUV2Provider>
