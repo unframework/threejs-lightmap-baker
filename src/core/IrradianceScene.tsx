@@ -58,7 +58,8 @@ export const IrradianceLight: React.FC<{
   if (
     light &&
     !(light instanceof THREE.SpotLight) &&
-    !(light instanceof THREE.DirectionalLight)
+    !(light instanceof THREE.DirectionalLight) &&
+    !(light instanceof THREE.PointLight)
   ) {
     throw new Error('only spot/directional lights are supported');
   }
