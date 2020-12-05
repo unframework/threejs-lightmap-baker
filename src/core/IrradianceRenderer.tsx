@@ -93,8 +93,9 @@ function createLightProbeScene(
 
     // copy non-specular flat look properties
     // NOTE: we also copy some of the more esoteric display controls, trusting that
-    // the developer knows what they are doing (stencil settings are skipped because there
-    // is definitely no stencil in light probe rendering)
+    // the developer knows what they are doing
+    // skipped: stencil settings because light probe rendering does not allow setting up stencil buffer
+    // skipped: fog flag because light scene has no fog anyway
     cloneMaterial.alphaMap = material.alphaMap;
     cloneMaterial.alphaTest = material.alphaTest;
     cloneMaterial.aoMap = material.aoMap;
@@ -119,7 +120,6 @@ function createLightProbeScene(
     cloneMaterial.emissiveIntensity = material.emissiveIntensity;
     cloneMaterial.emissiveMap = material.emissiveMap;
     cloneMaterial.flatShading = material.flatShading;
-    cloneMaterial.fog = material.fog;
     cloneMaterial.map = material.map;
     cloneMaterial.morphNormals = material.morphNormals;
     cloneMaterial.morphTargets = material.morphTargets;
