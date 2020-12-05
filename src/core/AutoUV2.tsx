@@ -100,25 +100,25 @@ export const AutoUV2: React.FC = () => {
 export interface AutoUV2ProviderProps {
   lightMapWidth: number;
   lightMapHeight: number;
-  lightMapWorldWidth: number;
+  lightMapTexelSize: number;
 }
 
 export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
   lightMapWidth,
   lightMapHeight,
-  lightMapWorldWidth: mapWorldWidth,
+  lightMapTexelSize,
   children
 }) => {
   // read value only on first render
   const widthRef = useRef(lightMapWidth);
   const heightRef = useRef(lightMapHeight);
-  const mapWorldWidthRef = useRef(mapWorldWidth);
+  const lightMapTexelSizeRef = useRef(lightMapTexelSize);
 
   // modified in-place to be able to run right on first render
   const meshStagingList = useMemo<THREE.Mesh[]>(() => [], []);
 
   useEffect(() => {
-    const lightmapTexelSize = mapWorldWidthRef.current / widthRef.current;
+    const texelSize = lightMapTexelSizeRef.current;
     const layoutBoxes: AutoUVBox[] = [];
 
     for (const mesh of meshStagingList) {
@@ -286,8 +286,8 @@ export const AutoUV2Provider: React.FC<AutoUV2ProviderProps> = ({
       }
 
       // texel box is aligned to texel grid
-      const boxWidthInTexels = Math.ceil(realWidth / lightmapTexelSize);
-      const boxHeightInTexels = Math.ceil(realHeight / lightmapTexelSize);
+      const boxWidthInTexels = Math.ceil(realWidth / texelSize);
+      const boxHeightInTexels = Math.ceil(realHeight / texelSize);
 
       // layout box positioning is in texels
       layoutBox.w = boxWidthInTexels + 2; // plus margins

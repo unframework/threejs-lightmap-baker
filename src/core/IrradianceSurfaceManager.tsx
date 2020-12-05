@@ -17,6 +17,8 @@ import IrradianceAtlasMapper, {
   Workbench,
   WorkbenchSceneItem,
   WorkbenchSceneLight,
+  WorkbenchMaterialType,
+  WorkbenchLightType,
   AtlasMap
 } from './IrradianceAtlasMapper';
 
@@ -45,7 +47,7 @@ function useWorkbenchStagingContext() {
 // allow to attach a mesh to be mapped in texture atlas
 export function useMeshRegister(
   mesh: THREE.Mesh | null,
-  material: THREE.MeshLambertMaterial | null,
+  material: WorkbenchMaterialType | null,
   factorName: string | null,
   animationClip: THREE.AnimationClip | null
 ) {
@@ -78,7 +80,7 @@ export function useMeshRegister(
 }
 
 export function useLightRegister(
-  light: THREE.DirectionalLight | null,
+  light: WorkbenchLightType | null,
   factorName: string | null
 ) {
   const { lights } = useWorkbenchStagingContext();
@@ -94,7 +96,7 @@ export function useLightRegister(
 
     // register display item
     lights[uuid] = {
-      dirLight: light,
+      light,
       factorName: factorNameRef.current
     };
 

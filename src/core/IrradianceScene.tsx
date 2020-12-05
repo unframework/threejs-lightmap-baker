@@ -23,24 +23,25 @@ export const IrradianceSurface: React.FC<{
     if (!(mesh instanceof THREE.Mesh)) {
       throw new Error('light scene element should be a mesh');
     }
+  }
 
-    if (Array.isArray(mesh.material)) {
+  const material = mesh && mesh.material;
+
+  if (material) {
+    if (Array.isArray(material)) {
       throw new Error('material array not supported');
     }
 
-    if (!(mesh.material instanceof THREE.MeshLambertMaterial)) {
-      throw new Error('only Lambert materials are supported');
+    if (
+      !(material instanceof THREE.MeshLambertMaterial) &&
+      !(material instanceof THREE.MeshPhongMaterial) &&
+      !(material instanceof THREE.MeshStandardMaterial)
+    ) {
+      throw new Error('only Lambert/Phong/standard materials are supported');
     }
   }
 
-  useMeshRegister(
-    mesh,
-    mesh && mesh.material instanceof THREE.MeshLambertMaterial
-      ? mesh.material
-      : null,
-    factor || null,
-    animationClip || null
-  );
+  useMeshRegister(mesh, material, factor || null, animationClip || null);
 
   // placeholder to attach under the target mesh
   return <group ref={groupRef} />;
@@ -54,8 +55,13 @@ export const IrradianceLight: React.FC<{
 
   const light = groupRef.current && groupRef.current.parent;
 
-  if (light && !(light instanceof THREE.DirectionalLight)) {
-    throw new Error('only directional lights are supported');
+  if (
+    light &&
+    !(light instanceof THREE.SpotLight) &&
+    !(light instanceof THREE.DirectionalLight) &&
+    !(light instanceof THREE.PointLight)
+  ) {
+    throw new Error('only spot/directional lights are supported');
   }
 
   // @todo dynamic light factor update
