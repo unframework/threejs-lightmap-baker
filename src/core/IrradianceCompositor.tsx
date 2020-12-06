@@ -8,12 +8,24 @@ import { useFrame } from 'react-three-fiber';
 import * as THREE from 'three';
 
 const IrradianceRendererContext = React.createContext<{
+  width: number;
+  height: number;
+
   baseTexture: THREE.Texture;
   baseArray: Float32Array;
 
   factorTextures: { [name: string]: THREE.Texture | undefined };
   factorArrays: { [name: string]: Float32Array | undefined };
 } | null>(null);
+
+export function useIrradianceMapSize(): [number, number] {
+  const ctx = useContext(IrradianceRendererContext);
+  if (!ctx) {
+    throw new Error('must be placed under irradiance texture compositor');
+  }
+
+  return [ctx.width, ctx.height];
+}
 
 export function useIrradianceRendererData(
   factorName: string | null
@@ -249,6 +261,8 @@ export default function IrradianceCompositor<
   // info for renderer instances
   const rendererDataCtx = useMemo(
     () => ({
+      width: widthRef.current,
+      height: heightRef.current,
       baseTexture,
       baseArray,
       factorTextures,

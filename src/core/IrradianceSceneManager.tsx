@@ -13,6 +13,8 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
+import { computeAutoUV2Layout, AutoUV2Settings } from './AutoUV2';
+import { useIrradianceMapSize } from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
   WorkbenchSceneItem,
@@ -24,7 +26,8 @@ import IrradianceAtlasMapper, {
 
 interface WorkbenchStagingItem {
   mesh: THREE.Mesh;
-  material: THREE.MeshLambertMaterial;
+  material: WorkbenchMaterialType;
+  isMapped: boolean;
   factorName: string | null;
   animationClip: THREE.AnimationClip | null;
 }
@@ -48,6 +51,7 @@ function useWorkbenchStagingContext() {
 export function useMeshRegister(
   mesh: THREE.Mesh | null,
   material: WorkbenchMaterialType | null,
+  isMapped: boolean,
   factorName: string | null,
   animationClip: THREE.AnimationClip | null
 ) {
@@ -68,6 +72,7 @@ export function useMeshRegister(
     items[uuid] = {
       mesh,
       material,
+      isMapped,
       factorName: factorNameRef.current,
       animationClip: animationClipRef.current
     };
@@ -107,18 +112,20 @@ export function useLightRegister(
   }, [lights, light]);
 }
 
-const IrradianceSurfaceManager: React.FC<{
-  lightMapWidth: number;
-  lightMapHeight: number;
+const IrradianceSceneManager: React.FC<{
+  autoUV2?: AutoUV2Settings;
   autoStartDelayMs?: number;
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactNode;
-}> = ({ lightMapWidth, lightMapHeight, autoStartDelayMs, children }) => {
+}> = ({ autoUV2, autoStartDelayMs, children }) => {
+  const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
+
   // read once
   const lightMapWidthRef = useRef(lightMapWidth);
   const lightMapHeightRef = useRef(lightMapHeight);
+  const autoUV2Ref = useRef(autoUV2);
 
   // collect current available meshes/lights
   const workbenchStage = useMemo(
@@ -132,30 +139,63 @@ const IrradianceSurfaceManager: React.FC<{
   // basic snapshot triggered by start handler
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
+    needsUV2: boolean;
     items: WorkbenchSceneItem[];
     lights: WorkbenchSceneLight[];
   } | null>(null);
 
   const startHandler = useCallback(() => {
+    // take a snapshot of existing staging items/lights
+    const items = Object.values(workbenchStage.items).map((item) => {
+      const { material, isMapped } = item;
+
+      return {
+        ...item,
+        needsLightMap: isMapped // @todo eliminate separate staging item type
+      };
+    });
+
+    const lights = Object.values(workbenchStage.lights);
+
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
-      items: Object.values(workbenchStage.items).map((item) => {
-        const { material } = item;
-
-        // determine whether this material uses a lightmap
-        // (doing this at time of snapshot rather than earlier)
-        const needsLightMap = !!material.lightMap;
-
-        return {
-          ...item,
-          needsLightMap
-        };
-      }),
-      lights: Object.values(workbenchStage.lights)
+      needsUV2: !!autoUV2Ref.current, // mark as needing UV2 computation if requested
+      items,
+      lights
     }));
+
+    // schedule auto-UV layout for uv2 in a separate tick
+    if (autoUV2Ref.current) {
+      const settings = autoUV2Ref.current; // stable local reference
+
+      setTimeout(() => {
+        computeAutoUV2Layout(
+          lightMapWidthRef.current,
+          lightMapHeightRef.current,
+          items
+            .filter(({ needsLightMap }) => needsLightMap)
+            .map(({ mesh }) => mesh),
+          settings
+        );
+
+        // mark auto-UV as done
+        setWorkbenchBasics((prev) => {
+          // ignore if somehow a new state has popped on
+          if (!prev || prev.items !== items) {
+            return prev;
+          }
+
+          return {
+            ...prev,
+            needsUV2: false
+          };
+        });
+      }, 0);
+    }
   }, [workbenchStage]);
 
+  // auto-start helper
   const autoStartDelayMsRef = useRef(autoStartDelayMs); // read once
   useEffect(() => {
     // do nothing if not specified
@@ -195,7 +235,7 @@ const IrradianceSurfaceManager: React.FC<{
         {children(workbench, startHandler)}
       </IrradianceWorkbenchContext.Provider>
 
-      {workbenchBasics && (
+      {workbenchBasics && !workbenchBasics.needsUV2 && (
         <IrradianceAtlasMapper
           key={workbenchBasics.id} // re-create for new workbench
           width={lightMapWidthRef.current} // read from initial snapshot
@@ -208,4 +248,4 @@ const IrradianceSurfaceManager: React.FC<{
   );
 };
 
-export default IrradianceSurfaceManager;
+export default IrradianceSceneManager;

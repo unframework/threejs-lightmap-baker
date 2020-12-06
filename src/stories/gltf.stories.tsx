@@ -4,12 +4,11 @@ import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import IrradianceSurfaceManager from '../core/IrradianceSurfaceManager';
+import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
-import { useIrradianceTexture } from '../core/IrradianceCompositor';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -24,9 +23,6 @@ export default {
 
 const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
   ({ onReady }, mainSceneRef) => {
-    // resulting lightmap texture produced by the baking process
-    const lightMap = useIrradianceTexture();
-
     // data loading
     const [loadedData, setLoadedData] = useState<GLTF | null>(null);
 
@@ -151,12 +147,8 @@ const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
         ))}
 
         {baseMesh && (
-          <primitive
-            object={baseMesh}
-            material-lightMap={lightMap}
-            dispose={null}
-          >
-            <IrradianceSurface />
+          <primitive object={baseMesh} dispose={null}>
+            <IrradianceSurface mapped />
           </primitive>
         )}
 
@@ -182,28 +174,27 @@ export const Main: Story = () => (
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <WorkManager>
-      <IrradianceSurfaceManager
-        lightMapWidth={LIGHT_MAP_RES}
-        lightMapHeight={LIGHT_MAP_RES}
-      >
+    <IrradianceCompositor
+      lightMapWidth={LIGHT_MAP_RES}
+      lightMapHeight={LIGHT_MAP_RES}
+      textureFilter={THREE.NearestFilter}
+    >
+      <IrradianceSceneManager>
         {(workbench, startWorkbench) => (
-          <IrradianceCompositor
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-            textureFilter={THREE.NearestFilter}
-          >
-            {workbench && <IrradianceRenderer workbench={workbench} />}
+          <>
+            <WorkManager>
+              {workbench && <IrradianceRenderer workbench={workbench} />}
+            </WorkManager>
 
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
               <MainScene onReady={startWorkbench} />
             </DebugOverlayScene>
-          </IrradianceCompositor>
+          </>
         )}
-      </IrradianceSurfaceManager>
-    </WorkManager>
+      </IrradianceSceneManager>
+    </IrradianceCompositor>
 
     <DebugControls />
   </Canvas>

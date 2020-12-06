@@ -3,14 +3,11 @@ import { Story, Meta } from '@storybook/react';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import IrradianceSurfaceManager from '../core/IrradianceSurfaceManager';
+import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
-import { useIrradianceTexture } from '../core/IrradianceCompositor';
-import { AutoUV2, AutoUV2Provider } from '../core/AutoUV2';
-import { AutoIndex } from '../core/AutoIndex';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -45,77 +42,67 @@ export const Main: Story = () => (
   >
     <FontLoader />
 
-    <WorkManager>
-      <IrradianceSurfaceManager
-        lightMapWidth={LIGHT_MAP_RES}
-        lightMapHeight={LIGHT_MAP_RES}
+    <IrradianceCompositor
+      lightMapWidth={LIGHT_MAP_RES}
+      lightMapHeight={LIGHT_MAP_RES}
+    >
+      <IrradianceSceneManager
+        autoUV2={{ texelSize: 0.25 }}
         autoStartDelayMs={10}
       >
         {(workbench) => (
-          <IrradianceCompositor
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-          >
-            {(outputLightMap) => (
-              <AutoUV2Provider
-                lightMapWidth={LIGHT_MAP_RES}
-                lightMapHeight={LIGHT_MAP_RES}
-                lightMapTexelSize={0.25}
-              >
-                {workbench && <IrradianceRenderer workbench={workbench} />}
+          <>
+            <WorkManager>
+              {workbench && <IrradianceRenderer workbench={workbench} />}
+            </WorkManager>
 
-                <DebugOverlayScene
-                  atlasTexture={workbench && workbench.atlasMap.texture}
+            <DebugOverlayScene
+              atlasTexture={workbench && workbench.atlasMap.texture}
+            >
+              <scene>
+                <mesh position={[0, 0, -2]} receiveShadow>
+                  <planeBufferGeometry attach="geometry" args={[20, 20]} />
+                  <meshPhongMaterial
+                    attach="material"
+                    color="#808080"
+                    //shininess={0}
+                  />
+                  <IrradianceSurface />
+                </mesh>
+
+                <mesh position={[-2, -1, 0]} castShadow receiveShadow>
+                  <textBufferGeometry
+                    attach="geometry"
+                    args={[
+                      'Hi',
+                      {
+                        font: helvetikerFont,
+                        size: 4,
+                        height: 1.5,
+                        curveSegments: 1
+                      }
+                    ]}
+                  />
+                  <meshPhongMaterial attach="material" color="#c0c0c0" />
+                  <IrradianceSurface mapped />
+                </mesh>
+
+                <spotLight
+                  angle={0.75}
+                  distance={25}
+                  intensity={2}
+                  penumbra={0.5}
+                  position={[-8, 8, 8]}
+                  castShadow
                 >
-                  <scene>
-                    <mesh position={[0, 0, -2]} receiveShadow>
-                      <planeBufferGeometry attach="geometry" args={[20, 20]} />
-                      <meshPhongMaterial attach="material" color="#808080" />
-                      <IrradianceSurface />
-                    </mesh>
-
-                    <mesh position={[-2, -1, 0]} castShadow receiveShadow>
-                      <textBufferGeometry
-                        attach="geometry"
-                        args={[
-                          'Hi',
-                          {
-                            font: helvetikerFont,
-                            size: 4,
-                            height: 1.5,
-                            curveSegments: 1
-                          }
-                        ]}
-                      />
-                      <meshPhongMaterial
-                        attach="material"
-                        color="#c0c0c0"
-                        lightMap={outputLightMap}
-                      />
-
-                      <AutoIndex />
-                      <AutoUV2 />
-                      <IrradianceSurface />
-                    </mesh>
-
-                    <spotLight
-                      angle={0.75}
-                      distance={25}
-                      intensity={2}
-                      penumbra={0.5}
-                      position={[-8, 8, 8]}
-                      castShadow
-                    >
-                      <IrradianceLight />
-                    </spotLight>
-                  </scene>
-                </DebugOverlayScene>
-              </AutoUV2Provider>
-            )}
-          </IrradianceCompositor>
+                  <IrradianceLight />
+                </spotLight>
+              </scene>
+            </DebugOverlayScene>
+          </>
         )}
-      </IrradianceSurfaceManager>
-    </WorkManager>
+      </IrradianceSceneManager>
+    </IrradianceCompositor>
 
     <DebugControls />
   </Canvas>
