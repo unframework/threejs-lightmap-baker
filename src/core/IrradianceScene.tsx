@@ -47,7 +47,7 @@ export const IrradianceSurface: React.FC<{
   useMeshRegister(
     mesh,
     material,
-    mappedRef.current,
+    !!mappedRef.current,
     factor || null,
     animationClip || null
   );
