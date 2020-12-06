@@ -3,7 +3,7 @@ import { Story, Meta } from '@storybook/react';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import IrradianceSurfaceManager from '../core/IrradianceSurfaceManager';
+import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
@@ -33,7 +33,7 @@ export const Main: Story = () => (
     }}
   >
     <WorkManager>
-      <IrradianceSurfaceManager
+      <IrradianceSceneManager
         lightMapWidth={LIGHT_MAP_RES}
         lightMapHeight={LIGHT_MAP_RES}
         autoUV2={{ texelSize: 0.5 }}
@@ -90,7 +90,7 @@ export const Main: Story = () => (
             </DebugOverlayScene>
           </IrradianceCompositor>
         )}
-      </IrradianceSurfaceManager>
+      </IrradianceSceneManager>
     </WorkManager>
 
     <DebugControls />

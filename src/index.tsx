@@ -10,7 +10,7 @@ import ReactDOM from 'react-dom';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import IrradianceSurfaceManager from './core/IrradianceSurfaceManager';
+import IrradianceSceneManager from './core/IrradianceSceneManager';
 import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
@@ -37,7 +37,7 @@ ReactDOM.render(
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <IrradianceSurfaceManager
+    <IrradianceSceneManager
       lightMapWidth={LIGHT_MAP_RES}
       lightMapHeight={LIGHT_MAP_RES}
       autoUV2={{ texelSize: 0.15 }}
@@ -90,7 +90,7 @@ ReactDOM.render(
           </DebugOverlayScene>
         </IrradianceCompositor>
       )}
-    </IrradianceSurfaceManager>
+    </IrradianceSceneManager>
 
     <DebugControls />
   </Canvas>,

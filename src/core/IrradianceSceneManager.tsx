@@ -112,7 +112,7 @@ export function useLightRegister(
   }, [lights, light]);
 }
 
-const IrradianceSurfaceManager: React.FC<{
+const IrradianceSceneManager: React.FC<{
   lightMapWidth: number;
   lightMapHeight: number;
   autoUV2?: AutoUV2Settings;
@@ -254,4 +254,4 @@ const IrradianceSurfaceManager: React.FC<{
   );
 };
 
-export default IrradianceSurfaceManager;
+export default IrradianceSceneManager;

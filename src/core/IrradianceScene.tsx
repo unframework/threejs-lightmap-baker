@@ -7,7 +7,7 @@ import React, { useRef, useEffect } from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useMeshRegister, useLightRegister } from './IrradianceSurfaceManager';
+import { useMeshRegister, useLightRegister } from './IrradianceSceneManager';
 import { useIrradianceTexture } from './IrradianceCompositor';
 
 // add as a child of a mesh to track it as a contributor of the light scene
