@@ -3,19 +3,22 @@
  * Licensed under the MIT license
  */
 
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useMeshRegister, useLightRegister } from './IrradianceSurfaceManager';
+import { useIrradianceTexture } from './IrradianceCompositor';
 
 // add as a child of a mesh to track it as a contributor of the light scene
 export const IrradianceSurface: React.FC<{
+  mapped?: boolean;
   factor?: string;
   animationClip?: THREE.AnimationClip;
-}> = ({ factor, animationClip }) => {
-  const groupRef = useResource<THREE.Group>();
+}> = ({ mapped, factor, animationClip }) => {
+  const mappedRef = useRef(mapped); // read once
 
+  const groupRef = useResource<THREE.Group>();
   const mesh = groupRef.current && groupRef.current.parent;
 
   // extra error checks
@@ -41,7 +44,28 @@ export const IrradianceSurface: React.FC<{
     }
   }
 
-  useMeshRegister(mesh, material, factor || null, animationClip || null);
+  useMeshRegister(
+    mesh,
+    material,
+    mappedRef.current,
+    factor || null,
+    animationClip || null
+  );
+
+  // attach light map
+  const lightMap = useIrradianceTexture();
+  useEffect(() => {
+    if (!mappedRef.current || !material) {
+      return;
+    }
+
+    // check against accidentally overriding some unrelated lightmap
+    if (material.lightMap && material.lightMap !== lightMap) {
+      throw new Error('do not set light map manually');
+    }
+
+    material.lightMap = lightMap;
+  }, [material, lightMap]);
 
   // placeholder to attach under the target mesh
   return <group ref={groupRef} />;

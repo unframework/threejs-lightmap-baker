@@ -24,9 +24,6 @@ export default {
 
 const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
   ({ onReady }, mainSceneRef) => {
-    // resulting lightmap texture produced by the baking process
-    const lightMap = useIrradianceTexture();
-
     // data loading
     const [loadedData, setLoadedData] = useState<GLTF | null>(null);
 
@@ -106,13 +103,8 @@ const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
         </mesh>
 
         {loadedMeshList.map((mesh) => (
-          <primitive
-            key={mesh.uuid}
-            object={mesh}
-            material-lightMap={lightMap}
-            dispose={null}
-          >
-            <IrradianceSurface />
+          <primitive key={mesh.uuid} object={mesh} dispose={null}>
+            <IrradianceSurface mapped />
           </primitive>
         ))}
       </scene>

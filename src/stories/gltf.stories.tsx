@@ -9,7 +9,6 @@ import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
-import { useIrradianceTexture } from '../core/IrradianceCompositor';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -24,9 +23,6 @@ export default {
 
 const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
   ({ onReady }, mainSceneRef) => {
-    // resulting lightmap texture produced by the baking process
-    const lightMap = useIrradianceTexture();
-
     // data loading
     const [loadedData, setLoadedData] = useState<GLTF | null>(null);
 
@@ -151,12 +147,8 @@ const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
         ))}
 
         {baseMesh && (
-          <primitive
-            object={baseMesh}
-            material-lightMap={lightMap}
-            dispose={null}
-          >
-            <IrradianceSurface />
+          <primitive object={baseMesh} dispose={null}>
+            <IrradianceSurface mapped />
           </primitive>
         )}
 
