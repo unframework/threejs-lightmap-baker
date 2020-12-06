@@ -37,60 +37,60 @@ ReactDOM.render(
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <IrradianceSceneManager
+    <IrradianceCompositor
       lightMapWidth={LIGHT_MAP_RES}
       lightMapHeight={LIGHT_MAP_RES}
-      autoUV2={{ texelSize: 0.15 }}
-      autoStartDelayMs={10}
     >
-      {(workbench) => (
-        <IrradianceCompositor
-          lightMapWidth={LIGHT_MAP_RES}
-          lightMapHeight={LIGHT_MAP_RES}
-        >
-          <WorkManager>
-            {workbench && <IrradianceRenderer workbench={workbench} />}
-          </WorkManager>
+      <IrradianceSceneManager
+        autoUV2={{ texelSize: 0.15 }}
+        autoStartDelayMs={10}
+      >
+        {(workbench) => (
+          <>
+            <WorkManager>
+              {workbench && <IrradianceRenderer workbench={workbench} />}
+            </WorkManager>
 
-          <DebugOverlayScene
-            atlasTexture={workbench && workbench.atlasMap.texture}
-          >
-            <scene>
-              <mesh position={[0, 0, -0.1]} receiveShadow>
-                <planeBufferGeometry attach="geometry" args={[9, 5]} />
-                <meshLambertMaterial attach="material" color="#ffffff" />
-                <IrradianceSurface mapped />
-              </mesh>
+            <DebugOverlayScene
+              atlasTexture={workbench && workbench.atlasMap.texture}
+            >
+              <scene>
+                <mesh position={[0, 0, -0.1]} receiveShadow>
+                  <planeBufferGeometry attach="geometry" args={[9, 5]} />
+                  <meshLambertMaterial attach="material" color="#ffffff" />
+                  <IrradianceSurface mapped />
+                </mesh>
 
-              <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
-                <textBufferGeometry
-                  attach="geometry"
-                  args={[
-                    'Light!',
-                    {
-                      font: helvetikerFont,
-                      size: 2,
-                      height: 1.5,
-                      curveSegments: 1
-                    }
-                  ]}
-                />
-                <meshLambertMaterial attach="material" color="#ffe020" />
-                <IrradianceSurface mapped />
-              </mesh>
+                <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
+                  <textBufferGeometry
+                    attach="geometry"
+                    args={[
+                      'Light!',
+                      {
+                        font: helvetikerFont,
+                        size: 2,
+                        height: 1.5,
+                        curveSegments: 1
+                      }
+                    ]}
+                  />
+                  <meshLambertMaterial attach="material" color="#ffe020" />
+                  <IrradianceSurface mapped />
+                </mesh>
 
-              <directionalLight
-                intensity={1.5}
-                position={[-2, 2, 4]}
-                castShadow
-              >
-                <IrradianceLight />
-              </directionalLight>
-            </scene>
-          </DebugOverlayScene>
-        </IrradianceCompositor>
-      )}
-    </IrradianceSceneManager>
+                <directionalLight
+                  intensity={1.5}
+                  position={[-2, 2, 4]}
+                  castShadow
+                >
+                  <IrradianceLight />
+                </directionalLight>
+              </scene>
+            </DebugOverlayScene>
+          </>
+        )}
+      </IrradianceSceneManager>
+    </IrradianceCompositor>
 
     <DebugControls />
   </Canvas>,

@@ -123,28 +123,27 @@ export const Main: Story = () => (
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <WorkManager>
-      <IrradianceSceneManager
-        lightMapWidth={LIGHT_MAP_RES}
-        lightMapHeight={LIGHT_MAP_RES}
-      >
+    <IrradianceCompositor
+      lightMapWidth={LIGHT_MAP_RES}
+      lightMapHeight={LIGHT_MAP_RES}
+      textureFilter={THREE.NearestFilter}
+    >
+      <IrradianceSceneManager>
         {(workbench, startWorkbench) => (
-          <IrradianceCompositor
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-            textureFilter={THREE.NearestFilter}
-          >
-            {workbench && <IrradianceRenderer workbench={workbench} />}
+          <>
+            <WorkManager>
+              {workbench && <IrradianceRenderer workbench={workbench} />}
+            </WorkManager>
 
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
               <MainScene onReady={startWorkbench} />
             </DebugOverlayScene>
-          </IrradianceCompositor>
+          </>
         )}
       </IrradianceSceneManager>
-    </WorkManager>
+    </IrradianceCompositor>
 
     <DebugControls />
   </Canvas>

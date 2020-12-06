@@ -14,7 +14,7 @@ import React, {
 import * as THREE from 'three';
 
 import { computeAutoUV2Layout, AutoUV2Settings } from './AutoUV2';
-
+import { useIrradianceMapSize } from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
   WorkbenchSceneItem,
@@ -113,21 +113,15 @@ export function useLightRegister(
 }
 
 const IrradianceSceneManager: React.FC<{
-  lightMapWidth: number;
-  lightMapHeight: number;
   autoUV2?: AutoUV2Settings;
   autoStartDelayMs?: number;
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactNode;
-}> = ({
-  lightMapWidth,
-  lightMapHeight,
-  autoUV2,
-  autoStartDelayMs,
-  children
-}) => {
+}> = ({ autoUV2, autoStartDelayMs, children }) => {
+  const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
+
   // read once
   const lightMapWidthRef = useRef(lightMapWidth);
   const lightMapHeightRef = useRef(lightMapHeight);

@@ -31,19 +31,19 @@ export const Main: Story = () => (
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <WorkManager>
+    <IrradianceCompositor
+      lightMapWidth={LIGHT_MAP_RES}
+      lightMapHeight={LIGHT_MAP_RES}
+    >
       <IrradianceSceneManager
-        lightMapWidth={LIGHT_MAP_RES}
-        lightMapHeight={LIGHT_MAP_RES}
         autoUV2={{ texelSize: 0.25 }}
         autoStartDelayMs={10}
       >
         {(workbench) => (
-          <IrradianceCompositor
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-          >
-            {workbench && <IrradianceRenderer workbench={workbench} />}
+          <>
+            <WorkManager>
+              {workbench && <IrradianceRenderer workbench={workbench} />}
+            </WorkManager>
 
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
@@ -70,10 +70,10 @@ export const Main: Story = () => (
                 </directionalLight>
               </scene>
             </DebugOverlayScene>
-          </IrradianceCompositor>
+          </>
         )}
       </IrradianceSceneManager>
-    </WorkManager>
+    </IrradianceCompositor>
 
     <DebugControls />
   </Canvas>
