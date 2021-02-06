@@ -16,8 +16,6 @@ export interface WorkbenchSceneItem {
   mesh: THREE.Mesh;
   material: WorkbenchMaterialType;
   needsLightMap: boolean;
-  factorName: string | null;
-  animationClip: THREE.AnimationClip | null;
 }
 
 export type WorkbenchLightType =
@@ -27,7 +25,6 @@ export type WorkbenchLightType =
 
 export interface WorkbenchSceneLight {
   light: WorkbenchLightType;
-  factorName: string | null;
 }
 
 export interface AtlasMapItem {

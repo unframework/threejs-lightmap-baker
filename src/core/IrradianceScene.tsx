@@ -13,9 +13,7 @@ import { useIrradianceTexture } from './IrradianceCompositor';
 // add as a child of a mesh to track it as a contributor of the light scene
 export const IrradianceSurface: React.FC<{
   mapped?: boolean;
-  factor?: string;
-  animationClip?: THREE.AnimationClip;
-}> = ({ mapped, factor, animationClip }) => {
+}> = ({ mapped }) => {
   const mappedRef = useRef(mapped); // read once
 
   const groupRef = useResource<THREE.Group>();
@@ -44,13 +42,7 @@ export const IrradianceSurface: React.FC<{
     }
   }
 
-  useMeshRegister(
-    mesh,
-    material,
-    !!mappedRef.current,
-    factor || null,
-    animationClip || null
-  );
+  useMeshRegister(mesh, material, !!mappedRef.current);
 
   // attach light map
   const lightMap = useIrradianceTexture();
@@ -72,9 +64,7 @@ export const IrradianceSurface: React.FC<{
 };
 
 // add as a child of a light object to track it as a contributor of the light scene
-export const IrradianceLight: React.FC<{
-  factor?: string;
-}> = ({ factor, children }) => {
+export const IrradianceLight: React.FC<{}> = ({ children }) => {
   const groupRef = useResource<THREE.Group>();
 
   const light = groupRef.current && groupRef.current.parent;
@@ -88,8 +78,7 @@ export const IrradianceLight: React.FC<{
     throw new Error('only spot/directional lights are supported');
   }
 
-  // @todo dynamic light factor update
-  useLightRegister(light, factor || null);
+  useLightRegister(light);
 
   return <group ref={groupRef} />;
 };
