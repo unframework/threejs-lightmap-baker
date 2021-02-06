@@ -26,24 +26,11 @@ const EMISSIVE_MULTIPLIER = 1;
 const tmpRgba = new THREE.Vector4();
 const tmpRgbaAdder = new THREE.Vector4();
 
-export interface IrradianceStagingTimelineMesh {
-  uuid: string;
-  clip: THREE.AnimationClip;
-}
-
-export interface IrradianceStagingTimeline {
-  factorName: string | null;
-  time: number;
-  meshes: IrradianceStagingTimelineMesh[];
-}
-
 // @todo move into surface manager?
 // @todo correctly replicate shadowing parameters/etc
 function createLightProbeScene(
   workbench: Workbench,
-  lastTexture: THREE.Texture | undefined,
-  activeFactorName: string | null,
-  animationTime: number
+  lastTexture: THREE.Texture | undefined
 ) {
   const { lightSceneItems, lightSceneLights } = workbench;
 
@@ -51,12 +38,7 @@ function createLightProbeScene(
 
   // first pass (no previous input texture), add lights
   if (!lastTexture) {
-    for (const { light, factorName } of lightSceneLights) {
-      // no lights if after first pass
-      if (factorName !== activeFactorName) {
-        return null;
-      }
-
+    for (const { light } of lightSceneLights) {
       const lightTarget =
         light instanceof THREE.DirectionalLight ? light.target : null;
 
@@ -78,7 +60,7 @@ function createLightProbeScene(
   }
 
   for (const item of lightSceneItems) {
-    const { mesh, material, needsLightMap, factorName, animationClip } = item;
+    const { mesh, material, needsLightMap } = item;
 
     // new mesh instance reusing existing geometry object directly, while material is set later
     const cloneMesh = new THREE.Mesh(mesh.geometry);
@@ -142,25 +124,12 @@ function createLightProbeScene(
     cloneMaterial.toneMapped = false; // must output in raw linear space
     cloneMaterial.lightMap = (needsLightMap && lastTexture) || null; // only set if expects lightmap normally
 
-    if (animationClip) {
-      // source parameters from animation, if given
-      // @todo copy parent transform
-      const mixer = new THREE.AnimationMixer(cloneMesh);
-      const action = mixer.clipAction(animationClip);
-      action.play();
-      mixer.setTime(animationTime);
-    } else {
-      // apply world transform (we don't bother re-creating scene hierarchy)
-      cloneMesh.matrix.copy(mesh.matrixWorld);
-      cloneMesh.matrixAutoUpdate = false;
-    }
-
-    // remove emissive effect if active factor does not match
-    const activeEmissiveIntensity =
-      factorName === activeFactorName ? material.emissiveIntensity : 0;
+    // apply world transform (we don't bother re-creating scene hierarchy)
+    cloneMesh.matrix.copy(mesh.matrixWorld);
+    cloneMesh.matrixAutoUpdate = false;
 
     cloneMaterial.emissiveIntensity =
-      activeEmissiveIntensity * EMISSIVE_MULTIPLIER;
+      material.emissiveIntensity * EMISSIVE_MULTIPLIER;
 
     cloneMesh.material = cloneMaterial;
 
@@ -348,8 +317,6 @@ function storeLightMapValue(
 // @todo report completed flag
 const IrradianceRenderer: React.FC<{
   workbench: Workbench;
-  factorName?: string;
-  time?: number;
   onDebugLightProbe?: (debugLightProbeTexture: THREE.Texture) => void;
 }> = (props) => {
   // get the work manager hook
@@ -360,8 +327,6 @@ const IrradianceRenderer: React.FC<{
 
   // read once
   const workbenchRef = useRef(props.workbench);
-  const factorNameRef = useRef(props.factorName || null);
-  const animationTimeRef = useRef(props.time || 0);
 
   // wrap params in ref to avoid unintended re-triggering
   const onDebugLightProbeRef = useRef(props.onDebugLightProbe);
@@ -369,9 +334,7 @@ const IrradianceRenderer: React.FC<{
 
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
-  const [combinedOutput, combinedOutputData] = useIrradianceRendererData(
-    factorNameRef.current
-  );
+  const [combinedOutput, combinedOutputData] = useIrradianceRendererData(null);
 
   const texelPickMap = useMemo(() => {
     const { atlasMap } = workbenchRef.current;
@@ -487,9 +450,7 @@ const IrradianceRenderer: React.FC<{
           ...prev,
           lightScene: createLightProbeScene(
             workbenchRef.current,
-            prev.previousLayerOutput,
-            factorNameRef.current,
-            animationTimeRef.current
+            prev.previousLayerOutput
           )
         };
       });

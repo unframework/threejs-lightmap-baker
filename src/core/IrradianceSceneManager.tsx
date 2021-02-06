@@ -28,8 +28,6 @@ interface WorkbenchStagingItem {
   mesh: THREE.Mesh;
   material: WorkbenchMaterialType;
   isMapped: boolean;
-  factorName: string | null;
-  animationClip: THREE.AnimationClip | null;
 }
 
 const IrradianceWorkbenchContext = React.createContext<{
@@ -51,15 +49,9 @@ function useWorkbenchStagingContext() {
 export function useMeshRegister(
   mesh: THREE.Mesh | null,
   material: WorkbenchMaterialType | null,
-  isMapped: boolean,
-  factorName: string | null,
-  animationClip: THREE.AnimationClip | null
+  isMapped: boolean
 ) {
   const { items } = useWorkbenchStagingContext();
-
-  // wrap in refs to keep only initial value
-  const animationClipRef = useRef(animationClip);
-  const factorNameRef = useRef(factorName);
 
   useEffect(() => {
     if (!mesh || !material) {
@@ -72,9 +64,7 @@ export function useMeshRegister(
     items[uuid] = {
       mesh,
       material,
-      isMapped,
-      factorName: factorNameRef.current,
-      animationClip: animationClipRef.current
+      isMapped
     };
 
     // on unmount, clean up
@@ -84,13 +74,8 @@ export function useMeshRegister(
   }, [items, mesh, material]);
 }
 
-export function useLightRegister(
-  light: WorkbenchLightType | null,
-  factorName: string | null
-) {
+export function useLightRegister(light: WorkbenchLightType | null) {
   const { lights } = useWorkbenchStagingContext();
-
-  const factorNameRef = useRef(factorName);
 
   useEffect(() => {
     if (!light) {
@@ -101,8 +86,7 @@ export function useLightRegister(
 
     // register display item
     lights[uuid] = {
-      light,
-      factorName: factorNameRef.current
+      light
     };
 
     // on unmount, clean up
