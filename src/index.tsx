@@ -10,6 +10,7 @@ import ReactDOM from 'react-dom';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
+import { AutoUV2 } from '../core/AutoUV2';
 import IrradianceSceneManager from './core/IrradianceSceneManager';
 import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
@@ -58,6 +59,7 @@ ReactDOM.render(
                 <mesh position={[0, 0, -0.1]} receiveShadow>
                   <planeBufferGeometry attach="geometry" args={[9, 5]} />
                   <meshLambertMaterial attach="material" color="#ffffff" />
+                  <AutoUV2 />
                   <IrradianceSurface mapped />
                 </mesh>
 
@@ -75,6 +77,7 @@ ReactDOM.render(
                     ]}
                   />
                   <meshLambertMaterial attach="material" color="#ffe020" />
+                  <AutoUV2 />
                   <IrradianceSurface mapped />
                 </mesh>
 

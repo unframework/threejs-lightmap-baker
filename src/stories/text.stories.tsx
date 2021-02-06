@@ -3,6 +3,7 @@ import { Story, Meta } from '@storybook/react';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
+import { AutoUV2 } from '../core/AutoUV2';
 import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
@@ -84,6 +85,7 @@ export const Main: Story = () => (
                     ]}
                   />
                   <meshPhongMaterial attach="material" color="#c0c0c0" />
+                  <AutoUV2 />
                   <IrradianceSurface mapped />
                 </mesh>
 

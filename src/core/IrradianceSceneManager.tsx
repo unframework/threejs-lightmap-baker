@@ -13,7 +13,7 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
-import { computeAutoUV2Layout, AutoUV2Settings } from './AutoUV2';
+import { AutoUV2Provider, AutoUV2Settings } from './AutoUV2';
 import { useIrradianceMapSize } from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
@@ -148,24 +148,6 @@ const IrradianceSceneManager: React.FC<{
     }));
   }, [workbenchStage]);
 
-  useEffect(() => {
-    // schedule auto-UV layout for uv2 in a separate tick
-    if (autoUV2Ref.current) {
-      const settings = autoUV2Ref.current; // stable local reference
-
-      setTimeout(() => {
-        computeAutoUV2Layout(
-          lightMapWidthRef.current,
-          lightMapHeightRef.current,
-          Object.values(workbenchStage.items)
-            .filter(({ isMapped }) => isMapped)
-            .map(({ mesh }) => mesh),
-          settings
-        );
-      }, 0);
-    }
-  }, [workbenchStage]);
-
   // auto-start helper
   const autoStartDelayMsRef = useRef(autoStartDelayMs); // read once
   useEffect(() => {
@@ -203,7 +185,13 @@ const IrradianceSceneManager: React.FC<{
   return (
     <>
       <IrradianceWorkbenchContext.Provider value={workbenchStage}>
-        {children(workbench, startHandler)}
+        {autoUV2Ref.current ? (
+          <AutoUV2Provider {...autoUV2Ref.current}>
+            {children(workbench, startHandler)}
+          </AutoUV2Provider>
+        ) : (
+          children(workbench, startHandler)
+        )}
       </IrradianceWorkbenchContext.Provider>
 
       {workbenchBasics && (

@@ -3,10 +3,14 @@
  * Licensed under the MIT license
  */
 
+import React, { useRef, useMemo, useEffect, useContext } from 'react';
+import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
 /// <reference path="potpack.d.ts"/>
 import potpack, { PotPackItem } from 'potpack';
+
+import { useIrradianceMapSize } from './IrradianceCompositor';
 
 const tmpOrigin = new THREE.Vector3();
 const tmpU = new THREE.Vector3();
@@ -119,7 +123,7 @@ export interface AutoUV2Settings {
   texelSize: number;
 }
 
-export function computeAutoUV2Layout(
+function computeAutoUV2Layout(
   width: number,
   height: number,
   meshList: THREE.Mesh[],
@@ -339,3 +343,74 @@ export function computeAutoUV2Layout(
     }
   }
 }
+
+const AutoUV2Context = React.createContext<{
+  register: Record<string, THREE.Mesh | undefined>;
+} | null>(null);
+
+export const AutoUV2Provider: React.FC<AutoUV2Settings> = ({
+  texelSize,
+  children
+}) => {
+  const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
+  const texelSizeRef = useRef(texelSize); // read only once
+
+  const contextValue = useMemo(() => {
+    return {
+      register: {} as Record<string, THREE.Mesh>
+    };
+  }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      computeAutoUV2Layout(
+        lightMapWidth,
+        lightMapHeight,
+        Object.values(contextValue.register),
+        { texelSize: texelSizeRef.current }
+      );
+    }, 0);
+  }, [lightMapWidth, lightMapHeight, contextValue]);
+
+  return (
+    <AutoUV2Context.Provider value={contextValue}>
+      {children}
+    </AutoUV2Context.Provider>
+  );
+};
+
+export const AutoUV2: React.FC = () => {
+  const groupRef = useResource<THREE.Group>();
+  const mesh = groupRef.current && groupRef.current.parent;
+
+  // extra error checks
+  if (mesh) {
+    if (!(mesh instanceof THREE.Mesh)) {
+      throw new Error('light scene element should be a mesh');
+    }
+  }
+
+  const ctx = useContext(AutoUV2Context);
+  if (!ctx) {
+    throw new Error('no auto-UV context');
+  }
+
+  useEffect(() => {
+    if (!mesh) {
+      return;
+    }
+
+    const uuid = mesh.uuid; // freeze local reference
+
+    // register display item
+    ctx.register[uuid] = mesh;
+
+    // on unmount, clean up
+    return () => {
+      delete ctx.register[uuid];
+    };
+  }, [mesh]);
+
+  // placeholder to attach under the target mesh
+  return <group ref={groupRef} />;
+};
