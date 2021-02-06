@@ -58,6 +58,7 @@ const tmpPrevClearColor = new THREE.Color();
 function createRendererTexture(
   atlasWidth: number,
   atlasHeight: number,
+  textureFilter: THREE.TextureFilter,
   withTestPattern?: boolean
 ): [THREE.Texture, Float32Array] {
   const atlasSize = atlasWidth * atlasHeight;
@@ -71,10 +72,9 @@ function createRendererTexture(
     THREE.FloatType
   );
 
-  // always use nearest filter because this is an intermediate texture
-  // used for compositing later
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestFilter;
+  // set desired texture filter (no mipmaps supported due to the nature of lightmaps)
+  texture.magFilter = textureFilter;
+  texture.minFilter = textureFilter;
   texture.generateMipmaps = false;
 
   // pre-fill with a test pattern
@@ -174,7 +174,13 @@ export default function IrradianceCompositor({
 
   // incoming base rendered texture (filled elsewhere)
   const [baseTexture, baseArray] = useMemo(
-    () => createRendererTexture(widthRef.current, heightRef.current, true),
+    () =>
+      createRendererTexture(
+        widthRef.current,
+        heightRef.current,
+        textureFilterRef.current || THREE.LinearFilter,
+        true
+      ),
     []
   );
   useEffect(
@@ -183,9 +189,6 @@ export default function IrradianceCompositor({
     },
     [baseTexture]
   );
-
-  // refs to all the corresponding materials
-  const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
 
   // info for renderer instances
   const rendererDataCtx = useMemo(
@@ -198,80 +201,13 @@ export default function IrradianceCompositor({
     [baseTexture, baseArray]
   );
 
-  // compositor output
-  const orthoTarget = useMemo(() => {
-    return new THREE.WebGLRenderTarget(widthRef.current, heightRef.current, {
-      type: THREE.FloatType,
-      magFilter: textureFilterRef.current || THREE.LinearFilter,
-      minFilter: textureFilterRef.current || THREE.LinearFilter,
-      generateMipmaps: false
-    });
-  }, []);
-
-  useEffect(
-    () => () => {
-      // clean up on unmount
-      orthoTarget.dispose();
-    },
-    [orthoTarget]
-  );
-
-  // compositing render
-  const orthoCamera = useMemo(() => {
-    return new THREE.OrthographicCamera(-1, 1, 1, -1, -1, 1);
-  }, []);
-
-  useFrame(({ gl }) => {
-    // ensure light scene has been instantiated
-    if (!orthoSceneRef.current) {
-      return;
-    }
-
-    const orthoScene = orthoSceneRef.current; // local var for type safety
-
-    // live-update actual intensity values
-    if (baseMaterialRef.current) {
-      baseMaterialRef.current.uniforms.multiplier.value = 1;
-    }
-
-    // save existing renderer state
-    tmpPrevClearColor.copy(gl.getClearColor());
-    const prevClearAlpha = gl.getClearAlpha();
-    const prevAutoClear = gl.autoClear;
-
-    // produce output
-    gl.setRenderTarget(orthoTarget);
-
-    gl.setClearColor(LIGHTMAP_BG_COLOR, 1);
-    gl.autoClear = true;
-
-    gl.render(orthoScene, orthoCamera);
-
-    // restore previous renderer state
-    gl.setRenderTarget(null);
-    gl.setClearColor(tmpPrevClearColor, prevClearAlpha);
-    gl.autoClear = prevAutoClear;
-  });
-
   return (
-    <>
-      <scene ref={orthoSceneRef}>
-        <mesh>
-          <planeBufferGeometry attach="geometry" args={[2, 2]} />
-          <CompositorLayerMaterial
-            map={baseTexture}
-            materialRef={baseMaterialRef}
-          />
-        </mesh>
-      </scene>
-
-      <IrradianceRendererContext.Provider value={rendererDataCtx}>
-        <IrradianceTextureContext.Provider value={orthoTarget.texture}>
-          {typeof children === 'function'
-            ? (children as LightMapConsumerChild)(orthoTarget.texture)
-            : children}
-        </IrradianceTextureContext.Provider>
-      </IrradianceRendererContext.Provider>
-    </>
+    <IrradianceRendererContext.Provider value={rendererDataCtx}>
+      <IrradianceTextureContext.Provider value={baseTexture}>
+        {typeof children === 'function'
+          ? (children as LightMapConsumerChild)(baseTexture)
+          : children}
+      </IrradianceTextureContext.Provider>
+    </IrradianceRendererContext.Provider>
   );
 }
