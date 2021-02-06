@@ -123,7 +123,6 @@ const IrradianceSceneManager: React.FC<{
   // basic snapshot triggered by start handler
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
-    needsUV2: boolean;
     items: WorkbenchSceneItem[];
     lights: WorkbenchSceneLight[];
   } | null>(null);
@@ -144,11 +143,12 @@ const IrradianceSceneManager: React.FC<{
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
-      needsUV2: !!autoUV2Ref.current, // mark as needing UV2 computation if requested
       items,
       lights
     }));
+  }, [workbenchStage]);
 
+  useEffect(() => {
     // schedule auto-UV layout for uv2 in a separate tick
     if (autoUV2Ref.current) {
       const settings = autoUV2Ref.current; // stable local reference
@@ -157,24 +157,11 @@ const IrradianceSceneManager: React.FC<{
         computeAutoUV2Layout(
           lightMapWidthRef.current,
           lightMapHeightRef.current,
-          items
-            .filter(({ needsLightMap }) => needsLightMap)
+          Object.values(workbenchStage.items)
+            .filter(({ isMapped }) => isMapped)
             .map(({ mesh }) => mesh),
           settings
         );
-
-        // mark auto-UV as done
-        setWorkbenchBasics((prev) => {
-          // ignore if somehow a new state has popped on
-          if (!prev || prev.items !== items) {
-            return prev;
-          }
-
-          return {
-            ...prev,
-            needsUV2: false
-          };
-        });
       }, 0);
     }
   }, [workbenchStage]);
@@ -219,7 +206,7 @@ const IrradianceSceneManager: React.FC<{
         {children(workbench, startHandler)}
       </IrradianceWorkbenchContext.Provider>
 
-      {workbenchBasics && !workbenchBasics.needsUV2 && (
+      {workbenchBasics && (
         <IrradianceAtlasMapper
           key={workbenchBasics.id} // re-create for new workbench
           width={lightMapWidthRef.current} // read from initial snapshot
