@@ -154,6 +154,9 @@ export type LightMapConsumerChild = (
   outputLightMap: THREE.Texture
 ) => React.ReactNode;
 
+// this is called a "compositor" but for now it is a simple "provider"
+// (there used to be support for mixing several several lightmaps together dynamically,
+// taken out temporarily as an esoteric feature)
 export default function IrradianceCompositor({
   lightMapWidth,
   lightMapHeight,
