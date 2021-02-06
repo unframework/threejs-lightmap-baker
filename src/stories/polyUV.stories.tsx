@@ -3,6 +3,7 @@ import { Story, Meta } from '@storybook/react';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
+import { AutoUV2Provider, AutoUV2 } from '../core/AutoUV2';
 import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
@@ -35,12 +36,9 @@ export const Main: Story = () => (
       lightMapWidth={LIGHT_MAP_RES}
       lightMapHeight={LIGHT_MAP_RES}
     >
-      <IrradianceSceneManager
-        autoUV2={{ texelSize: 0.25 }}
-        autoStartDelayMs={10}
-      >
+      <IrradianceSceneManager autoStartDelayMs={10}>
         {(workbench) => (
-          <>
+          <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
             </WorkManager>
@@ -55,11 +53,14 @@ export const Main: Story = () => (
                   <IrradianceSurface />
                 </mesh>
 
-                <mesh position={[0, 0, 0]} castShadow receiveShadow>
-                  <circleBufferGeometry attach="geometry" args={[2, 4]} />
-                  <meshLambertMaterial attach="material" color="#c0c0c0" />
-                  <IrradianceSurface mapped />
-                </mesh>
+                <AutoUV2Provider texelSize={0.25}>
+                  <mesh position={[0, 0, 0]} castShadow receiveShadow>
+                    <circleBufferGeometry attach="geometry" args={[2, 4]} />
+                    <meshLambertMaterial attach="material" color="#c0c0c0" />
+                    <AutoUV2 />
+                    <IrradianceSurface mapped />
+                  </mesh>
+                </AutoUV2Provider>
 
                 <directionalLight
                   intensity={1}
@@ -70,7 +71,7 @@ export const Main: Story = () => (
                 </directionalLight>
               </scene>
             </DebugOverlayScene>
-          </>
+          </React.Suspense>
         )}
       </IrradianceSceneManager>
     </IrradianceCompositor>

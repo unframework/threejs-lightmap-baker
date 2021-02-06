@@ -13,7 +13,6 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
-import { computeAutoUV2Layout, AutoUV2Settings } from './AutoUV2';
 import { useIrradianceMapSize } from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
@@ -97,19 +96,17 @@ export function useLightRegister(light: WorkbenchLightType | null) {
 }
 
 const IrradianceSceneManager: React.FC<{
-  autoUV2?: AutoUV2Settings;
   autoStartDelayMs?: number;
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactNode;
-}> = ({ autoUV2, autoStartDelayMs, children }) => {
+}> = ({ autoStartDelayMs, children }) => {
   const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
 
   // read once
   const lightMapWidthRef = useRef(lightMapWidth);
   const lightMapHeightRef = useRef(lightMapHeight);
-  const autoUV2Ref = useRef(autoUV2);
 
   // collect current available meshes/lights
   const workbenchStage = useMemo(
@@ -123,7 +120,6 @@ const IrradianceSceneManager: React.FC<{
   // basic snapshot triggered by start handler
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
-    needsUV2: boolean;
     items: WorkbenchSceneItem[];
     lights: WorkbenchSceneLight[];
   } | null>(null);
@@ -144,39 +140,9 @@ const IrradianceSceneManager: React.FC<{
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
-      needsUV2: !!autoUV2Ref.current, // mark as needing UV2 computation if requested
       items,
       lights
     }));
-
-    // schedule auto-UV layout for uv2 in a separate tick
-    if (autoUV2Ref.current) {
-      const settings = autoUV2Ref.current; // stable local reference
-
-      setTimeout(() => {
-        computeAutoUV2Layout(
-          lightMapWidthRef.current,
-          lightMapHeightRef.current,
-          items
-            .filter(({ needsLightMap }) => needsLightMap)
-            .map(({ mesh }) => mesh),
-          settings
-        );
-
-        // mark auto-UV as done
-        setWorkbenchBasics((prev) => {
-          // ignore if somehow a new state has popped on
-          if (!prev || prev.items !== items) {
-            return prev;
-          }
-
-          return {
-            ...prev,
-            needsUV2: false
-          };
-        });
-      }, 0);
-    }
   }, [workbenchStage]);
 
   // auto-start helper
@@ -219,7 +185,7 @@ const IrradianceSceneManager: React.FC<{
         {children(workbench, startHandler)}
       </IrradianceWorkbenchContext.Provider>
 
-      {workbenchBasics && !workbenchBasics.needsUV2 && (
+      {workbenchBasics && (
         <IrradianceAtlasMapper
           key={workbenchBasics.id} // re-create for new workbench
           width={lightMapWidthRef.current} // read from initial snapshot
