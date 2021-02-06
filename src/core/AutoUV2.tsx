@@ -362,7 +362,8 @@ export const AutoUV2Provider: React.FC<AutoUV2Settings> = ({
   }, []);
 
   useEffect(() => {
-    setTimeout(() => {
+    // perform layout in next tick
+    const timeoutId = setTimeout(() => {
       computeAutoUV2Layout(
         lightMapWidth,
         lightMapHeight,
@@ -370,6 +371,9 @@ export const AutoUV2Provider: React.FC<AutoUV2Settings> = ({
         { texelSize: texelSizeRef.current }
       );
     }, 0);
+
+    // always clean up timeout
+    return () => clearTimeout(timeoutId);
   }, [lightMapWidth, lightMapHeight, contextValue]);
 
   return (
