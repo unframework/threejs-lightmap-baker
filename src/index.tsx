@@ -10,7 +10,7 @@ import ReactDOM from 'react-dom';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { AutoUV2 } from '../core/AutoUV2';
+import { AutoUV2 } from './core/AutoUV2';
 import IrradianceSceneManager from './core/IrradianceSceneManager';
 import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
