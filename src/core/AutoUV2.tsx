@@ -344,9 +344,11 @@ function computeAutoUV2Layout(
   }
 }
 
-const AutoUV2Context = React.createContext<{
-  register: Record<string, THREE.Mesh | undefined>;
-} | null>(null);
+interface AutoUV2Info {
+  completionPromise: Promise<void> | null;
+  register: Record<string, THREE.Mesh>;
+}
+const AutoUV2Context = React.createContext<AutoUV2Info | null>(null);
 
 export const AutoUV2Provider: React.FC<AutoUV2Settings> = ({
   texelSize,
@@ -355,9 +357,15 @@ export const AutoUV2Provider: React.FC<AutoUV2Settings> = ({
   const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
   const texelSizeRef = useRef(texelSize); // read only once
 
-  const contextValue = useMemo(() => {
+  const resolverRef = useRef<(() => void) | null>(null);
+
+  const contextValue = useMemo<AutoUV2Info>(() => {
     return {
-      register: {} as Record<string, THREE.Mesh>
+      completionPromise: new Promise<void>((resolve) => {
+        // stash resolver callback for later
+        resolverRef.current = resolve;
+      }),
+      register: {}
     };
   }, []);
 
@@ -370,6 +378,15 @@ export const AutoUV2Provider: React.FC<AutoUV2Settings> = ({
         Object.values(contextValue.register),
         { texelSize: texelSizeRef.current }
       );
+
+      // clear waiting status in context object (so that suspenders return normally)
+      contextValue.completionPromise = null;
+
+      // notify everyone waiting (i.e. children)
+      if (!resolverRef.current) {
+        throw new Error('unexpected missing promise resolver');
+      }
+      resolverRef.current();
     }, 0);
 
     // always clean up timeout
@@ -381,6 +398,19 @@ export const AutoUV2Provider: React.FC<AutoUV2Settings> = ({
       {children}
     </AutoUV2Context.Provider>
   );
+};
+
+const Suspender: React.FC = () => {
+  const ctx = useContext(AutoUV2Context);
+  if (!ctx) {
+    throw new Error('no auto-UV context');
+  }
+
+  if (ctx.completionPromise) {
+    throw ctx.completionPromise;
+  }
+
+  return null;
 };
 
 export const AutoUV2: React.FC = () => {
@@ -416,5 +446,10 @@ export const AutoUV2: React.FC = () => {
   }, [mesh]);
 
   // placeholder to attach under the target mesh
-  return <group ref={groupRef} />;
+  // (suspension happens inside, so that this can be still rendered at all times)
+  return (
+    <group ref={groupRef}>
+      <Suspender />
+    </group>
+  );
 };

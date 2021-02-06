@@ -41,7 +41,7 @@ export const Main: Story = () => (
         autoStartDelayMs={10}
       >
         {(workbench) => (
-          <>
+          <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
             </WorkManager>
@@ -92,7 +92,7 @@ export const Main: Story = () => (
                 </directionalLight>
               </scene>
             </DebugOverlayScene>
-          </>
+          </React.Suspense>
         )}
       </IrradianceSceneManager>
     </IrradianceCompositor>

@@ -47,7 +47,7 @@ ReactDOM.render(
         autoStartDelayMs={10}
       >
         {(workbench) => (
-          <>
+          <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
             </WorkManager>
@@ -90,7 +90,7 @@ ReactDOM.render(
                 </directionalLight>
               </scene>
             </DebugOverlayScene>
-          </>
+          </React.Suspense>
         )}
       </IrradianceSceneManager>
     </IrradianceCompositor>
