@@ -13,9 +13,6 @@ const IrradianceRendererContext = React.createContext<{
 
   baseTexture: THREE.Texture;
   baseArray: Float32Array;
-
-  factorTextures: { [name: string]: THREE.Texture | undefined };
-  factorArrays: { [name: string]: Float32Array | undefined };
 } | null>(null);
 
 export function useIrradianceMapSize(): [number, number] {
@@ -27,30 +24,15 @@ export function useIrradianceMapSize(): [number, number] {
   return [ctx.width, ctx.height];
 }
 
-export function useIrradianceRendererData(
-  factorName: string | null
-): [THREE.Texture, Float32Array] {
+export function useIrradianceRendererData(): [THREE.Texture, Float32Array] {
   const ctx = useContext(IrradianceRendererContext);
   if (!ctx) {
     throw new Error('must be placed under irradiance texture compositor');
   }
 
   const result = useMemo<[THREE.Texture, Float32Array]>(() => {
-    if (!factorName) {
-      return [ctx.baseTexture, ctx.baseArray];
-    }
-
-    const factorTexture = ctx.factorTextures[factorName];
-    const factorArray = ctx.factorArrays[factorName];
-
-    if (!factorTexture || !factorArray) {
-      throw new Error(
-        `unknown irradiance texture compositor factor: ${factorName}`
-      );
-    }
-
-    return [factorTexture, factorArray];
-  }, [ctx, factorName]);
+    return [ctx.baseTexture, ctx.baseArray];
+  }, [ctx]);
 
   return result;
 }
@@ -172,19 +154,15 @@ export type LightMapConsumerChild = (
   outputLightMap: THREE.Texture
 ) => React.ReactNode;
 
-export default function IrradianceCompositor<
-  FactorValueMap extends { [name: string]: number }
->({
+export default function IrradianceCompositor({
   lightMapWidth,
   lightMapHeight,
   textureFilter,
-  factors,
   children
 }: React.PropsWithChildren<{
   lightMapWidth: number;
   lightMapHeight: number;
   textureFilter?: THREE.TextureFilter;
-  factors?: FactorValueMap;
   children: LightMapConsumerChild | React.ReactNode;
 }>): React.ReactElement {
   // read value only on first render
@@ -193,11 +171,6 @@ export default function IrradianceCompositor<
   const textureFilterRef = useRef(textureFilter);
 
   const orthoSceneRef = useRef<THREE.Scene>();
-
-  // read factor names once
-  const [factorNames] = useState<Array<keyof FactorValueMap>>(() =>
-    factors ? Object.keys(factors) : []
-  );
 
   // incoming base rendered texture (filled elsewhere)
   const [baseTexture, baseArray] = useMemo(
@@ -211,52 +184,8 @@ export default function IrradianceCompositor<
     [baseTexture]
   );
 
-  // incoming extra rendered factors textures (filled elsewhere)
-  // not including a test pattern here to avoid additive colour artifacts
-  const [factorTextures, factorArrays] = useMemo<
-    [
-      Record<keyof FactorValueMap, THREE.Texture>,
-      Record<keyof FactorValueMap, Float32Array>
-    ]
-  >(() => {
-    const textures = {} as Record<keyof FactorValueMap, THREE.Texture>;
-    const arrays = {} as Record<keyof FactorValueMap, Float32Array>;
-
-    for (const key of factorNames) {
-      const [texture, array] = createRendererTexture(
-        widthRef.current,
-        heightRef.current
-      );
-
-      textures[key] = texture;
-      arrays[key] = array;
-    }
-
-    return [textures, arrays];
-  }, [factorNames]);
-  useEffect(
-    () => () => {
-      for (const texture of Object.values(factorTextures)) {
-        texture.dispose();
-      }
-    },
-    [factorTextures]
-  );
-
   // refs to all the corresponding materials
   const baseMaterialRef = useRef<THREE.ShaderMaterial | null>(null);
-  const factorMaterialRefMap = useMemo(() => {
-    // createRef assumes null as default value (not undefined)
-    const result = {} as Record<
-      keyof FactorValueMap,
-      React.MutableRefObject<THREE.ShaderMaterial | null>
-    >;
-
-    for (const key of factorNames) {
-      result[key] = React.createRef<THREE.ShaderMaterial>();
-    }
-    return result;
-  }, [factorNames]);
 
   // info for renderer instances
   const rendererDataCtx = useMemo(
@@ -264,11 +193,9 @@ export default function IrradianceCompositor<
       width: widthRef.current,
       height: heightRef.current,
       baseTexture,
-      baseArray,
-      factorTextures,
-      factorArrays
+      baseArray
     }),
-    [baseTexture, baseArray, factorTextures, factorArrays]
+    [baseTexture, baseArray]
   );
 
   // compositor output
@@ -307,15 +234,6 @@ export default function IrradianceCompositor<
       baseMaterialRef.current.uniforms.multiplier.value = 1;
     }
 
-    for (const factorName of factorNames) {
-      const factorMaterialRef = factorMaterialRefMap[factorName];
-      const multiplier = factors && factors[factorName];
-
-      if (factorMaterialRef.current && multiplier) {
-        factorMaterialRef.current.uniforms.multiplier.value = multiplier;
-      }
-    }
-
     // save existing renderer state
     tmpPrevClearColor.copy(gl.getClearColor());
     const prevClearAlpha = gl.getClearAlpha();
@@ -345,16 +263,6 @@ export default function IrradianceCompositor<
             materialRef={baseMaterialRef}
           />
         </mesh>
-
-        {Object.keys(factorTextures).map((factorName) => (
-          <mesh key={factorName}>
-            <planeBufferGeometry attach="geometry" args={[2, 2]} />
-            <CompositorLayerMaterial
-              map={factorTextures[factorName]}
-              materialRef={factorMaterialRefMap[factorName]}
-            />
-          </mesh>
-        ))}
       </scene>
 
       <IrradianceRendererContext.Provider value={rendererDataCtx}>

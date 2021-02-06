@@ -334,7 +334,7 @@ const IrradianceRenderer: React.FC<{
 
   // currently produced output
   // this will be pre-filled with test pattern if needed on start of pass
-  const [combinedOutput, combinedOutputData] = useIrradianceRendererData(null);
+  const [combinedOutput, combinedOutputData] = useIrradianceRendererData();
 
   const texelPickMap = useMemo(() => {
     const { atlasMap } = workbenchRef.current;
