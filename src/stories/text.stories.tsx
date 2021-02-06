@@ -3,7 +3,7 @@ import { Story, Meta } from '@storybook/react';
 import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { AutoUV2 } from '../core/AutoUV2';
+import { AutoUV2Provider, AutoUV2 } from '../core/AutoUV2';
 import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
@@ -47,10 +47,7 @@ export const Main: Story = () => (
       lightMapWidth={LIGHT_MAP_RES}
       lightMapHeight={LIGHT_MAP_RES}
     >
-      <IrradianceSceneManager
-        autoUV2={{ texelSize: 0.25 }}
-        autoStartDelayMs={10}
-      >
+      <IrradianceSceneManager autoStartDelayMs={10}>
         {(workbench) => (
           <React.Suspense fallback={null}>
             <WorkManager>
@@ -71,23 +68,25 @@ export const Main: Story = () => (
                   <IrradianceSurface />
                 </mesh>
 
-                <mesh position={[-2, -1, 0]} castShadow receiveShadow>
-                  <textBufferGeometry
-                    attach="geometry"
-                    args={[
-                      'Hi',
-                      {
-                        font: helvetikerFont,
-                        size: 4,
-                        height: 1.5,
-                        curveSegments: 1
-                      }
-                    ]}
-                  />
-                  <meshPhongMaterial attach="material" color="#c0c0c0" />
-                  <AutoUV2 />
-                  <IrradianceSurface mapped />
-                </mesh>
+                <AutoUV2Provider texelSize={0.25}>
+                  <mesh position={[-2, -1, 0]} castShadow receiveShadow>
+                    <textBufferGeometry
+                      attach="geometry"
+                      args={[
+                        'Hi',
+                        {
+                          font: helvetikerFont,
+                          size: 4,
+                          height: 1.5,
+                          curveSegments: 1
+                        }
+                      ]}
+                    />
+                    <meshPhongMaterial attach="material" color="#c0c0c0" />
+                    <AutoUV2 />
+                    <IrradianceSurface mapped />
+                  </mesh>
+                </AutoUV2Provider>
 
                 <spotLight
                   angle={0.75}

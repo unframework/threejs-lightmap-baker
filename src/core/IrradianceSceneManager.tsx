@@ -13,7 +13,6 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
-import { AutoUV2Provider, AutoUV2Settings } from './AutoUV2';
 import { useIrradianceMapSize } from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
@@ -97,19 +96,17 @@ export function useLightRegister(light: WorkbenchLightType | null) {
 }
 
 const IrradianceSceneManager: React.FC<{
-  autoUV2?: AutoUV2Settings;
   autoStartDelayMs?: number;
   children: (
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactNode;
-}> = ({ autoUV2, autoStartDelayMs, children }) => {
+}> = ({ autoStartDelayMs, children }) => {
   const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
 
   // read once
   const lightMapWidthRef = useRef(lightMapWidth);
   const lightMapHeightRef = useRef(lightMapHeight);
-  const autoUV2Ref = useRef(autoUV2);
 
   // collect current available meshes/lights
   const workbenchStage = useMemo(
@@ -185,13 +182,7 @@ const IrradianceSceneManager: React.FC<{
   return (
     <>
       <IrradianceWorkbenchContext.Provider value={workbenchStage}>
-        {autoUV2Ref.current ? (
-          <AutoUV2Provider {...autoUV2Ref.current}>
-            {children(workbench, startHandler)}
-          </AutoUV2Provider>
-        ) : (
-          children(workbench, startHandler)
-        )}
+        {children(workbench, startHandler)}
       </IrradianceWorkbenchContext.Provider>
 
       {workbenchBasics && (
