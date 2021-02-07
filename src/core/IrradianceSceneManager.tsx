@@ -172,7 +172,6 @@ const IrradianceSceneManager: React.FC<{
       let lightScene = null as THREE.Scene | null;
       workbenchBasics.items[0].mesh.traverseAncestors((object) => {
         if (!lightScene && object instanceof THREE.Scene) {
-          console.log(object);
           lightScene = object;
         }
       });
