@@ -319,10 +319,11 @@ const IrradianceRenderer: React.FC<{
   const onDebugLightProbeRef = useRef(props.onDebugLightProbe);
   onDebugLightProbeRef.current = props.onDebugLightProbe;
 
-  // currently produced output
-  // this will be pre-filled with test pattern if needed on start of pass
-  const [combinedOutput, combinedOutputData] = useIrradianceRendererData();
+  // main lightmap data accumulator
+  const [irradiance, irradianceData] = useIrradianceRendererData();
 
+  // texel indexes for randomized processing (literally just a randomly shuffled index array)
+  // @todo is this relevant anymore?
   const texelPickMap = useMemo(() => {
     const { atlasMap } = workbenchRef.current;
     const { width: atlasWidth, height: atlasHeight } = atlasMap;
@@ -381,8 +382,8 @@ const IrradianceRenderer: React.FC<{
 
     // store and discard the active layer output texture
     if (processingState.layerOutput && processingState.layerOutputData) {
-      combinedOutputData.set(processingState.layerOutputData);
-      combinedOutput.needsUpdate = true;
+      irradianceData.set(processingState.layerOutputData);
+      irradiance.needsUpdate = true;
       processingState.layerOutput.dispose();
     }
 
@@ -426,14 +427,11 @@ const IrradianceRenderer: React.FC<{
 
         return {
           ...prev,
-          lightScene: createLightProbeScene(
-            workbenchRef.current,
-            combinedOutput
-          )
+          lightScene: createLightProbeScene(workbenchRef.current, irradiance)
         };
       });
     }, 0);
-  }, [processingState, combinedOutput, combinedOutputData]);
+  }, [processingState, irradiance, irradianceData]);
 
   const probeTargetSize = 16;
   const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
