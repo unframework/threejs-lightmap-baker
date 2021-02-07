@@ -8,6 +8,7 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
+import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -45,7 +46,7 @@ export const Main: Story = () => (
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <scene ref={sceneRef}>
+              <IrradianceScene ref={sceneRef}>
                 <AutoUV2Provider texelSize={0.5}>
                   <mesh position={[0, 0, -3]} receiveShadow>
                     <planeBufferGeometry attach="geometry" args={[20, 20]} />
@@ -82,7 +83,7 @@ export const Main: Story = () => (
                   position={[-2.5, 2.5, 4]}
                   castShadow
                 />
-              </scene>
+              </IrradianceScene>
             </DebugOverlayScene>
           </React.Suspense>
         )}

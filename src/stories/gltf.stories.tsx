@@ -8,6 +8,7 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
+import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -129,7 +130,7 @@ const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
     }, [loadedData]);
 
     return (
-      <scene ref={mainSceneRef}>
+      <IrradianceScene ref={mainSceneRef}>
         <mesh position={[0, 0, -5]}>
           <planeBufferGeometry attach="geometry" args={[200, 200]} />
           <meshBasicMaterial attach="material" color="#171717" />
@@ -145,7 +146,7 @@ const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
         {baseMesh && <primitive object={baseMesh} dispose={null} />}
 
         {coverMesh && <primitive object={coverMesh} dispose={null} />}
-      </scene>
+      </IrradianceScene>
     );
   }
 );
