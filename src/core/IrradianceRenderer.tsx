@@ -36,26 +36,24 @@ function createLightProbeScene(
 
   const scene = new THREE.Scene();
 
-  // first pass (no previous input texture), add lights
-  if (!lastTexture) {
-    for (const { light } of lightSceneLights) {
-      const lightTarget =
-        light instanceof THREE.DirectionalLight ? light.target : null;
+  // add lights
+  for (const { light } of lightSceneLights) {
+    const lightTarget =
+      light instanceof THREE.DirectionalLight ? light.target : null;
 
-      const cloneLight = light.clone();
-      const cloneTarget =
-        cloneLight instanceof THREE.DirectionalLight ? cloneLight.target : null;
+    const cloneLight = light.clone();
+    const cloneTarget =
+      cloneLight instanceof THREE.DirectionalLight ? cloneLight.target : null;
 
-      // apply world transform (we don't bother re-creating scene hierarchy)
-      cloneLight.matrix.copy(light.matrixWorld);
-      cloneLight.matrixAutoUpdate = false;
-      scene.add(cloneLight);
+    // apply world transform (we don't bother re-creating scene hierarchy)
+    cloneLight.matrix.copy(light.matrixWorld);
+    cloneLight.matrixAutoUpdate = false;
+    scene.add(cloneLight);
 
-      if (lightTarget && cloneTarget) {
-        cloneTarget.matrix.copy(lightTarget.matrixWorld);
-        cloneTarget.matrixAutoUpdate = false;
-        scene.add(cloneTarget);
-      }
+    if (lightTarget && cloneTarget) {
+      cloneTarget.matrix.copy(lightTarget.matrixWorld);
+      cloneTarget.matrixAutoUpdate = false;
+      scene.add(cloneTarget);
     }
   }
 
@@ -265,23 +263,15 @@ function storeLightMapValue(
   totalTexelCount: number,
   texelIndex: number,
   combinedOutputData: Float32Array,
-  layerOutputData: Float32Array,
-  isAdditive: boolean
+  layerOutputData: Float32Array
 ) {
   // read existing texel value (if adding)
   const mainOffTexelBase = texelIndex * 4;
-  if (isAdditive) {
-    tmpRgbaAdder.fromArray(combinedOutputData, mainOffTexelBase);
-    tmpRgbaAdder.add(tmpRgba);
-  } else {
-    tmpRgbaAdder.copy(tmpRgba);
-  }
 
   tmpRgba.w = 1; // reset alpha to 1 to indicate filled pixel
-  tmpRgbaAdder.w = 1; // reset alpha to 1 to indicate filled pixel
 
   // main texel write
-  tmpRgbaAdder.toArray(combinedOutputData, mainOffTexelBase);
+  tmpRgba.toArray(combinedOutputData, mainOffTexelBase);
   tmpRgba.toArray(layerOutputData, mainOffTexelBase);
 
   // propagate combined value to 3x3 brush area
@@ -306,7 +296,7 @@ function storeLightMapValue(
 
     if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
       // no need to separately read existing value for brush-propagated texels
-      tmpRgbaAdder.toArray(combinedOutputData, offTexelBase);
+      tmpRgba.toArray(combinedOutputData, offTexelBase);
       tmpRgba.toArray(layerOutputData, offTexelBase);
     }
   }
@@ -455,7 +445,7 @@ const IrradianceRenderer: React.FC<{
         };
       });
     }, 0);
-  }, [processingState, combinedOutput, combinedOutputData]);
+  }, [processingState]);
 
   const probeTargetSize = 16;
   const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
@@ -535,8 +525,7 @@ const IrradianceRenderer: React.FC<{
                 totalTexelCount,
                 texelIndex,
                 combinedOutputData,
-                layerOutputData,
-                previousLayerOutput ? true : false // directly overwrite any test pattern if first pass
+                layerOutputData
               );
               combinedOutput.needsUpdate = true;
               layerOutput.needsUpdate = true;
