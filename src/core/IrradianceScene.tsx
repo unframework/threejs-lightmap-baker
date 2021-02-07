@@ -7,10 +7,10 @@ import React, { useRef, useEffect } from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useMeshRegister } from './IrradianceSceneManager';
 import { useIrradianceTexture } from './IrradianceCompositor';
 
 // add as a child of a mesh to track it as a contributor of the light scene
+// @todo remove
 export const IrradianceSurface: React.FC<{
   mapped?: boolean;
 }> = ({ mapped }) => {
@@ -41,8 +41,6 @@ export const IrradianceSurface: React.FC<{
       throw new Error('only Lambert/Phong/standard materials are supported');
     }
   }
-
-  useMeshRegister(mesh, material, !!mappedRef.current);
 
   // attach light map
   const lightMap = useIrradianceTexture();

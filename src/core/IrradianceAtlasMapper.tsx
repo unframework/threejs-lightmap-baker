@@ -48,7 +48,6 @@ export interface AtlasMap {
 export interface Workbench {
   id: number; // for refresh
   lightScene: THREE.Scene;
-  lightSceneItems: WorkbenchSceneItem[];
   atlasMap: AtlasMap;
 }
 

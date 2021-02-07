@@ -43,7 +43,7 @@ ReactDOM.render(
       lightMapHeight={LIGHT_MAP_RES}
     >
       <IrradianceSceneManager autoStartDelayMs={10}>
-        {(workbench) => (
+        {(sceneRef, workbench) => (
           <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
@@ -52,7 +52,7 @@ ReactDOM.render(
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <scene>
+              <scene ref={sceneRef}>
                 <AutoUV2Provider texelSize={0.15}>
                   <mesh position={[0, 0, -0.1]} receiveShadow>
                     <planeBufferGeometry attach="geometry" args={[9, 5]} />

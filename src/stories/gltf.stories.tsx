@@ -21,7 +21,7 @@ export default {
   title: 'glTF scene'
 } as Meta;
 
-const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
+const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
   ({ onReady }, mainSceneRef) => {
     // data loading
     const [loadedData, setLoadedData] = useState<GLTF | null>(null);
@@ -177,7 +177,7 @@ export const Main: Story = () => (
       textureFilter={THREE.NearestFilter}
     >
       <IrradianceSceneManager>
-        {(workbench, startWorkbench) => (
+        {(sceneRef, workbench, startWorkbench) => (
           <>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
@@ -186,7 +186,7 @@ export const Main: Story = () => (
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <MainScene onReady={startWorkbench} />
+              <MainScene onReady={startWorkbench} ref={sceneRef} />
             </DebugOverlayScene>
           </>
         )}

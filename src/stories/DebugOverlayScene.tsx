@@ -12,7 +12,11 @@ export const DebugOverlayScene: React.FC<{
 }> = React.memo(({ atlasTexture, probeTexture, children }) => {
   const outputTexture = useIrradianceTexture();
 
-  const mainSceneRef = useResource<THREE.Scene>();
+  // merge existing ref (@todo figure out proper typing to get .ref)
+  const mainSceneRef = useResource<THREE.Scene>(
+    (children as { ref?: React.MutableRefObject<THREE.Scene> }).ref
+  );
+
   const debugSceneRef = useResource<THREE.Scene>();
 
   const { size } = useThree();

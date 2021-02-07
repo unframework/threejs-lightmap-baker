@@ -37,7 +37,7 @@ export const Main: Story = () => (
       lightMapHeight={LIGHT_MAP_RES}
     >
       <IrradianceSceneManager autoStartDelayMs={10}>
-        {(workbench) => (
+        {(sceneRef, workbench) => (
           <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
@@ -46,7 +46,7 @@ export const Main: Story = () => (
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <scene>
+              <scene ref={sceneRef}>
                 <mesh position={[0, 0, -2]} receiveShadow>
                   <planeBufferGeometry attach="geometry" args={[20, 20]} />
                   <meshLambertMaterial attach="material" color="#ffffff" />
