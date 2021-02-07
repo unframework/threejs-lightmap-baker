@@ -96,6 +96,7 @@ const IrradianceSceneManager: React.FC<{
   // basic snapshot triggered by start handler
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
+    scene: THREE.Scene;
     items: WorkbenchSceneItem[];
   } | null>(null);
 
@@ -110,9 +111,22 @@ const IrradianceSceneManager: React.FC<{
       };
     });
 
+    // get containing scene reference
+    let lightScene = null as THREE.Scene | null;
+    items[0].mesh.traverseAncestors((object) => {
+      if (!lightScene && object instanceof THREE.Scene) {
+        lightScene = object;
+      }
+    });
+    if (!lightScene) {
+      throw new Error('could not get light scene reference');
+    }
+    const scene = lightScene; // freeze object reference for async setter
+
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
+      scene,
       items
     }));
   }, [workbenchStage]);
@@ -140,21 +154,10 @@ const IrradianceSceneManager: React.FC<{
         throw new Error('unexpected early call');
       }
 
-      // get containing scene reference
-      let lightScene = null as THREE.Scene | null;
-      workbenchBasics.items[0].mesh.traverseAncestors((object) => {
-        if (!lightScene && object instanceof THREE.Scene) {
-          lightScene = object;
-        }
-      });
-      if (!lightScene) {
-        throw new Error('could not get light scene reference');
-      }
-
       // save final copy of workbench
       setWorkbench({
         id: workbenchBasics.id,
-        lightScene,
+        lightScene: workbenchBasics.scene,
         lightSceneItems: workbenchBasics.items,
         atlasMap
       });
@@ -173,7 +176,7 @@ const IrradianceSceneManager: React.FC<{
           key={workbenchBasics.id} // re-create for new workbench
           width={lightMapWidthRef.current} // read from initial snapshot
           height={lightMapHeightRef.current} // read from initial snapshot
-          lightSceneItems={workbenchBasics.items}
+          lightScene={workbenchBasics.scene}
           onComplete={atlasMapHandler}
         />
       )}
