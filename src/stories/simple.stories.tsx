@@ -8,7 +8,7 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
-import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
+import { IrradianceSurface } from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -86,9 +86,7 @@ export const Main: Story = () => (
                   intensity={1}
                   position={[-2.5, 2.5, 4]}
                   castShadow
-                >
-                  <IrradianceLight />
-                </directionalLight>
+                />
               </scene>
             </DebugOverlayScene>
           </React.Suspense>

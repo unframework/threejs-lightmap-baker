@@ -8,7 +8,7 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
-import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
+import { IrradianceSurface } from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -138,10 +138,7 @@ const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
 
         {loadedLightList.map((light) => (
           <React.Fragment key={light.uuid}>
-            <primitive object={light} dispose={null}>
-              <IrradianceLight />
-            </primitive>
-
+            <primitive object={light} dispose={null} />
             <primitive object={light.target} dispose={null} />
           </React.Fragment>
         ))}

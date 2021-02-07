@@ -7,7 +7,7 @@ import React, { useRef, useEffect } from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
-import { useMeshRegister, useLightRegister } from './IrradianceSceneManager';
+import { useMeshRegister } from './IrradianceSceneManager';
 import { useIrradianceTexture } from './IrradianceCompositor';
 
 // add as a child of a mesh to track it as a contributor of the light scene
@@ -60,25 +60,5 @@ export const IrradianceSurface: React.FC<{
   }, [material, lightMap]);
 
   // placeholder to attach under the target mesh
-  return <group ref={groupRef} />;
-};
-
-// add as a child of a light object to track it as a contributor of the light scene
-export const IrradianceLight: React.FC<{}> = ({ children }) => {
-  const groupRef = useResource<THREE.Group>();
-
-  const light = groupRef.current && groupRef.current.parent;
-
-  if (
-    light &&
-    !(light instanceof THREE.SpotLight) &&
-    !(light instanceof THREE.DirectionalLight) &&
-    !(light instanceof THREE.PointLight)
-  ) {
-    throw new Error('only spot/directional lights are supported');
-  }
-
-  useLightRegister(light);
-
   return <group ref={groupRef} />;
 };

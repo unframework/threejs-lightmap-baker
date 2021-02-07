@@ -15,7 +15,7 @@ import IrradianceSceneManager from './core/IrradianceSceneManager';
 import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
-import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
+import { IrradianceSurface } from './core/IrradianceScene';
 import DebugControls from './stories/DebugControls';
 import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
@@ -84,9 +84,7 @@ ReactDOM.render(
                   intensity={1.5}
                   position={[-2, 2, 4]}
                   castShadow
-                >
-                  <IrradianceLight />
-                </directionalLight>
+                />
               </scene>
             </DebugOverlayScene>
           </React.Suspense>

@@ -31,7 +31,6 @@ interface WorkbenchStagingItem {
 
 const IrradianceWorkbenchContext = React.createContext<{
   items: { [uuid: string]: WorkbenchStagingItem | undefined };
-  lights: { [uuid: string]: WorkbenchSceneLight | undefined };
 } | null>(null);
 
 function useWorkbenchStagingContext() {
@@ -73,28 +72,6 @@ export function useMeshRegister(
   }, [items, mesh, material]);
 }
 
-export function useLightRegister(light: WorkbenchLightType | null) {
-  const { lights } = useWorkbenchStagingContext();
-
-  useEffect(() => {
-    if (!light) {
-      return;
-    }
-
-    const uuid = light.uuid; // freeze local reference
-
-    // register display item
-    lights[uuid] = {
-      light
-    };
-
-    // on unmount, clean up
-    return () => {
-      delete lights[uuid];
-    };
-  }, [lights, light]);
-}
-
 const IrradianceSceneManager: React.FC<{
   autoStartDelayMs?: number;
   children: (
@@ -111,8 +88,7 @@ const IrradianceSceneManager: React.FC<{
   // collect current available meshes/lights
   const workbenchStage = useMemo(
     () => ({
-      items: {} as { [uuid: string]: WorkbenchStagingItem },
-      lights: {} as { [uuid: string]: WorkbenchSceneLight }
+      items: {} as { [uuid: string]: WorkbenchStagingItem }
     }),
     []
   );
@@ -121,7 +97,6 @@ const IrradianceSceneManager: React.FC<{
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
     items: WorkbenchSceneItem[];
-    lights: WorkbenchSceneLight[];
   } | null>(null);
 
   const startHandler = useCallback(() => {
@@ -135,13 +110,10 @@ const IrradianceSceneManager: React.FC<{
       };
     });
 
-    const lights = Object.values(workbenchStage.lights);
-
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
-      items,
-      lights
+      items
     }));
   }, [workbenchStage]);
 
@@ -184,7 +156,6 @@ const IrradianceSceneManager: React.FC<{
         id: workbenchBasics.id,
         lightScene,
         lightSceneItems: workbenchBasics.items,
-        lightSceneLights: workbenchBasics.lights,
         atlasMap
       });
     },
