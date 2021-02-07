@@ -8,7 +8,6 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
-import { IrradianceSurface } from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -98,13 +97,10 @@ const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
             color="#808080"
             emissive="#ffffff"
           />
-          <IrradianceSurface />
         </mesh>
 
         {loadedMeshList.map((mesh) => (
-          <primitive key={mesh.uuid} object={mesh} dispose={null}>
-            <IrradianceSurface mapped />
-          </primitive>
+          <primitive key={mesh.uuid} object={mesh} dispose={null} />
         ))}
       </scene>
     );

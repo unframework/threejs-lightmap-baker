@@ -8,7 +8,6 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
-import { IrradianceSurface } from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -143,17 +142,9 @@ const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
           </React.Fragment>
         ))}
 
-        {baseMesh && (
-          <primitive object={baseMesh} dispose={null}>
-            <IrradianceSurface mapped />
-          </primitive>
-        )}
+        {baseMesh && <primitive object={baseMesh} dispose={null} />}
 
-        {coverMesh && (
-          <primitive object={coverMesh} dispose={null}>
-            <IrradianceSurface />
-          </primitive>
-        )}
+        {coverMesh && <primitive object={coverMesh} dispose={null} />}
       </scene>
     );
   }

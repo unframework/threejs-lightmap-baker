@@ -101,9 +101,10 @@ const FRAGMENT_SHADER = `
 const IrradianceAtlasMapper: React.FC<{
   width: number;
   height: number;
+  lightMap: THREE.Texture;
   lightScene: THREE.Scene;
   onComplete: (atlasMap: AtlasMap) => void;
-}> = ({ width, height, lightScene, onComplete }) => {
+}> = ({ width, height, lightMap, lightScene, onComplete }) => {
   // read value only on first render
   const widthRef = useRef(width);
   const heightRef = useRef(height);
@@ -219,6 +220,30 @@ const IrradianceAtlasMapper: React.FC<{
         originalMesh: mesh,
         originalBuffer: buffer
       });
+
+      // finally, auto-attach the lightmap
+      // (checking against accidentally overriding some unrelated lightmap)
+      const material = mesh.material;
+      if (
+        !material ||
+        Array.isArray(material) ||
+        (!(material instanceof THREE.MeshLambertMaterial) &&
+          !(material instanceof THREE.MeshPhongMaterial) &&
+          !(material instanceof THREE.MeshStandardMaterial))
+      ) {
+        // @todo check for any other applicable types, maybe anything with a lightMap property?
+        throw new Error(
+          'only single Lambert/Phong/standard materials are supported'
+        );
+      }
+
+      if (material.lightMap && material.lightMap !== lightMap) {
+        throw new Error(
+          'do not set your own light map manually on baked scene meshes'
+        );
+      }
+
+      material.lightMap = lightMap;
     });
 
     // disposed during scene unmount

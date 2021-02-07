@@ -13,7 +13,10 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
-import { useIrradianceMapSize } from './IrradianceCompositor';
+import {
+  useIrradianceTexture,
+  useIrradianceMapSize
+} from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
   WorkbenchSceneItem,
@@ -31,6 +34,7 @@ const IrradianceSceneManager: React.FC<{
     startWorkbench: () => void
   ) => React.ReactNode;
 }> = ({ autoStartDelayMs, children }) => {
+  const lightMap = useIrradianceTexture();
   const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
 
   // read once
@@ -101,6 +105,7 @@ const IrradianceSceneManager: React.FC<{
           key={workbenchBasics.id} // re-create for new workbench
           width={lightMapWidthRef.current} // read from initial snapshot
           height={lightMapHeightRef.current} // read from initial snapshot
+          lightMap={lightMap}
           lightScene={workbenchBasics.scene}
           onComplete={atlasMapHandler}
         />

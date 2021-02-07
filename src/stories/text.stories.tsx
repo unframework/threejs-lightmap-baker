@@ -8,7 +8,6 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
-import { IrradianceSurface } from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -65,7 +64,6 @@ export const Main: Story = () => (
                     color="#808080"
                     //shininess={0}
                   />
-                  <IrradianceSurface />
                 </mesh>
 
                 <AutoUV2Provider texelSize={0.25}>
@@ -84,7 +82,6 @@ export const Main: Story = () => (
                     />
                     <meshPhongMaterial attach="material" color="#c0c0c0" />
                     <AutoUV2 />
-                    <IrradianceSurface mapped />
                   </mesh>
                 </AutoUV2Provider>
 

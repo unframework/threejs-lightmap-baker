@@ -15,7 +15,6 @@ import IrradianceSceneManager from './core/IrradianceSceneManager';
 import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
-import { IrradianceSurface } from './core/IrradianceScene';
 import DebugControls from './stories/DebugControls';
 import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
@@ -58,7 +57,6 @@ ReactDOM.render(
                     <planeBufferGeometry attach="geometry" args={[9, 5]} />
                     <meshLambertMaterial attach="material" color="#ffffff" />
                     <AutoUV2 />
-                    <IrradianceSurface mapped />
                   </mesh>
 
                   <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
@@ -76,7 +74,6 @@ ReactDOM.render(
                     />
                     <meshLambertMaterial attach="material" color="#ffe020" />
                     <AutoUV2 />
-                    <IrradianceSurface mapped />
                   </mesh>
                 </AutoUV2Provider>
 

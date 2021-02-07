@@ -8,7 +8,6 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
-import { IrradianceSurface } from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -50,7 +49,6 @@ export const Main: Story = () => (
                 <mesh position={[0, 0, -2]} receiveShadow>
                   <planeBufferGeometry attach="geometry" args={[20, 20]} />
                   <meshLambertMaterial attach="material" color="#ffffff" />
-                  <IrradianceSurface />
                 </mesh>
 
                 <AutoUV2Provider texelSize={0.25}>
@@ -58,7 +56,6 @@ export const Main: Story = () => (
                     <circleBufferGeometry attach="geometry" args={[2, 4]} />
                     <meshLambertMaterial attach="material" color="#c0c0c0" />
                     <AutoUV2 />
-                    <IrradianceSurface mapped />
                   </mesh>
                 </AutoUV2Provider>
 
