@@ -60,14 +60,17 @@ const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
 const VERTEX_SHADER = `
+  attribute vec2 uv2;
+  attribute vec3 atlasFacePosition;
+
   varying vec3 vFacePos;
   uniform vec2 uvOffset;
 
   void main() {
-    vFacePos = position;
+    vFacePos = atlasFacePosition;
 
     gl_Position = projectionMatrix * vec4(
-      uv + uvOffset, // UV is the actual position on map
+      uv2 + uvOffset, // UV2 is the actual position on map
       0,
       1.0
     );
@@ -139,6 +142,10 @@ const IrradianceAtlasMapper: React.FC<{
             throw new Error('expected normal attribute');
           }
 
+          const fakePositionAttr = new THREE.Float32BufferAttribute(
+            faceVertexCount * 3,
+            3
+          );
           const atlasUVAttr = new THREE.Float32BufferAttribute(
             faceVertexCount * 2,
             2
@@ -189,8 +196,9 @@ const IrradianceAtlasMapper: React.FC<{
 
           // @todo dispose of this buffer on unmount/etc? this is already disposed of automatically here
           const atlasBuffer = new THREE.BufferGeometry();
-          atlasBuffer.setAttribute('position', atlasFacePosAttr);
-          atlasBuffer.setAttribute('uv', atlasUVAttr);
+          atlasBuffer.setAttribute('position', fakePositionAttr);
+          atlasBuffer.setAttribute('atlasFacePosition', atlasFacePosAttr);
+          atlasBuffer.setAttribute('uv2', atlasUVAttr);
           atlasBuffer.setAttribute('normal', atlasNormalAttr);
 
           return {
