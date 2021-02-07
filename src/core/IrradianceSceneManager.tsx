@@ -19,10 +19,6 @@ import {
 } from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
-  WorkbenchSceneItem,
-  WorkbenchSceneLight,
-  WorkbenchMaterialType,
-  WorkbenchLightType,
   AtlasMap
 } from './IrradianceAtlasMapper';
 
