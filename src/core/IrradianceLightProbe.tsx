@@ -203,6 +203,10 @@ export function useLightProbe(
     tmpPrevClearColor.copy(gl.getClearColor());
     const prevClearAlpha = gl.getClearAlpha();
     const prevAutoClear = gl.autoClear;
+    const prevToneMapping = gl.toneMapping;
+
+    // reset tone mapping output to linear because we are aggregating unprocessed luminance output
+    gl.toneMapping = THREE.LinearToneMapping;
 
     // set up render target for overall clearing
     // (bypassing setViewport means that the renderer conveniently preserves previous state)
@@ -378,6 +382,7 @@ export function useLightProbe(
     gl.setRenderTarget(null); // this restores original scissor/viewport
     gl.setClearColor(tmpPrevClearColor, prevClearAlpha);
     gl.autoClear = prevAutoClear;
+    gl.toneMapping = prevToneMapping;
 
     // if something was rendered, send off the data for consumption
     for (let batchItem = 0; batchItem < PROBE_BATCH_COUNT; batchItem += 1) {

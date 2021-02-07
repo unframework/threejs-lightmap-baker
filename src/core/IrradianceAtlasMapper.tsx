@@ -47,8 +47,7 @@ export interface AtlasMap {
 
 export interface Workbench {
   id: number; // for refresh
-  lightSceneItems: WorkbenchSceneItem[];
-  lightSceneLights: WorkbenchSceneLight[];
+  lightScene: THREE.Scene;
   atlasMap: AtlasMap;
 }
 
@@ -102,13 +101,14 @@ const FRAGMENT_SHADER = `
 const IrradianceAtlasMapper: React.FC<{
   width: number;
   height: number;
-  lightSceneItems: WorkbenchSceneItem[];
+  lightMap: THREE.Texture;
+  lightScene: THREE.Scene;
   onComplete: (atlasMap: AtlasMap) => void;
-}> = ({ width, height, lightSceneItems, onComplete }) => {
+}> = ({ width, height, lightMap, lightScene, onComplete }) => {
   // read value only on first render
   const widthRef = useRef(width);
   const heightRef = useRef(height);
-  const lightSceneItemsRef = useRef(lightSceneItems);
+  const lightSceneRef = useRef(lightScene);
 
   // wait until next render to queue up data to render into atlas texture
   const [inputItems, setInputItems] = useState<AtlasMapInternalItem[] | null>(
@@ -117,99 +117,137 @@ const IrradianceAtlasMapper: React.FC<{
   const [isComplete, setIsComplete] = useState<boolean>(false);
 
   useEffect(() => {
+    const items = [] as AtlasMapInternalItem[];
+
+    lightSceneRef.current.traverse((mesh) => {
+      if (!(mesh instanceof THREE.Mesh)) {
+        return;
+      }
+
+      // ignore anything that is not a buffer geometry with defined UV2 coordinates
+      // @todo warn on legacy geometry objects if they seem to have UV2?
+      const buffer = mesh.geometry;
+      if (!(buffer instanceof THREE.BufferGeometry)) {
+        return;
+      }
+
+      const uv2Attr = buffer.attributes.uv2;
+      if (!uv2Attr) {
+        return;
+      }
+
+      // gather other necessary attributes and ensure compatible data
+      // @todo support non-indexed meshes
+      // @todo support interleaved attributes
+      const indexAttr = buffer.index;
+      if (!indexAttr) {
+        throw new Error('expected face index array');
+      }
+
+      const faceVertexCount = indexAttr.array.length;
+      const normalAttr = buffer.attributes.normal;
+
+      if (!normalAttr || !(normalAttr instanceof THREE.BufferAttribute)) {
+        throw new Error('expected normal attribute');
+      }
+
+      if (!(uv2Attr instanceof THREE.BufferAttribute)) {
+        throw new Error('expected uv2 attribute');
+      }
+
+      // index of this item once it will be added to list
+      const itemIndex = items.length;
+
+      const atlasUVAttr = new THREE.Float32BufferAttribute(
+        faceVertexCount * 2,
+        2
+      );
+      const atlasNormalAttr = new THREE.Float32BufferAttribute(
+        faceVertexCount * 3,
+        3
+      );
+      const atlasFacePosAttr = new THREE.Float32BufferAttribute(
+        faceVertexCount * 3,
+        3
+      );
+
+      // unroll indexed mesh data into non-indexed buffer so that we can encode per-face data
+      // (otherwise vertices may be shared, and hence cannot have face-specific info in vertex attribute)
+      const indexData = indexAttr.array;
+      for (
+        let faceVertexIndex = 0;
+        faceVertexIndex < faceVertexCount;
+        faceVertexIndex += 1
+      ) {
+        const faceMod = faceVertexIndex % 3;
+
+        atlasUVAttr.copyAt(
+          faceVertexIndex,
+          uv2Attr,
+          indexData[faceVertexIndex]
+        );
+
+        atlasNormalAttr.copyAt(
+          faceVertexIndex,
+          normalAttr,
+          indexData[faceVertexIndex]
+        );
+
+        // position of vertex in face: (0,0), (0,1) or (1,0)
+        const facePosX = faceMod & 1;
+        const facePosY = (faceMod & 2) >> 1;
+
+        // mesh index + face index combined into one
+        const faceIndex = (faceVertexIndex - faceMod) / 3;
+
+        atlasFacePosAttr.setXYZ(
+          faceVertexIndex,
+          facePosX,
+          facePosY,
+          itemIndex * MAX_ITEM_FACES + faceIndex + 1 // encode face info in texel
+        );
+      }
+
+      // this buffer is disposed of when atlas scene is unmounted
+      const atlasBuffer = new THREE.BufferGeometry();
+      atlasBuffer.setAttribute('position', atlasFacePosAttr);
+      atlasBuffer.setAttribute('uv2', atlasUVAttr);
+      atlasBuffer.setAttribute('normal', atlasNormalAttr);
+
+      items.push({
+        faceCount: faceVertexCount / 3,
+        perFaceBuffer: atlasBuffer,
+        originalMesh: mesh,
+        originalBuffer: buffer
+      });
+
+      // finally, auto-attach the lightmap
+      // (checking against accidentally overriding some unrelated lightmap)
+      const material = mesh.material;
+      if (
+        !material ||
+        Array.isArray(material) ||
+        (!(material instanceof THREE.MeshLambertMaterial) &&
+          !(material instanceof THREE.MeshPhongMaterial) &&
+          !(material instanceof THREE.MeshStandardMaterial))
+      ) {
+        // @todo check for any other applicable types, maybe anything with a lightMap property?
+        throw new Error(
+          'only single Lambert/Phong/standard materials are supported'
+        );
+      }
+
+      if (material.lightMap && material.lightMap !== lightMap) {
+        throw new Error(
+          'do not set your own light map manually on baked scene meshes'
+        );
+      }
+
+      material.lightMap = lightMap;
+    });
+
     // disposed during scene unmount
-    setInputItems(
-      lightSceneItemsRef.current
-        .filter(({ needsLightMap }) => needsLightMap)
-        .map((item, itemIndex) => {
-          const { mesh } = item;
-          const buffer = mesh.geometry;
-
-          if (!(buffer instanceof THREE.BufferGeometry)) {
-            throw new Error('expected buffer geometry');
-          }
-
-          const indexAttr = buffer.index;
-          if (!indexAttr) {
-            throw new Error('expected face index array');
-          }
-
-          const faceVertexCount = indexAttr.array.length;
-          const uv2Attr = buffer.attributes.uv2;
-          const normalAttr = buffer.attributes.normal;
-
-          if (!uv2Attr || !(uv2Attr instanceof THREE.BufferAttribute)) {
-            throw new Error('expected uv2 attribute');
-          }
-
-          if (!normalAttr || !(normalAttr instanceof THREE.BufferAttribute)) {
-            throw new Error('expected normal attribute');
-          }
-
-          const atlasUVAttr = new THREE.Float32BufferAttribute(
-            faceVertexCount * 2,
-            2
-          );
-          const atlasNormalAttr = new THREE.Float32BufferAttribute(
-            faceVertexCount * 3,
-            3
-          );
-          const atlasFacePosAttr = new THREE.Float32BufferAttribute(
-            faceVertexCount * 3,
-            3
-          );
-
-          // unroll indexed mesh data into non-indexed buffer so that we can encode per-face data
-          // (otherwise vertices may be shared, and hence cannot have face-specific info in vertex attribute)
-          const indexData = indexAttr.array;
-          for (
-            let faceVertexIndex = 0;
-            faceVertexIndex < faceVertexCount;
-            faceVertexIndex += 1
-          ) {
-            const faceMod = faceVertexIndex % 3;
-
-            atlasUVAttr.copyAt(
-              faceVertexIndex,
-              uv2Attr,
-              indexData[faceVertexIndex]
-            );
-
-            atlasNormalAttr.copyAt(
-              faceVertexIndex,
-              normalAttr,
-              indexData[faceVertexIndex]
-            );
-
-            // position of vertex in face: (0,0), (0,1) or (1,0)
-            const facePosX = faceMod & 1;
-            const facePosY = (faceMod & 2) >> 1;
-
-            // mesh index + face index combined into one
-            const faceIndex = (faceVertexIndex - faceMod) / 3;
-
-            atlasFacePosAttr.setXYZ(
-              faceVertexIndex,
-              facePosX,
-              facePosY,
-              itemIndex * MAX_ITEM_FACES + faceIndex + 1 // encode face info in texel
-            );
-          }
-
-          // this buffer is disposed of when atlas scene is unmounted
-          const atlasBuffer = new THREE.BufferGeometry();
-          atlasBuffer.setAttribute('position', atlasFacePosAttr);
-          atlasBuffer.setAttribute('uv2', atlasUVAttr);
-          atlasBuffer.setAttribute('normal', atlasNormalAttr);
-
-          return {
-            faceCount: faceVertexCount / 3,
-            perFaceBuffer: atlasBuffer,
-            originalMesh: mesh,
-            originalBuffer: buffer
-          };
-        })
-    );
+    setInputItems(items);
   }, []);
 
   const orthoTarget = useMemo(() => {

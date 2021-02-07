@@ -24,118 +24,6 @@ const MAX_PASSES = 2;
 const EMISSIVE_MULTIPLIER = 1;
 
 const tmpRgba = new THREE.Vector4();
-const tmpRgbaAdder = new THREE.Vector4();
-
-// @todo move into surface manager?
-// @todo correctly replicate shadowing parameters/etc
-function createLightProbeScene(
-  workbench: Workbench,
-  lastTexture: THREE.Texture | undefined
-) {
-  const { lightSceneItems, lightSceneLights } = workbench;
-
-  const scene = new THREE.Scene();
-
-  // add lights
-  for (const { light } of lightSceneLights) {
-    const lightTarget =
-      light instanceof THREE.DirectionalLight ? light.target : null;
-
-    const cloneLight = light.clone();
-    const cloneTarget =
-      cloneLight instanceof THREE.DirectionalLight ? cloneLight.target : null;
-
-    // apply world transform (we don't bother re-creating scene hierarchy)
-    cloneLight.matrix.copy(light.matrixWorld);
-    cloneLight.matrixAutoUpdate = false;
-    scene.add(cloneLight);
-
-    if (lightTarget && cloneTarget) {
-      cloneTarget.matrix.copy(lightTarget.matrixWorld);
-      cloneTarget.matrixAutoUpdate = false;
-      scene.add(cloneTarget);
-    }
-  }
-
-  for (const item of lightSceneItems) {
-    const { mesh, material, needsLightMap } = item;
-
-    // new mesh instance reusing existing geometry object directly, while material is set later
-    const cloneMesh = new THREE.Mesh(mesh.geometry);
-    cloneMesh.castShadow = mesh.castShadow;
-    cloneMesh.receiveShadow = mesh.receiveShadow;
-
-    // instantiate a simple equivalent vertex- or pixel-based material
-    const cloneMaterial =
-      material instanceof THREE.MeshLambertMaterial
-        ? new THREE.MeshLambertMaterial()
-        : new THREE.MeshPhongMaterial();
-
-    // copy non-specular flat look properties
-    // NOTE: we also copy some of the more esoteric display controls, trusting that
-    // the developer knows what they are doing
-    // skipped: stencil settings because light probe rendering does not allow setting up stencil buffer
-    // skipped: fog flag because light scene has no fog anyway
-    cloneMaterial.alphaMap = material.alphaMap;
-    cloneMaterial.alphaTest = material.alphaTest;
-    cloneMaterial.aoMap = material.aoMap;
-    cloneMaterial.aoMapIntensity = material.aoMapIntensity;
-    cloneMaterial.blendDst = material.blendDst;
-    cloneMaterial.blendDstAlpha = material.blendDstAlpha;
-    cloneMaterial.blendEquation = material.blendEquation;
-    cloneMaterial.blendEquationAlpha = material.blendEquationAlpha;
-    cloneMaterial.blending = material.blending;
-    cloneMaterial.blendSrc = material.blendSrc;
-    cloneMaterial.blendSrcAlpha = material.blendSrcAlpha;
-    cloneMaterial.clipIntersection = material.clipIntersection;
-    cloneMaterial.clippingPlanes = material.clippingPlanes;
-    cloneMaterial.clipShadows = material.clipShadows;
-    cloneMaterial.color = material.color;
-    cloneMaterial.colorWrite = material.colorWrite;
-    cloneMaterial.depthFunc = material.depthFunc;
-    cloneMaterial.depthTest = material.depthTest;
-    cloneMaterial.depthWrite = material.depthWrite;
-    cloneMaterial.dithering = material.dithering;
-    cloneMaterial.emissive = material.emissive;
-    cloneMaterial.emissiveIntensity = material.emissiveIntensity;
-    cloneMaterial.emissiveMap = material.emissiveMap;
-    cloneMaterial.flatShading = material.flatShading;
-    cloneMaterial.map = material.map;
-    cloneMaterial.morphNormals = material.morphNormals;
-    cloneMaterial.morphTargets = material.morphTargets;
-    cloneMaterial.opacity = material.opacity;
-    cloneMaterial.precision = material.precision;
-    cloneMaterial.premultipliedAlpha = material.premultipliedAlpha;
-    cloneMaterial.shadowSide = material.shadowSide;
-    cloneMaterial.side = material.side;
-    cloneMaterial.skinning = material.skinning;
-    cloneMaterial.transparent = material.transparent;
-    cloneMaterial.vertexColors = material.vertexColors;
-    cloneMaterial.visible = material.visible;
-
-    // turn off any shininess
-    if (cloneMaterial instanceof THREE.MeshPhongMaterial) {
-      cloneMaterial.shininess = 0; // no need to change default specular colour
-    }
-
-    // mandatory material settings for light scene display
-    cloneMaterial.toneMapped = false; // must output in raw linear space
-    cloneMaterial.lightMap = (needsLightMap && lastTexture) || null; // only set if expects lightmap normally
-
-    // apply world transform (we don't bother re-creating scene hierarchy)
-    cloneMesh.matrix.copy(mesh.matrixWorld);
-    cloneMesh.matrixAutoUpdate = false;
-
-    cloneMaterial.emissiveIntensity =
-      material.emissiveIntensity * EMISSIVE_MULTIPLIER;
-
-    cloneMesh.material = cloneMaterial;
-
-    scene.add(cloneMesh);
-  }
-
-  return scene;
-}
 
 // applied inside the light probe scene
 function createTemporaryLightMapTexture(
@@ -357,11 +245,8 @@ const IrradianceRenderer: React.FC<{
     return result;
   }, []);
 
-  const lightSceneRef = useRef<THREE.Scene>();
-
   const [processingState, setProcessingState] = useState(() => {
     return {
-      lightScene: null as THREE.Scene | null, // light scene contents
       passOutput: undefined as THREE.Texture | undefined, // current pass's output
       passOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
@@ -391,10 +276,10 @@ const IrradianceRenderer: React.FC<{
     if (passesRemaining === 0) {
       // if done, dereference large data objects to help free up memory
       setProcessingState((prev) => {
-        if (!prev.lightScene && !prev.passOutputData) {
+        if (!prev.passOutputData) {
           return prev;
         }
-        return { ...prev, lightScene: null, passOutputData: undefined };
+        return { ...prev, passOutputData: undefined };
       });
       return;
     }
@@ -408,7 +293,6 @@ const IrradianceRenderer: React.FC<{
 
     setProcessingState((prev) => {
       return {
-        lightScene: null, // will be created in another tick
         passOutput,
         passOutputData,
         passTexelCounter: [0],
@@ -416,21 +300,6 @@ const IrradianceRenderer: React.FC<{
         passesRemaining: prev.passesRemaining - 1
       };
     });
-
-    // create light scene in separate render tick (might help responsiveness)
-    setTimeout(() => {
-      setProcessingState((prev) => {
-        // extra check just in case
-        if (prev.passComplete) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          lightScene: createLightProbeScene(workbenchRef.current, irradiance)
-        };
-      });
-    }, 0);
   }, [processingState, irradiance, irradianceData]);
 
   const probeTargetSize = 16;
@@ -446,15 +315,10 @@ const IrradianceRenderer: React.FC<{
       ? null
       : (gl) => {
           const {
-            lightScene,
             passTexelCounter,
             passOutput,
             passOutputData
           } = processingState;
-
-          if (!lightScene) {
-            return; // nothing to do yet
-          }
 
           const { atlasMap } = workbenchRef.current;
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
@@ -471,7 +335,7 @@ const IrradianceRenderer: React.FC<{
 
           renderLightProbeBatch(
             gl,
-            lightScene,
+            workbenchRef.current.lightScene,
             (renderBatchItem) => {
               // allow for skipping a certain amount of empty texels
               const maxCounter = Math.min(
@@ -534,11 +398,6 @@ const IrradianceRenderer: React.FC<{
   } = useLightProbe(probeTargetSize);
   const debugProbeRef = useRef(false);
   useFrame(({ gl }) => {
-    const lightScene = lightSceneRef.current;
-    if (!lightScene) {
-      return; // nothing to do yet
-    }
-
     // run only once
     if (debugProbeRef.current) {
       return;
@@ -551,7 +410,7 @@ const IrradianceRenderer: React.FC<{
 
     debugProbeBatch(
       gl,
-      lightScene,
+      workbenchRef.current.lightScene,
       (renderBatchItem) => {
         queueTexel(
           atlasMap,
@@ -573,19 +432,7 @@ const IrradianceRenderer: React.FC<{
     }
   }, [debugLightProbeTexture]);
 
-  return (
-    <>
-      {outputIsComplete
-        ? null
-        : processingState.lightScene && (
-            // this should dispose of scene on unmount
-            <primitive
-              key={processingState.passesRemaining} // key to current pass
-              object={processingState.lightScene}
-            />
-          )}
-    </>
-  );
+  return null;
 };
 
 export default IrradianceRenderer;

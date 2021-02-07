@@ -13,7 +13,10 @@ import React, {
 } from 'react';
 import * as THREE from 'three';
 
-import { useIrradianceMapSize } from './IrradianceCompositor';
+import {
+  useIrradianceTexture,
+  useIrradianceMapSize
+} from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
   WorkbenchSceneItem,
@@ -23,127 +26,42 @@ import IrradianceAtlasMapper, {
   AtlasMap
 } from './IrradianceAtlasMapper';
 
-interface WorkbenchStagingItem {
-  mesh: THREE.Mesh;
-  material: WorkbenchMaterialType;
-  isMapped: boolean;
-}
-
-const IrradianceWorkbenchContext = React.createContext<{
-  items: { [uuid: string]: WorkbenchStagingItem | undefined };
-  lights: { [uuid: string]: WorkbenchSceneLight | undefined };
-} | null>(null);
-
-function useWorkbenchStagingContext() {
-  const workbenchStage = useContext(IrradianceWorkbenchContext);
-
-  if (!workbenchStage) {
-    throw new Error('must be inside manager context');
-  }
-
-  return workbenchStage;
-}
-
-// allow to attach a mesh to be mapped in texture atlas
-export function useMeshRegister(
-  mesh: THREE.Mesh | null,
-  material: WorkbenchMaterialType | null,
-  isMapped: boolean
-) {
-  const { items } = useWorkbenchStagingContext();
-
-  useEffect(() => {
-    if (!mesh || !material) {
-      return;
-    }
-
-    const uuid = mesh.uuid; // freeze local reference
-
-    // register display item
-    items[uuid] = {
-      mesh,
-      material,
-      isMapped
-    };
-
-    // on unmount, clean up
-    return () => {
-      delete items[uuid];
-    };
-  }, [items, mesh, material]);
-}
-
-export function useLightRegister(light: WorkbenchLightType | null) {
-  const { lights } = useWorkbenchStagingContext();
-
-  useEffect(() => {
-    if (!light) {
-      return;
-    }
-
-    const uuid = light.uuid; // freeze local reference
-
-    // register display item
-    lights[uuid] = {
-      light
-    };
-
-    // on unmount, clean up
-    return () => {
-      delete lights[uuid];
-    };
-  }, [lights, light]);
-}
-
 const IrradianceSceneManager: React.FC<{
   autoStartDelayMs?: number;
   children: (
+    lightSceneRef: React.MutableRefObject<THREE.Scene | null>,
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactNode;
 }> = ({ autoStartDelayMs, children }) => {
+  const lightMap = useIrradianceTexture();
   const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
 
   // read once
   const lightMapWidthRef = useRef(lightMapWidth);
   const lightMapHeightRef = useRef(lightMapHeight);
 
-  // collect current available meshes/lights
-  const workbenchStage = useMemo(
-    () => ({
-      items: {} as { [uuid: string]: WorkbenchStagingItem },
-      lights: {} as { [uuid: string]: WorkbenchSceneLight }
-    }),
-    []
-  );
+  // handle for light scene
+  const lightSceneRef = useRef<THREE.Scene>(null);
 
   // basic snapshot triggered by start handler
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
-    items: WorkbenchSceneItem[];
-    lights: WorkbenchSceneLight[];
+    scene: THREE.Scene;
   } | null>(null);
 
   const startHandler = useCallback(() => {
-    // take a snapshot of existing staging items/lights
-    const items = Object.values(workbenchStage.items).map((item) => {
-      const { material, isMapped } = item;
-
-      return {
-        ...item,
-        needsLightMap: isMapped // @todo eliminate separate staging item type
-      };
-    });
-
-    const lights = Object.values(workbenchStage.lights);
+    const scene = lightSceneRef.current;
+    if (!scene) {
+      throw new Error('could not get light scene reference');
+    }
 
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
-      items,
-      lights
+      scene
     }));
-  }, [workbenchStage]);
+  }, []);
 
   // auto-start helper
   const autoStartDelayMsRef = useRef(autoStartDelayMs); // read once
@@ -171,8 +89,7 @@ const IrradianceSceneManager: React.FC<{
       // save final copy of workbench
       setWorkbench({
         id: workbenchBasics.id,
-        lightSceneItems: workbenchBasics.items,
-        lightSceneLights: workbenchBasics.lights,
+        lightScene: workbenchBasics.scene,
         atlasMap
       });
     },
@@ -181,16 +98,15 @@ const IrradianceSceneManager: React.FC<{
 
   return (
     <>
-      <IrradianceWorkbenchContext.Provider value={workbenchStage}>
-        {children(workbench, startHandler)}
-      </IrradianceWorkbenchContext.Provider>
+      {children(lightSceneRef, workbench, startHandler)}
 
       {workbenchBasics && (
         <IrradianceAtlasMapper
           key={workbenchBasics.id} // re-create for new workbench
           width={lightMapWidthRef.current} // read from initial snapshot
           height={lightMapHeightRef.current} // read from initial snapshot
-          lightSceneItems={workbenchBasics.items}
+          lightMap={lightMap}
+          lightScene={workbenchBasics.scene}
           onComplete={atlasMapHandler}
         />
       )}

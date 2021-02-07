@@ -15,7 +15,6 @@ import IrradianceSceneManager from './core/IrradianceSceneManager';
 import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
-import { IrradianceSurface, IrradianceLight } from './core/IrradianceScene';
 import DebugControls from './stories/DebugControls';
 import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
@@ -43,7 +42,7 @@ ReactDOM.render(
       lightMapHeight={LIGHT_MAP_RES}
     >
       <IrradianceSceneManager autoStartDelayMs={10}>
-        {(workbench) => (
+        {(sceneRef, workbench) => (
           <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
@@ -52,13 +51,12 @@ ReactDOM.render(
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <scene>
+              <scene ref={sceneRef}>
                 <AutoUV2Provider texelSize={0.15}>
                   <mesh position={[0, 0, -0.1]} receiveShadow>
                     <planeBufferGeometry attach="geometry" args={[9, 5]} />
                     <meshLambertMaterial attach="material" color="#ffffff" />
                     <AutoUV2 />
-                    <IrradianceSurface mapped />
                   </mesh>
 
                   <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
@@ -76,7 +74,6 @@ ReactDOM.render(
                     />
                     <meshLambertMaterial attach="material" color="#ffe020" />
                     <AutoUV2 />
-                    <IrradianceSurface mapped />
                   </mesh>
                 </AutoUV2Provider>
 
@@ -84,9 +81,7 @@ ReactDOM.render(
                   intensity={1.5}
                   position={[-2, 2, 4]}
                   castShadow
-                >
-                  <IrradianceLight />
-                </directionalLight>
+                />
               </scene>
             </DebugOverlayScene>
           </React.Suspense>

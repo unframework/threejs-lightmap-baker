@@ -8,7 +8,6 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
-import { IrradianceSurface, IrradianceLight } from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -21,7 +20,7 @@ export default {
   title: 'glTF scene'
 } as Meta;
 
-const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
+const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
   ({ onReady }, mainSceneRef) => {
     // data loading
     const [loadedData, setLoadedData] = useState<GLTF | null>(null);
@@ -138,25 +137,14 @@ const MainScene: React.FC<{ onReady: () => void }> = React.forwardRef(
 
         {loadedLightList.map((light) => (
           <React.Fragment key={light.uuid}>
-            <primitive object={light} dispose={null}>
-              <IrradianceLight />
-            </primitive>
-
+            <primitive object={light} dispose={null} />
             <primitive object={light.target} dispose={null} />
           </React.Fragment>
         ))}
 
-        {baseMesh && (
-          <primitive object={baseMesh} dispose={null}>
-            <IrradianceSurface mapped />
-          </primitive>
-        )}
+        {baseMesh && <primitive object={baseMesh} dispose={null} />}
 
-        {coverMesh && (
-          <primitive object={coverMesh} dispose={null}>
-            <IrradianceSurface />
-          </primitive>
-        )}
+        {coverMesh && <primitive object={coverMesh} dispose={null} />}
       </scene>
     );
   }
@@ -180,7 +168,7 @@ export const Main: Story = () => (
       textureFilter={THREE.NearestFilter}
     >
       <IrradianceSceneManager>
-        {(workbench, startWorkbench) => (
+        {(sceneRef, workbench, startWorkbench) => (
           <>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
@@ -189,7 +177,7 @@ export const Main: Story = () => (
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <MainScene onReady={startWorkbench} />
+              <MainScene onReady={startWorkbench} ref={sceneRef} />
             </DebugOverlayScene>
           </>
         )}
