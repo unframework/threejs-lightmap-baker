@@ -357,11 +357,8 @@ const IrradianceRenderer: React.FC<{
     return result;
   }, []);
 
-  const lightSceneRef = useRef<THREE.Scene>();
-
   const [processingState, setProcessingState] = useState(() => {
     return {
-      lightScene: null as THREE.Scene | null, // light scene contents
       passOutput: undefined as THREE.Texture | undefined, // current pass's output
       passOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
@@ -391,10 +388,10 @@ const IrradianceRenderer: React.FC<{
     if (passesRemaining === 0) {
       // if done, dereference large data objects to help free up memory
       setProcessingState((prev) => {
-        if (!prev.lightScene && !prev.passOutputData) {
+        if (!prev.passOutputData) {
           return prev;
         }
-        return { ...prev, lightScene: null, passOutputData: undefined };
+        return { ...prev, passOutputData: undefined };
       });
       return;
     }
@@ -408,7 +405,6 @@ const IrradianceRenderer: React.FC<{
 
     setProcessingState((prev) => {
       return {
-        lightScene: null, // will be created in another tick
         passOutput,
         passOutputData,
         passTexelCounter: [0],
@@ -416,21 +412,6 @@ const IrradianceRenderer: React.FC<{
         passesRemaining: prev.passesRemaining - 1
       };
     });
-
-    // create light scene in separate render tick (might help responsiveness)
-    setTimeout(() => {
-      setProcessingState((prev) => {
-        // extra check just in case
-        if (prev.passComplete) {
-          return prev;
-        }
-
-        return {
-          ...prev,
-          lightScene: createLightProbeScene(workbenchRef.current, irradiance)
-        };
-      });
-    }, 0);
   }, [processingState, irradiance, irradianceData]);
 
   const probeTargetSize = 16;
@@ -446,15 +427,10 @@ const IrradianceRenderer: React.FC<{
       ? null
       : (gl) => {
           const {
-            lightScene,
             passTexelCounter,
             passOutput,
             passOutputData
           } = processingState;
-
-          if (!lightScene) {
-            return; // nothing to do yet
-          }
 
           const { atlasMap } = workbenchRef.current;
           const { width: atlasWidth, height: atlasHeight } = atlasMap;
@@ -471,7 +447,7 @@ const IrradianceRenderer: React.FC<{
 
           renderLightProbeBatch(
             gl,
-            lightScene,
+            workbenchRef.current.lightScene,
             (renderBatchItem) => {
               // allow for skipping a certain amount of empty texels
               const maxCounter = Math.min(
@@ -534,11 +510,6 @@ const IrradianceRenderer: React.FC<{
   } = useLightProbe(probeTargetSize);
   const debugProbeRef = useRef(false);
   useFrame(({ gl }) => {
-    const lightScene = lightSceneRef.current;
-    if (!lightScene) {
-      return; // nothing to do yet
-    }
-
     // run only once
     if (debugProbeRef.current) {
       return;
@@ -551,7 +522,7 @@ const IrradianceRenderer: React.FC<{
 
     debugProbeBatch(
       gl,
-      lightScene,
+      workbenchRef.current.lightScene,
       (renderBatchItem) => {
         queueTexel(
           atlasMap,
@@ -573,19 +544,7 @@ const IrradianceRenderer: React.FC<{
     }
   }, [debugLightProbeTexture]);
 
-  return (
-    <>
-      {outputIsComplete
-        ? null
-        : processingState.lightScene && (
-            // this should dispose of scene on unmount
-            <primitive
-              key={processingState.passesRemaining} // key to current pass
-              object={processingState.lightScene}
-            />
-          )}
-    </>
-  );
+  return null;
 };
 
 export default IrradianceRenderer;

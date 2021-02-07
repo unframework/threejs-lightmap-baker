@@ -168,9 +168,22 @@ const IrradianceSceneManager: React.FC<{
         throw new Error('unexpected early call');
       }
 
+      // get containing scene reference
+      let lightScene = null as THREE.Scene | null;
+      workbenchBasics.items[0].mesh.traverseAncestors((object) => {
+        if (!lightScene && object instanceof THREE.Scene) {
+          console.log(object);
+          lightScene = object;
+        }
+      });
+      if (!lightScene) {
+        throw new Error('could not get light scene reference');
+      }
+
       // save final copy of workbench
       setWorkbench({
         id: workbenchBasics.id,
+        lightScene,
         lightSceneItems: workbenchBasics.items,
         lightSceneLights: workbenchBasics.lights,
         atlasMap
