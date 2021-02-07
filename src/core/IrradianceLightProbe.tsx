@@ -53,17 +53,24 @@ export type ProbeBatcher = (
 // "raw" means that output is not normalized (not necessary for now)
 function setBlendedNormalRaw(
   out: THREE.Vector3,
-  normalArray: ArrayLike<number>,
+  origNormalArray: ArrayLike<number>,
+  origIndexArray: ArrayLike<number>,
   faceVertexBase: number,
   pU: number,
   pV: number
 ) {
-  out.fromArray(normalArray, faceVertexBase * 3);
+  out.fromArray(origNormalArray, origIndexArray[faceVertexBase] * 3);
 
-  tmpNormalOther.fromArray(normalArray, (faceVertexBase + 1) * 3);
+  tmpNormalOther.fromArray(
+    origNormalArray,
+    origIndexArray[faceVertexBase + 1] * 3
+  );
   out.lerp(tmpNormalOther, pU);
 
-  tmpNormalOther.fromArray(normalArray, (faceVertexBase + 2) * 3);
+  tmpNormalOther.fromArray(
+    origNormalArray,
+    origIndexArray[faceVertexBase + 2] * 3
+  );
   out.lerp(tmpNormalOther, pV);
 }
 
@@ -219,7 +226,7 @@ export function useLightProbe(
         // save which texel is being rendered for later reporting
         batchTexels[batchItem] = texelIndex;
 
-        const { faceBuffer, originalMesh, originalBuffer } = atlasMapItem;
+        const { originalMesh, originalBuffer } = atlasMapItem;
 
         if (!originalBuffer.index) {
           throw new Error('expected indexed mesh');
@@ -228,8 +235,7 @@ export function useLightProbe(
         // read vertex position for this face and interpolate along U and V axes
         const origIndexArray = originalBuffer.index.array;
         const origPosArray = originalBuffer.attributes.position.array;
-
-        const normalArray = faceBuffer.attributes.normal.array;
+        const origNormalArray = originalBuffer.attributes.normal.array;
 
         // get face vertex positions
         const faceVertexBase = faceIndex * 3;
@@ -247,7 +253,14 @@ export function useLightProbe(
 
         // compute normal and cardinal directions
         // (done per texel for linear interpolation of normals)
-        setBlendedNormalRaw(tmpNormal, normalArray, faceVertexBase, pU, pV);
+        setBlendedNormalRaw(
+          tmpNormal,
+          origNormalArray,
+          origIndexArray,
+          faceVertexBase,
+          pU,
+          pV
+        );
 
         // use consistent "left" and "up" directions based on just the normal
         if (tmpNormal.x === 0 && tmpNormal.y === 0) {

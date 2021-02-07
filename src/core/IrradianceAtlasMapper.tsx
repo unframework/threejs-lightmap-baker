@@ -29,9 +29,12 @@ export interface WorkbenchSceneLight {
 
 export interface AtlasMapItem {
   faceCount: number;
-  faceBuffer: THREE.BufferGeometry;
   originalMesh: THREE.Mesh;
   originalBuffer: THREE.BufferGeometry;
+}
+
+interface AtlasMapInternalItem extends AtlasMapItem {
+  perFaceBuffer: THREE.BufferGeometry;
 }
 
 export interface AtlasMap {
@@ -60,6 +63,8 @@ const tmpU = new THREE.Vector3();
 const tmpV = new THREE.Vector3();
 
 const VERTEX_SHADER = `
+  attribute vec2 uv2;
+
   varying vec3 vFacePos;
   uniform vec2 uvOffset;
 
@@ -67,7 +72,7 @@ const VERTEX_SHADER = `
     vFacePos = position;
 
     gl_Position = projectionMatrix * vec4(
-      uv + uvOffset, // UV is the actual position on map
+      uv2 + uvOffset, // UV2 is the actual position on map
       0,
       1.0
     );
@@ -106,7 +111,9 @@ const IrradianceAtlasMapper: React.FC<{
   const lightSceneItemsRef = useRef(lightSceneItems);
 
   // wait until next render to queue up data to render into atlas texture
-  const [inputItems, setInputItems] = useState<AtlasMapItem[] | null>(null);
+  const [inputItems, setInputItems] = useState<AtlasMapInternalItem[] | null>(
+    null
+  );
   const [isComplete, setIsComplete] = useState<boolean>(false);
 
   useEffect(() => {
@@ -152,6 +159,8 @@ const IrradianceAtlasMapper: React.FC<{
             3
           );
 
+          // unroll indexed mesh data into non-indexed buffer so that we can encode per-face data
+          // (otherwise vertices may be shared, and hence cannot have face-specific info in vertex attribute)
           const indexData = indexAttr.array;
           for (
             let faceVertexIndex = 0;
@@ -187,15 +196,15 @@ const IrradianceAtlasMapper: React.FC<{
             );
           }
 
-          // @todo dispose of this buffer on unmount/etc? this is already disposed of automatically here
+          // this buffer is disposed of when atlas scene is unmounted
           const atlasBuffer = new THREE.BufferGeometry();
           atlasBuffer.setAttribute('position', atlasFacePosAttr);
-          atlasBuffer.setAttribute('uv', atlasUVAttr);
+          atlasBuffer.setAttribute('uv2', atlasUVAttr);
           atlasBuffer.setAttribute('normal', atlasNormalAttr);
 
           return {
             faceCount: faceVertexCount / 3,
-            faceBuffer: atlasBuffer,
+            perFaceBuffer: atlasBuffer,
             originalMesh: mesh,
             originalBuffer: buffer
           };
@@ -268,13 +277,22 @@ const IrradianceAtlasMapper: React.FC<{
       );
 
       setIsComplete(true);
+      setInputItems(null); // release references to atlas-specific geometry clones
 
       onComplete({
         width: widthRef.current,
         height: heightRef.current,
         texture: orthoTarget.texture,
         data: orthoData,
-        items: inputItems
+
+        // no need to expose references to atlas-specific geometry clones
+        items: inputItems.map(
+          ({ faceCount, originalMesh, originalBuffer }) => ({
+            faceCount,
+            originalMesh,
+            originalBuffer
+          })
+        )
       });
     },
     [inputItems]
@@ -291,7 +309,7 @@ const IrradianceAtlasMapper: React.FC<{
                 frustumCulled={false} // skip bounding box checks (not applicable and logic gets confused)
                 position={[0, 0, 0]}
               >
-                <primitive attach="geometry" object={geom.faceBuffer} />
+                <primitive attach="geometry" object={geom.perFaceBuffer} />
 
                 <shaderMaterial
                   attach="material"
