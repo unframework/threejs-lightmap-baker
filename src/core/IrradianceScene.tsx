@@ -28,14 +28,14 @@ const FallbackListener: React.FC<{
 
 const IrradianceScene = React.forwardRef<
   THREE.Scene | null,
-  { children: React.ReactNode }
->(({ children }, sceneRef) => {
+  React.PropsWithChildren<{ onReady: () => void }>
+>(({ onReady, children }, sceneRef) => {
   // by default, set up kick-off for next tick
   // (but this is prevented if suspense is thrown from children)
   const initialTimeoutId = useMemo(
     () =>
       setTimeout(() => {
-        console.log('initial start');
+        onReady();
       }, 0),
     []
   );
@@ -50,7 +50,7 @@ const IrradianceScene = React.forwardRef<
           }}
           onFinished={() => {
             // issue kick-off once suspense is resolved
-            console.log('delayed start');
+            onReady();
           }}
         />
       }

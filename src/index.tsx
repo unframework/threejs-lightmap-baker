@@ -15,6 +15,7 @@ import IrradianceSceneManager from './core/IrradianceSceneManager';
 import WorkManager from './core/WorkManager';
 import IrradianceRenderer from './core/IrradianceRenderer';
 import IrradianceCompositor from './core/IrradianceCompositor';
+import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './stories/DebugControls';
 import { DebugOverlayScene } from './stories/DebugOverlayScene';
 
@@ -41,8 +42,8 @@ ReactDOM.render(
       lightMapWidth={LIGHT_MAP_RES}
       lightMapHeight={LIGHT_MAP_RES}
     >
-      <IrradianceSceneManager autoStartDelayMs={10}>
-        {(sceneRef, workbench) => (
+      <IrradianceSceneManager>
+        {(sceneRef, workbench, startWorkbench) => (
           <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
@@ -51,7 +52,7 @@ ReactDOM.render(
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <scene ref={sceneRef}>
+              <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
                 <AutoUV2Provider texelSize={0.15}>
                   <mesh position={[0, 0, -0.1]} receiveShadow>
                     <planeBufferGeometry attach="geometry" args={[9, 5]} />
@@ -82,7 +83,7 @@ ReactDOM.render(
                   position={[-2, 2, 4]}
                   castShadow
                 />
-              </scene>
+              </IrradianceScene>
             </DebugOverlayScene>
           </React.Suspense>
         )}

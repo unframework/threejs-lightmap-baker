@@ -8,6 +8,7 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
+import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -46,8 +47,8 @@ export const Main: Story = () => (
       lightMapWidth={LIGHT_MAP_RES}
       lightMapHeight={LIGHT_MAP_RES}
     >
-      <IrradianceSceneManager autoStartDelayMs={10}>
-        {(sceneRef, workbench) => (
+      <IrradianceSceneManager>
+        {(sceneRef, workbench, startWorkbench) => (
           <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
@@ -56,7 +57,7 @@ export const Main: Story = () => (
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <scene ref={sceneRef}>
+              <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
                 <mesh position={[0, 0, -2]} receiveShadow>
                   <planeBufferGeometry attach="geometry" args={[20, 20]} />
                   <meshPhongMaterial
@@ -93,7 +94,7 @@ export const Main: Story = () => (
                   position={[-8, 8, 8]}
                   castShadow
                 />
-              </scene>
+              </IrradianceScene>
             </DebugOverlayScene>
           </React.Suspense>
         )}

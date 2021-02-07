@@ -130,7 +130,7 @@ const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
     }, [loadedData]);
 
     return (
-      <IrradianceScene ref={mainSceneRef}>
+      <IrradianceScene ref={mainSceneRef} onReady={() => undefined}>
         <mesh position={[0, 0, -5]}>
           <planeBufferGeometry attach="geometry" args={[200, 200]} />
           <meshBasicMaterial attach="material" color="#171717" />
