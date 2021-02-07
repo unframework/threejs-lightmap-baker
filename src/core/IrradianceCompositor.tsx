@@ -58,12 +58,12 @@ const tmpPrevClearColor = new THREE.Color();
 function createRendererTexture(
   atlasWidth: number,
   atlasHeight: number,
-  textureFilter: THREE.TextureFilter,
-  withTestPattern?: boolean
+  textureFilter: THREE.TextureFilter
 ): [THREE.Texture, Float32Array] {
   const atlasSize = atlasWidth * atlasHeight;
   const data = new Float32Array(4 * atlasSize);
 
+  // not filling texture with test pattern because this goes right into light probe computation
   const texture = new THREE.DataTexture(
     data,
     atlasWidth,
@@ -76,28 +76,6 @@ function createRendererTexture(
   texture.magFilter = textureFilter;
   texture.minFilter = textureFilter;
   texture.generateMipmaps = false;
-
-  // pre-fill with a test pattern
-  // (nested loop to avoid tripping sandbox infinite loop detection)
-  if (withTestPattern) {
-    for (let y = 0; y < atlasHeight; y += 1) {
-      const yStart = y * atlasWidth * 4;
-
-      for (let x = 0; x < atlasWidth; x += 1) {
-        const stride = yStart + x * 4;
-
-        const tileX = Math.floor(x / 4);
-        const tileY = Math.floor(y / 4);
-
-        const on = tileX % 2 === tileY % 2;
-
-        data[stride] = on ? 0.2 : 0.8;
-        data[stride + 1] = 0.5;
-        data[stride + 2] = on ? 0.8 : 0.2;
-        data[stride + 3] = 0;
-      }
-    }
-  }
 
   return [texture, data];
 }

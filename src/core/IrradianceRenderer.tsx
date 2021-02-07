@@ -262,7 +262,6 @@ function storeLightMapValue(
   atlasWidth: number,
   totalTexelCount: number,
   texelIndex: number,
-  combinedOutputData: Float32Array,
   layerOutputData: Float32Array
 ) {
   // read existing texel value (if adding)
@@ -271,7 +270,6 @@ function storeLightMapValue(
   tmpRgba.w = 1; // reset alpha to 1 to indicate filled pixel
 
   // main texel write
-  tmpRgba.toArray(combinedOutputData, mainOffTexelBase);
   tmpRgba.toArray(layerOutputData, mainOffTexelBase);
 
   // propagate combined value to 3x3 brush area
@@ -296,7 +294,6 @@ function storeLightMapValue(
 
     if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
       // no need to separately read existing value for brush-propagated texels
-      tmpRgba.toArray(combinedOutputData, offTexelBase);
       tmpRgba.toArray(layerOutputData, offTexelBase);
     }
   }
@@ -363,7 +360,6 @@ const IrradianceRenderer: React.FC<{
 
   const [processingState, setProcessingState] = useState(() => {
     return {
-      previousLayerOutput: undefined as THREE.Texture | undefined, // previous pass's output (applied to the light probe scene)
       lightScene: null as THREE.Scene | null, // light scene contents
       layerOutput: undefined as THREE.Texture | undefined, // current pass's output
       layerOutputData: undefined as Float32Array | undefined, // current pass's output data
@@ -376,31 +372,23 @@ const IrradianceRenderer: React.FC<{
   // kick off new pass when current one is complete
   useEffect(() => {
     const { atlasMap } = workbenchRef.current;
-    const {
-      passComplete,
-      passesRemaining,
-      previousLayerOutput
-    } = processingState;
+    const { passComplete, passesRemaining } = processingState;
 
     // check if there is anything to do
     if (!passComplete) {
       return;
     }
 
-    // always clean up previous texture
-    if (previousLayerOutput) {
-      previousLayerOutput.dispose();
+    // store and discard the active layer output texture
+    if (processingState.layerOutput && processingState.layerOutputData) {
+      combinedOutputData.set(processingState.layerOutputData);
+      combinedOutput.needsUpdate = true;
+      processingState.layerOutput.dispose();
     }
 
     // check if a new pass has to be set up
     if (passesRemaining === 0) {
-      // on final pass, discard the active layer output texture too
-      // (on previous passes it lives on as "previousLayerOutput")
-      if (processingState.layerOutput) {
-        processingState.layerOutput.dispose();
-      }
-
-      // also dereference large data objects to help free up memory
+      // if done, dereference large data objects to help free up memory
       setProcessingState((prev) => {
         if (!prev.lightScene && !prev.layerOutputData) {
           return prev;
@@ -411,6 +399,7 @@ const IrradianceRenderer: React.FC<{
     }
 
     // set up a new output texture for new pass
+    // @todo this might not even need to be a texture? but could be useful for live debug display
     const [layerOutput, layerOutputData] = createTemporaryLightMapTexture(
       workbenchRef.current.atlasMap.width,
       workbenchRef.current.atlasMap.height
@@ -418,7 +407,6 @@ const IrradianceRenderer: React.FC<{
 
     setProcessingState((prev) => {
       return {
-        previousLayerOutput: prev.layerOutput, // previous pass's output
         lightScene: null, // will be created in another tick
         layerOutput,
         layerOutputData,
@@ -440,12 +428,12 @@ const IrradianceRenderer: React.FC<{
           ...prev,
           lightScene: createLightProbeScene(
             workbenchRef.current,
-            prev.previousLayerOutput
+            combinedOutput
           )
         };
       });
     }, 0);
-  }, [processingState]);
+  }, [processingState, combinedOutput, combinedOutputData]);
 
   const probeTargetSize = 16;
   const { renderLightProbeBatch, probePixelAreaLookup } = useLightProbe(
@@ -462,7 +450,6 @@ const IrradianceRenderer: React.FC<{
           const {
             lightScene,
             passTexelCounter,
-            previousLayerOutput,
             layerOutput,
             layerOutputData
           } = processingState;
@@ -518,16 +505,14 @@ const IrradianceRenderer: React.FC<{
             (texelIndex, readLightProbe) => {
               readTexel(tmpRgba, readLightProbe, probePixelAreaLookup);
 
-              // add this pass's illumination contribution to upstream output and current isolated layer
+              // store resulting total illumination
               storeLightMapValue(
                 atlasMap.data,
                 atlasWidth,
                 totalTexelCount,
                 texelIndex,
-                combinedOutputData,
                 layerOutputData
               );
-              combinedOutput.needsUpdate = true;
               layerOutput.needsUpdate = true;
             }
           );
