@@ -262,7 +262,7 @@ function storeLightMapValue(
   atlasWidth: number,
   totalTexelCount: number,
   texelIndex: number,
-  layerOutputData: Float32Array
+  passOutputData: Float32Array
 ) {
   // read existing texel value (if adding)
   const mainOffTexelBase = texelIndex * 4;
@@ -270,7 +270,7 @@ function storeLightMapValue(
   tmpRgba.w = 1; // reset alpha to 1 to indicate filled pixel
 
   // main texel write
-  tmpRgba.toArray(layerOutputData, mainOffTexelBase);
+  tmpRgba.toArray(passOutputData, mainOffTexelBase);
 
   // propagate combined value to 3x3 brush area
   const texelX = texelIndex % atlasWidth;
@@ -290,11 +290,11 @@ function storeLightMapValue(
     // (using layer output data to check for past writes since it is re-initialized per pass)
     const offTexelFaceEnc = atlasData[offTexelBase + 2];
     const isStrongNeighbour = offX === 0 || offY === 0;
-    const isUnfilled = layerOutputData[offTexelBase + 3] === 0;
+    const isUnfilled = passOutputData[offTexelBase + 3] === 0;
 
     if (offTexelFaceEnc === 0 && (isStrongNeighbour || isUnfilled)) {
       // no need to separately read existing value for brush-propagated texels
-      tmpRgba.toArray(layerOutputData, offTexelBase);
+      tmpRgba.toArray(passOutputData, offTexelBase);
     }
   }
 }
@@ -362,8 +362,8 @@ const IrradianceRenderer: React.FC<{
   const [processingState, setProcessingState] = useState(() => {
     return {
       lightScene: null as THREE.Scene | null, // light scene contents
-      layerOutput: undefined as THREE.Texture | undefined, // current pass's output
-      layerOutputData: undefined as Float32Array | undefined, // current pass's output data
+      passOutput: undefined as THREE.Texture | undefined, // current pass's output
+      passOutputData: undefined as Float32Array | undefined, // current pass's output data
       passTexelCounter: [0], // directly changed in place to avoid re-renders
       passComplete: true, // this triggers new pass on next render
       passesRemaining: MAX_PASSES
@@ -381,27 +381,27 @@ const IrradianceRenderer: React.FC<{
     }
 
     // store and discard the active layer output texture
-    if (processingState.layerOutput && processingState.layerOutputData) {
-      irradianceData.set(processingState.layerOutputData);
+    if (processingState.passOutput && processingState.passOutputData) {
+      irradianceData.set(processingState.passOutputData);
       irradiance.needsUpdate = true;
-      processingState.layerOutput.dispose();
+      processingState.passOutput.dispose();
     }
 
     // check if a new pass has to be set up
     if (passesRemaining === 0) {
       // if done, dereference large data objects to help free up memory
       setProcessingState((prev) => {
-        if (!prev.lightScene && !prev.layerOutputData) {
+        if (!prev.lightScene && !prev.passOutputData) {
           return prev;
         }
-        return { ...prev, lightScene: null, layerOutputData: undefined };
+        return { ...prev, lightScene: null, passOutputData: undefined };
       });
       return;
     }
 
     // set up a new output texture for new pass
     // @todo this might not even need to be a texture? but could be useful for live debug display
-    const [layerOutput, layerOutputData] = createTemporaryLightMapTexture(
+    const [passOutput, passOutputData] = createTemporaryLightMapTexture(
       workbenchRef.current.atlasMap.width,
       workbenchRef.current.atlasMap.height
     );
@@ -409,8 +409,8 @@ const IrradianceRenderer: React.FC<{
     setProcessingState((prev) => {
       return {
         lightScene: null, // will be created in another tick
-        layerOutput,
-        layerOutputData,
+        passOutput,
+        passOutputData,
         passTexelCounter: [0],
         passComplete: false,
         passesRemaining: prev.passesRemaining - 1
@@ -448,8 +448,8 @@ const IrradianceRenderer: React.FC<{
           const {
             lightScene,
             passTexelCounter,
-            layerOutput,
-            layerOutputData
+            passOutput,
+            passOutputData
           } = processingState;
 
           if (!lightScene) {
@@ -465,7 +465,7 @@ const IrradianceRenderer: React.FC<{
             return;
           }
 
-          if (!layerOutputData || !layerOutput) {
+          if (!passOutputData || !passOutput) {
             throw new Error('unexpected missing output');
           }
 
@@ -509,9 +509,9 @@ const IrradianceRenderer: React.FC<{
                 atlasWidth,
                 totalTexelCount,
                 texelIndex,
-                layerOutputData
+                passOutputData
               );
-              layerOutput.needsUpdate = true;
+              passOutput.needsUpdate = true;
             }
           );
 
