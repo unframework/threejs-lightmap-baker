@@ -19,21 +19,16 @@ import {
 } from './IrradianceCompositor';
 import IrradianceAtlasMapper, {
   Workbench,
-  WorkbenchSceneItem,
-  WorkbenchSceneLight,
-  WorkbenchMaterialType,
-  WorkbenchLightType,
   AtlasMap
 } from './IrradianceAtlasMapper';
 
 const IrradianceSceneManager: React.FC<{
-  autoStartDelayMs?: number;
   children: (
     lightSceneRef: React.MutableRefObject<THREE.Scene | null>,
     workbench: Workbench | null,
     startWorkbench: () => void
   ) => React.ReactNode;
-}> = ({ autoStartDelayMs, children }) => {
+}> = ({ children }) => {
   const lightMap = useIrradianceTexture();
   const [lightMapWidth, lightMapHeight] = useIrradianceMapSize();
 
@@ -61,20 +56,6 @@ const IrradianceSceneManager: React.FC<{
       id: prev ? prev.id + 1 : 1,
       scene
     }));
-  }, []);
-
-  // auto-start helper
-  const autoStartDelayMsRef = useRef(autoStartDelayMs); // read once
-  useEffect(() => {
-    // do nothing if not specified
-    if (autoStartDelayMsRef.current === undefined) {
-      return;
-    }
-
-    const timeoutId = setTimeout(startHandler, autoStartDelayMsRef.current);
-
-    // always clean up on unmount
-    return clearTimeout.bind(null, timeoutId);
   }, []);
 
   // full workbench with atlas map

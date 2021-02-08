@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Story, Meta } from '@storybook/react';
-import { Canvas } from 'react-three-fiber';
+import { useLoader, Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
@@ -8,6 +8,7 @@ import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
+import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayScene } from './DebugOverlayScene';
 
@@ -20,92 +21,65 @@ export default {
   title: 'Smooth normals scene'
 } as Meta;
 
-const MainScene = React.forwardRef<THREE.Scene, { onReady: () => void }>(
-  ({ onReady }, mainSceneRef) => {
-    // data loading
-    const [loadedData, setLoadedData] = useState<GLTF | null>(null);
+const MainSceneContents: React.FC = () => {
+  const loadedData = useLoader(GLTFLoader, sceneUrl);
 
-    useEffect(() => {
-      new GLTFLoader().load(sceneUrl, (data) => {
-        setLoadedData(data);
-      });
-    }, []);
+  const loadedMeshList = useMemo(() => {
+    const meshes: THREE.Mesh[] = [];
 
-    const loadedMeshList = useMemo(() => {
-      const meshes: THREE.Mesh[] = [];
-
-      if (loadedData) {
-        loadedData.scene.traverse((object) => {
-          if (!(object instanceof THREE.Mesh)) {
-            return;
-          }
-
-          // convert glTF's standard material into Lambert
-          if (object.material) {
-            const stdMat = object.material as THREE.MeshStandardMaterial;
-
-            if (stdMat.map) {
-              stdMat.map.magFilter = THREE.NearestFilter;
-            }
-
-            if (stdMat.emissiveMap) {
-              stdMat.emissiveMap.magFilter = THREE.NearestFilter;
-            }
-
-            object.material = new THREE.MeshLambertMaterial({
-              color: stdMat.color,
-              map: stdMat.map,
-              emissive: stdMat.emissive,
-              emissiveMap: stdMat.emissiveMap,
-              emissiveIntensity: stdMat.emissiveIntensity
-            });
-
-            // always cast shadow, but only albedo materials receive it
-            object.castShadow = true;
-            object.receiveShadow = true;
-          }
-
-          meshes.push(object);
-        });
-      }
-
-      return meshes;
-    }, [loadedData]);
-
-    // signal readiness when loaded
-    const onReadyRef = useRef(onReady); // wrap in ref to avoid re-triggering
-    onReadyRef.current = onReady;
-
-    useEffect(() => {
-      if (!loadedData) {
+    loadedData.scene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) {
         return;
       }
 
-      const timeoutId = setTimeout(onReadyRef.current, 100);
+      // convert glTF's standard material into Lambert
+      if (object.material) {
+        const stdMat = object.material as THREE.MeshStandardMaterial;
 
-      return () => {
-        clearTimeout(timeoutId);
-      };
-    }, [loadedData]);
+        if (stdMat.map) {
+          stdMat.map.magFilter = THREE.NearestFilter;
+        }
 
-    return (
-      <scene ref={mainSceneRef}>
-        <mesh position={[0, 0, -2]} receiveShadow>
-          <planeBufferGeometry attach="geometry" args={[20, 20]} />
-          <meshLambertMaterial
-            attach="material"
-            color="#808080"
-            emissive="#ffffff"
-          />
-        </mesh>
+        if (stdMat.emissiveMap) {
+          stdMat.emissiveMap.magFilter = THREE.NearestFilter;
+        }
 
-        {loadedMeshList.map((mesh) => (
-          <primitive key={mesh.uuid} object={mesh} dispose={null} />
-        ))}
-      </scene>
-    );
-  }
-);
+        object.material = new THREE.MeshLambertMaterial({
+          color: stdMat.color,
+          map: stdMat.map,
+          emissive: stdMat.emissive,
+          emissiveMap: stdMat.emissiveMap,
+          emissiveIntensity: stdMat.emissiveIntensity
+        });
+
+        // always cast shadow, but only albedo materials receive it
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+
+      meshes.push(object);
+    });
+
+    return meshes;
+  }, [loadedData]);
+
+  return (
+    <>
+      <mesh position={[0, 0, -2]} receiveShadow>
+        <planeBufferGeometry attach="geometry" args={[20, 20]} />
+        <meshLambertMaterial
+          attach="material"
+          color="#808080"
+          emissive="#ffffff"
+        />
+      </mesh>
+
+      {loadedMeshList.map((mesh) => (
+        <primitive key={mesh.uuid} object={mesh} dispose={null} />
+      ))}
+    </>
+  );
+};
 
 export const Main: Story = () => (
   <Canvas
@@ -126,7 +100,7 @@ export const Main: Story = () => (
     >
       <IrradianceSceneManager>
         {(sceneRef, workbench, startWorkbench) => (
-          <>
+          <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
             </WorkManager>
@@ -134,9 +108,11 @@ export const Main: Story = () => (
             <DebugOverlayScene
               atlasTexture={workbench && workbench.atlasMap.texture}
             >
-              <MainScene onReady={startWorkbench} ref={sceneRef} />
+              <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
+                <MainSceneContents />
+              </IrradianceScene>
             </DebugOverlayScene>
-          </>
+          </React.Suspense>
         )}
       </IrradianceSceneManager>
     </IrradianceCompositor>

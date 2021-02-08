@@ -7,26 +7,6 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useUpdate, useThree } from 'react-three-fiber';
 import * as THREE from 'three';
 
-export type WorkbenchMaterialType =
-  | THREE.MeshLambertMaterial
-  | THREE.MeshPhongMaterial
-  | THREE.MeshStandardMaterial;
-
-export interface WorkbenchSceneItem {
-  mesh: THREE.Mesh;
-  material: WorkbenchMaterialType;
-  needsLightMap: boolean;
-}
-
-export type WorkbenchLightType =
-  | THREE.SpotLight
-  | THREE.DirectionalLight
-  | THREE.PointLight;
-
-export interface WorkbenchSceneLight {
-  light: WorkbenchLightType;
-}
-
 export interface AtlasMapItem {
   faceCount: number;
   originalMesh: THREE.Mesh;
