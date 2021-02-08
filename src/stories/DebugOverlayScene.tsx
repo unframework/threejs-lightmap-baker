@@ -14,9 +14,7 @@ import { PROBE_BATCH_COUNT } from '../core/IrradianceLightProbe';
 const DebugOverlayContext = React.createContext<THREE.Scene | null>(null);
 
 // set up a special render loop with a debug overlay for various widgets (see below)
-export const DebugOverlayRenderer: React.FC<{
-  children: (sceneRef: React.MutableRefObject<THREE.Scene>) => React.ReactNode;
-}> = ({ children }) => {
+export const DebugOverlayRenderer: React.FC = ({ children }) => {
   const mainSceneRef = useResource<THREE.Scene>();
   const debugSceneRef = useResource<THREE.Scene>();
 
@@ -41,7 +39,7 @@ export const DebugOverlayRenderer: React.FC<{
   return (
     <>
       <DebugOverlayContext.Provider value={debugSceneRef.current || null}>
-        {children(mainSceneRef)}
+        <scene ref={mainSceneRef}>{children}</scene>
       </DebugOverlayContext.Provider>
 
       {/* portal container for debug widgets */}

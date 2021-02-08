@@ -45,54 +45,48 @@ export const Main: Story = () => (
     <FontLoader />
 
     <DebugOverlayRenderer>
-      {(sceneRef) => (
-        <React.Suspense fallback={null}>
-          <Lightmap
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-            ref={sceneRef}
-          >
-            <mesh position={[0, 0, -2]} receiveShadow>
-              <planeBufferGeometry attach="geometry" args={[20, 20]} />
-              <meshPhongMaterial
-                attach="material"
-                color="#808080"
-                //shininess={0}
-              />
-            </mesh>
-
-            <AutoUV2Provider texelSize={0.25}>
-              <mesh position={[-2, -1, 0]} castShadow receiveShadow>
-                <textBufferGeometry
-                  attach="geometry"
-                  args={[
-                    'Hi',
-                    {
-                      font: helvetikerFont,
-                      size: 4,
-                      height: 1.5,
-                      curveSegments: 1
-                    }
-                  ]}
-                />
-                <meshPhongMaterial attach="material" color="#c0c0c0" />
-                <AutoUV2 />
-              </mesh>
-            </AutoUV2Provider>
-
-            <spotLight
-              angle={0.75}
-              distance={25}
-              intensity={2}
-              penumbra={0.5}
-              position={[-8, 8, 8]}
-              castShadow
+      <React.Suspense fallback={null}>
+        <Lightmap lightMapWidth={LIGHT_MAP_RES} lightMapHeight={LIGHT_MAP_RES}>
+          <mesh position={[0, 0, -2]} receiveShadow>
+            <planeBufferGeometry attach="geometry" args={[20, 20]} />
+            <meshPhongMaterial
+              attach="material"
+              color="#808080"
+              //shininess={0}
             />
+          </mesh>
 
-            <DebugOverlayWidgets />
-          </Lightmap>
-        </React.Suspense>
-      )}
+          <AutoUV2Provider texelSize={0.25}>
+            <mesh position={[-2, -1, 0]} castShadow receiveShadow>
+              <textBufferGeometry
+                attach="geometry"
+                args={[
+                  'Hi',
+                  {
+                    font: helvetikerFont,
+                    size: 4,
+                    height: 1.5,
+                    curveSegments: 1
+                  }
+                ]}
+              />
+              <meshPhongMaterial attach="material" color="#c0c0c0" />
+              <AutoUV2 />
+            </mesh>
+          </AutoUV2Provider>
+
+          <spotLight
+            angle={0.75}
+            distance={25}
+            intensity={2}
+            penumbra={0.5}
+            position={[-8, 8, 8]}
+            castShadow
+          />
+
+          <DebugOverlayWidgets />
+        </Lightmap>
+      </React.Suspense>
     </DebugOverlayRenderer>
 
     <DebugControls />

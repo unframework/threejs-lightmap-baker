@@ -34,36 +34,30 @@ export const Main: Story = () => (
     }}
   >
     <DebugOverlayRenderer>
-      {(sceneRef) => (
-        <React.Suspense fallback={null}>
-          <Lightmap
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-            ref={sceneRef}
-          >
-            <mesh position={[0, 0, -2]} receiveShadow>
-              <planeBufferGeometry attach="geometry" args={[20, 20]} />
-              <meshLambertMaterial attach="material" color="#ffffff" />
+      <React.Suspense fallback={null}>
+        <Lightmap lightMapWidth={LIGHT_MAP_RES} lightMapHeight={LIGHT_MAP_RES}>
+          <mesh position={[0, 0, -2]} receiveShadow>
+            <planeBufferGeometry attach="geometry" args={[20, 20]} />
+            <meshLambertMaterial attach="material" color="#ffffff" />
+          </mesh>
+
+          <AutoUV2Provider texelSize={0.25}>
+            <mesh position={[0, 0, 0]} castShadow receiveShadow>
+              <circleBufferGeometry attach="geometry" args={[2, 4]} />
+              <meshLambertMaterial attach="material" color="#c0c0c0" />
+              <AutoUV2 />
             </mesh>
+          </AutoUV2Provider>
 
-            <AutoUV2Provider texelSize={0.25}>
-              <mesh position={[0, 0, 0]} castShadow receiveShadow>
-                <circleBufferGeometry attach="geometry" args={[2, 4]} />
-                <meshLambertMaterial attach="material" color="#c0c0c0" />
-                <AutoUV2 />
-              </mesh>
-            </AutoUV2Provider>
+          <directionalLight
+            intensity={1}
+            position={[-2.5, 2.5, 4]}
+            castShadow
+          />
 
-            <directionalLight
-              intensity={1}
-              position={[-2.5, 2.5, 4]}
-              castShadow
-            />
-
-            <DebugOverlayWidgets />
-          </Lightmap>
-        </React.Suspense>
-      )}
+          <DebugOverlayWidgets />
+        </Lightmap>
+      </React.Suspense>
     </DebugOverlayRenderer>
 
     <DebugControls />

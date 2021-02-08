@@ -149,20 +149,17 @@ export const Main: Story = () => (
     }}
   >
     <DebugOverlayRenderer>
-      {(sceneRef) => (
-        <React.Suspense fallback={null}>
-          <Lightmap
-            lightMapWidth={LIGHT_MAP_RES}
-            lightMapHeight={LIGHT_MAP_RES}
-            textureFilter={THREE.NearestFilter}
-            ref={sceneRef}
-          >
-            <MainSceneContents />
+      <React.Suspense fallback={null}>
+        <Lightmap
+          lightMapWidth={LIGHT_MAP_RES}
+          lightMapHeight={LIGHT_MAP_RES}
+          textureFilter={THREE.NearestFilter}
+        >
+          <MainSceneContents />
 
-            <DebugOverlayWidgets />
-          </Lightmap>
-        </React.Suspense>
-      )}
+          <DebugOverlayWidgets />
+        </Lightmap>
+      </React.Suspense>
     </DebugOverlayRenderer>
 
     <DebugControls />
