@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
 import IrradianceSceneManager from './IrradianceSceneManager';
@@ -16,26 +16,39 @@ export interface LightmapProps {
 const Lightmap = React.forwardRef<
   THREE.Scene,
   React.PropsWithChildren<LightmapProps>
->(({ lightMapWidth, lightMapHeight, textureFilter, children }, sceneRef) => (
-  <IrradianceCompositor
-    lightMapWidth={lightMapWidth}
-    lightMapHeight={lightMapHeight}
-    textureFilter={textureFilter}
-  >
-    <IrradianceSceneManager>
-      {(workbench, startWorkbench) => (
-        <>
-          <WorkManager>
-            {workbench && <IrradianceRenderer workbench={workbench} />}
-          </WorkManager>
+>(({ lightMapWidth, lightMapHeight, textureFilter, children }, sceneRef) => {
+  const LocalSuspender = useMemo<React.FC>(() => {
+    const completionPromise = new Promise(() => undefined);
+    return () => {
+      throw completionPromise;
+    };
+  }, []);
 
-          <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-            {children}
-          </IrradianceScene>
-        </>
-      )}
-    </IrradianceSceneManager>
-  </IrradianceCompositor>
-));
+  return (
+    <IrradianceCompositor
+      lightMapWidth={lightMapWidth}
+      lightMapHeight={lightMapHeight}
+      textureFilter={textureFilter}
+    >
+      <IrradianceSceneManager>
+        {(workbench, startWorkbench) => (
+          <>
+            <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
+              {children}
+            </IrradianceScene>
+
+            <WorkManager>
+              {workbench ? (
+                <IrradianceRenderer workbench={workbench} />
+              ) : (
+                <LocalSuspender />
+              )}
+            </WorkManager>
+          </>
+        )}
+      </IrradianceSceneManager>
+    </IrradianceCompositor>
+  );
+});
 
 export default Lightmap;

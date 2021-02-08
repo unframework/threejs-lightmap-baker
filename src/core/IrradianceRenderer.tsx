@@ -432,7 +432,15 @@ const IrradianceRenderer: React.FC<{
     }
   }, [debugLightProbeTexture]);
 
-  return null;
+  // always suspend while processing
+  const LocalSuspender = useMemo<React.FC>(() => {
+    const completionPromise = new Promise(() => undefined);
+    return () => {
+      throw completionPromise;
+    };
+  }, []);
+
+  return outputIsComplete ? null : <LocalSuspender />;
 };
 
 export default IrradianceRenderer;
