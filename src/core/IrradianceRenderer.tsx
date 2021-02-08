@@ -192,6 +192,7 @@ function storeLightMapValue(
 // @todo report completed flag
 const IrradianceRenderer: React.FC<{
   workbench: Workbench;
+  onComplete: () => void;
   onDebugLightProbe?: (debugLightProbeTexture: THREE.Texture) => void;
 }> = (props) => {
   // get the work manager hook
@@ -204,6 +205,8 @@ const IrradianceRenderer: React.FC<{
   const workbenchRef = useRef(props.workbench);
 
   // wrap params in ref to avoid unintended re-triggering
+  const onCompleteRef = useRef(props.onComplete);
+  onCompleteRef.current = props.onComplete;
   const onDebugLightProbeRef = useRef(props.onDebugLightProbe);
   onDebugLightProbeRef.current = props.onDebugLightProbe;
 
@@ -281,6 +284,10 @@ const IrradianceRenderer: React.FC<{
         }
         return { ...prev, passOutputData: undefined };
       });
+
+      // notify parent
+      onCompleteRef.current();
+
       return;
     }
 
@@ -432,15 +439,7 @@ const IrradianceRenderer: React.FC<{
     }
   }, [debugLightProbeTexture]);
 
-  // always suspend while processing
-  const LocalSuspender = useMemo<React.FC>(() => {
-    const completionPromise = new Promise(() => undefined);
-    return () => {
-      throw completionPromise;
-    };
-  }, []);
-
-  return outputIsComplete ? null : <LocalSuspender />;
+  return null;
 };
 
 export default IrradianceRenderer;

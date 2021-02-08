@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import * as THREE from 'three';
 
 import IrradianceSceneManager from './IrradianceSceneManager';
@@ -13,16 +13,17 @@ export interface LightmapProps {
   textureFilter?: THREE.TextureFilter;
 }
 
+const LocalSuspender: React.FC = () => {
+  // always suspend
+  const completionPromise = useMemo(() => new Promise(() => undefined), []);
+  throw completionPromise;
+};
+
 const Lightmap = React.forwardRef<
   THREE.Scene,
   React.PropsWithChildren<LightmapProps>
 >(({ lightMapWidth, lightMapHeight, textureFilter, children }, sceneRef) => {
-  const LocalSuspender = useMemo<React.FC>(() => {
-    const completionPromise = new Promise(() => undefined);
-    return () => {
-      throw completionPromise;
-    };
-  }, []);
+  const [isComplete, setIsComplete] = useState(false);
 
   return (
     <IrradianceCompositor
@@ -38,15 +39,20 @@ const Lightmap = React.forwardRef<
             </IrradianceScene>
 
             <WorkManager>
-              {workbench ? (
-                <IrradianceRenderer workbench={workbench} />
-              ) : (
-                <LocalSuspender />
+              {workbench && !isComplete && (
+                <IrradianceRenderer
+                  workbench={workbench}
+                  onComplete={() => {
+                    setIsComplete(true);
+                  }}
+                />
               )}
             </WorkManager>
           </>
         )}
       </IrradianceSceneManager>
+
+      {!isComplete && <LocalSuspender />}
     </IrradianceCompositor>
   );
 });
