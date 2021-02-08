@@ -39,11 +39,13 @@ export const DebugOverlayRenderer: React.FC = ({ children }) => {
   return (
     <>
       <DebugOverlayContext.Provider value={debugSceneRef.current || null}>
-        <scene ref={mainSceneRef}>{children}</scene>
+        <scene name="Main Debug Stage" ref={mainSceneRef}>
+          {children}
+        </scene>
       </DebugOverlayContext.Provider>
 
       {/* portal container for debug widgets */}
-      <scene ref={debugSceneRef} />
+      <scene name="Debug Overlay" ref={debugSceneRef} />
     </>
   );
 };
