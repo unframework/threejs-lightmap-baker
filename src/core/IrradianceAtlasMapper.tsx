@@ -319,26 +319,30 @@ const IrradianceAtlasMapper: React.FC<{
   return (
     <>
       {inputItems && !isComplete && (
-        <scene ref={orthoSceneRef}>
-          {inputItems.map((geom, geomIndex) => {
-            return (
-              <mesh
-                key={geomIndex}
-                frustumCulled={false} // skip bounding box checks (not applicable and logic gets confused)
-                position={[0, 0, 0]}
-              >
-                <primitive attach="geometry" object={geom.perFaceBuffer} />
+        // wrap scene in an extra group object
+        // so that when this is hidden during suspension only the wrapper has visible=false
+        <group name="Atlas Map Suspense Wrapper">
+          <scene name="Atlas Map Generator" ref={orthoSceneRef}>
+            {inputItems.map((geom, geomIndex) => {
+              return (
+                <mesh
+                  key={geomIndex}
+                  frustumCulled={false} // skip bounding box checks (not applicable and logic gets confused)
+                  position={[0, 0, 0]}
+                >
+                  <primitive attach="geometry" object={geom.perFaceBuffer} />
 
-                <shaderMaterial
-                  attach="material"
-                  side={THREE.DoubleSide}
-                  vertexShader={VERTEX_SHADER}
-                  fragmentShader={FRAGMENT_SHADER}
-                />
-              </mesh>
-            );
-          })}
-        </scene>
+                  <shaderMaterial
+                    attach="material"
+                    side={THREE.DoubleSide}
+                    vertexShader={VERTEX_SHADER}
+                    fragmentShader={FRAGMENT_SHADER}
+                  />
+                </mesh>
+              );
+            })}
+          </scene>
+        </group>
       )}
     </>
   );

@@ -1,4 +1,9 @@
-import React from 'react';
+/*
+ * Copyright (c) 2021-now Nick Matantsev
+ * Licensed under the MIT license
+ */
+
+import React, { useState, useMemo } from 'react';
 import * as THREE from 'three';
 
 import IrradianceSceneManager from './IrradianceSceneManager';
@@ -13,29 +18,48 @@ export interface LightmapProps {
   textureFilter?: THREE.TextureFilter;
 }
 
+const LocalSuspender: React.FC = () => {
+  // always suspend
+  const completionPromise = useMemo(() => new Promise(() => undefined), []);
+  throw completionPromise;
+};
+
 const Lightmap = React.forwardRef<
   THREE.Scene,
   React.PropsWithChildren<LightmapProps>
->(({ lightMapWidth, lightMapHeight, textureFilter, children }, sceneRef) => (
-  <IrradianceCompositor
-    lightMapWidth={lightMapWidth}
-    lightMapHeight={lightMapHeight}
-    textureFilter={textureFilter}
-  >
-    <IrradianceSceneManager>
-      {(workbench, startWorkbench) => (
-        <>
-          <WorkManager>
-            {workbench && <IrradianceRenderer workbench={workbench} />}
-          </WorkManager>
+>(({ lightMapWidth, lightMapHeight, textureFilter, children }, sceneRef) => {
+  const [isComplete, setIsComplete] = useState(false);
 
-          <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-            {children}
-          </IrradianceScene>
-        </>
-      )}
-    </IrradianceSceneManager>
-  </IrradianceCompositor>
-));
+  return (
+    <IrradianceCompositor
+      lightMapWidth={lightMapWidth}
+      lightMapHeight={lightMapHeight}
+      textureFilter={textureFilter}
+    >
+      <IrradianceSceneManager>
+        {(workbench, startWorkbench) => (
+          <>
+            <WorkManager>
+              {workbench && !isComplete && (
+                <IrradianceRenderer
+                  workbench={workbench}
+                  onComplete={() => {
+                    setIsComplete(true);
+                  }}
+                />
+              )}
+            </WorkManager>
+
+            <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
+              {children}
+            </IrradianceScene>
+          </>
+        )}
+      </IrradianceSceneManager>
+
+      {!isComplete && <LocalSuspender />}
+    </IrradianceCompositor>
+  );
+});
 
 export default Lightmap;

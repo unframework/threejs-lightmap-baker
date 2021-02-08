@@ -66,6 +66,8 @@ const IrradianceScene = React.forwardRef<
     []
   );
 
+  // wrap scene in an extra group object
+  // so that when this is hidden during suspension only the wrapper has visible=false
   return (
     <React.Suspense
       fallback={
@@ -83,7 +85,11 @@ const IrradianceScene = React.forwardRef<
         />
       }
     >
-      <scene ref={mergedRefHandler}>{children}</scene>
+      <group name="Lightmap Scene Suspense Wrapper">
+        <scene name="Lightmap Scene" ref={mergedRefHandler}>
+          {children}
+        </scene>
+      </group>
     </React.Suspense>
   );
 });

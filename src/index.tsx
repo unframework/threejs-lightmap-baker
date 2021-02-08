@@ -12,18 +12,18 @@ import * as THREE from 'three';
 
 import { AutoUV2Provider, AutoUV2 } from './core/AutoUV2';
 import Lightmap from './core/Lightmap';
+import Spinner from './stories/Spinner';
 import DebugControls from './stories/DebugControls';
-import {
-  DebugOverlayRenderer,
-  DebugOverlayWidgets
-} from './stories/DebugOverlayScene';
 
 import './stories/viewport.css';
 
 import helvetikerFontData from './stories/helvetiker.json';
 const helvetikerFont = new THREE.Font(helvetikerFontData);
 
-const LIGHT_MAP_RES = 128;
+/**
+ * Try changing this!
+ */
+const DISPLAY_TEXT = 'Light!';
 
 ReactDOM.render(
   <Canvas
@@ -37,40 +37,36 @@ ReactDOM.render(
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <DebugOverlayRenderer>
-      <React.Suspense fallback={null}>
-        <Lightmap lightMapWidth={LIGHT_MAP_RES} lightMapHeight={LIGHT_MAP_RES}>
-          <AutoUV2Provider texelSize={0.15}>
-            <mesh position={[0, 0, -0.1]} receiveShadow>
-              <planeBufferGeometry attach="geometry" args={[9, 5]} />
-              <meshLambertMaterial attach="material" color="#ffffff" />
-              <AutoUV2 />
-            </mesh>
+    <React.Suspense fallback={<Spinner />}>
+      <Lightmap lightMapWidth={128} lightMapHeight={128}>
+        <AutoUV2Provider texelSize={0.5}>
+          <mesh position={[0, 0, -0.1]} receiveShadow>
+            <planeBufferGeometry attach="geometry" args={[9, 5]} />
+            <meshLambertMaterial attach="material" color="#ffffff" />
+            <AutoUV2 />
+          </mesh>
 
-            <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
-              <textBufferGeometry
-                attach="geometry"
-                args={[
-                  'Light!',
-                  {
-                    font: helvetikerFont,
-                    size: 2,
-                    height: 1.5,
-                    curveSegments: 1
-                  }
-                ]}
-              />
-              <meshLambertMaterial attach="material" color="#ffe020" />
-              <AutoUV2 />
-            </mesh>
-          </AutoUV2Provider>
+          <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
+            <textBufferGeometry
+              attach="geometry"
+              args={[
+                DISPLAY_TEXT,
+                {
+                  font: helvetikerFont,
+                  size: 2,
+                  height: 1.5,
+                  curveSegments: 1
+                }
+              ]}
+            />
+            <meshLambertMaterial attach="material" color="#ffe020" />
+            <AutoUV2 />
+          </mesh>
+        </AutoUV2Provider>
 
-          <directionalLight intensity={1.5} position={[-2, 2, 4]} castShadow />
-
-          <DebugOverlayWidgets />
-        </Lightmap>
-      </React.Suspense>
-    </DebugOverlayRenderer>
+        <directionalLight intensity={1.5} position={[-2, 2, 4]} castShadow />
+      </Lightmap>
+    </React.Suspense>
 
     <DebugControls />
   </Canvas>,
