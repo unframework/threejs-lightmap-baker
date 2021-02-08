@@ -6,7 +6,7 @@ const Spinner: React.FC = () => {
   const meshRef = useResource<THREE.Mesh>();
 
   useFrame(({ clock }) => {
-    if (meshRef.current.rotation.isEuler) {
+    if (meshRef.current) {
       meshRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.2);
       meshRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.5);
       meshRef.current.rotation.z = Math.sin(clock.elapsedTime);
