@@ -4,13 +4,9 @@ import { useLoader, Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
-import IrradianceSceneManager from '../core/IrradianceSceneManager';
-import WorkManager from '../core/WorkManager';
-import IrradianceRenderer from '../core/IrradianceRenderer';
-import IrradianceCompositor from '../core/IrradianceCompositor';
-import IrradianceScene from '../core/IrradianceScene';
+import Lightmap from '../core/Lightmap';
 import DebugControls from './DebugControls';
-import { DebugOverlayScene } from './DebugOverlayScene';
+import { DebugOverlayRenderer, DebugOverlayWidgets } from './DebugOverlayScene';
 
 import './viewport.css';
 import sceneUrl from './cylinder-smooth.glb';
@@ -93,29 +89,19 @@ export const Main: Story = () => (
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <IrradianceCompositor
-      lightMapWidth={LIGHT_MAP_RES}
-      lightMapHeight={LIGHT_MAP_RES}
-      textureFilter={THREE.NearestFilter}
-    >
-      <IrradianceSceneManager>
-        {(sceneRef, workbench, startWorkbench) => (
-          <React.Suspense fallback={null}>
-            <WorkManager>
-              {workbench && <IrradianceRenderer workbench={workbench} />}
-            </WorkManager>
+    <DebugOverlayRenderer>
+      <React.Suspense fallback={null}>
+        <Lightmap
+          lightMapWidth={LIGHT_MAP_RES}
+          lightMapHeight={LIGHT_MAP_RES}
+          textureFilter={THREE.NearestFilter}
+        >
+          <MainSceneContents />
 
-            <DebugOverlayScene
-              atlasTexture={workbench && workbench.atlasMap.texture}
-            >
-              <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-                <MainSceneContents />
-              </IrradianceScene>
-            </DebugOverlayScene>
-          </React.Suspense>
-        )}
-      </IrradianceSceneManager>
-    </IrradianceCompositor>
+          <DebugOverlayWidgets />
+        </Lightmap>
+      </React.Suspense>
+    </DebugOverlayRenderer>
 
     <DebugControls />
   </Canvas>

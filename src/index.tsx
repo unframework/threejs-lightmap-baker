@@ -11,13 +11,12 @@ import { Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { AutoUV2Provider, AutoUV2 } from './core/AutoUV2';
-import IrradianceSceneManager from './core/IrradianceSceneManager';
-import WorkManager from './core/WorkManager';
-import IrradianceRenderer from './core/IrradianceRenderer';
-import IrradianceCompositor from './core/IrradianceCompositor';
-import IrradianceScene from '../core/IrradianceScene';
+import Lightmap from './core/Lightmap';
 import DebugControls from './stories/DebugControls';
-import { DebugOverlayScene } from './stories/DebugOverlayScene';
+import {
+  DebugOverlayRenderer,
+  DebugOverlayWidgets
+} from './stories/DebugOverlayScene';
 
 import './stories/viewport.css';
 
@@ -38,57 +37,40 @@ ReactDOM.render(
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <IrradianceCompositor
-      lightMapWidth={LIGHT_MAP_RES}
-      lightMapHeight={LIGHT_MAP_RES}
-    >
-      <IrradianceSceneManager>
-        {(sceneRef, workbench, startWorkbench) => (
-          <React.Suspense fallback={null}>
-            <WorkManager>
-              {workbench && <IrradianceRenderer workbench={workbench} />}
-            </WorkManager>
+    <DebugOverlayRenderer>
+      <React.Suspense fallback={null}>
+        <Lightmap lightMapWidth={LIGHT_MAP_RES} lightMapHeight={LIGHT_MAP_RES}>
+          <AutoUV2Provider texelSize={0.15}>
+            <mesh position={[0, 0, -0.1]} receiveShadow>
+              <planeBufferGeometry attach="geometry" args={[9, 5]} />
+              <meshLambertMaterial attach="material" color="#ffffff" />
+              <AutoUV2 />
+            </mesh>
 
-            <DebugOverlayScene
-              atlasTexture={workbench && workbench.atlasMap.texture}
-            >
-              <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-                <AutoUV2Provider texelSize={0.15}>
-                  <mesh position={[0, 0, -0.1]} receiveShadow>
-                    <planeBufferGeometry attach="geometry" args={[9, 5]} />
-                    <meshLambertMaterial attach="material" color="#ffffff" />
-                    <AutoUV2 />
-                  </mesh>
+            <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
+              <textBufferGeometry
+                attach="geometry"
+                args={[
+                  'Light!',
+                  {
+                    font: helvetikerFont,
+                    size: 2,
+                    height: 1.5,
+                    curveSegments: 1
+                  }
+                ]}
+              />
+              <meshLambertMaterial attach="material" color="#ffe020" />
+              <AutoUV2 />
+            </mesh>
+          </AutoUV2Provider>
 
-                  <mesh position={[-3.2, -0.8, 0]} castShadow receiveShadow>
-                    <textBufferGeometry
-                      attach="geometry"
-                      args={[
-                        'Light!',
-                        {
-                          font: helvetikerFont,
-                          size: 2,
-                          height: 1.5,
-                          curveSegments: 1
-                        }
-                      ]}
-                    />
-                    <meshLambertMaterial attach="material" color="#ffe020" />
-                    <AutoUV2 />
-                  </mesh>
-                </AutoUV2Provider>
+          <directionalLight intensity={1.5} position={[-2, 2, 4]} castShadow />
 
-                <directionalLight
-                  intensity={1.5}
-                  position={[-2, 2, 4]}
-                  castShadow
-                />
-              </IrradianceScene>
-            </DebugOverlayScene>
-          </React.Suspense>
-        )}
-      </IrradianceSceneManager>
-    </IrradianceCompositor>
+          <DebugOverlayWidgets />
+        </Lightmap>
+      </React.Suspense>
+    </DebugOverlayRenderer>
 
     <DebugControls />
   </Canvas>,
