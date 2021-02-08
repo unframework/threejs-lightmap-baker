@@ -4,6 +4,7 @@ import { useLoader, Canvas } from 'react-three-fiber';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
+import Lightmap from '../core/Lightmap';
 import IrradianceSceneManager from '../core/IrradianceSceneManager';
 import WorkManager from '../core/WorkManager';
 import IrradianceRenderer from '../core/IrradianceRenderer';
@@ -149,27 +150,18 @@ export const Main: Story = () => (
   >
     <DebugOverlayRenderer>
       {(sceneRef) => (
-        <IrradianceCompositor
-          lightMapWidth={LIGHT_MAP_RES}
-          lightMapHeight={LIGHT_MAP_RES}
-          textureFilter={THREE.NearestFilter}
-        >
-          <IrradianceSceneManager>
-            {(workbench, startWorkbench) => (
-              <React.Suspense fallback={null}>
-                <WorkManager>
-                  {workbench && <IrradianceRenderer workbench={workbench} />}
-                </WorkManager>
+        <React.Suspense fallback={null}>
+          <Lightmap
+            lightMapWidth={LIGHT_MAP_RES}
+            lightMapHeight={LIGHT_MAP_RES}
+            textureFilter={THREE.NearestFilter}
+            ref={sceneRef}
+          >
+            <MainSceneContents />
 
-                <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-                  <MainSceneContents />
-
-                  <DebugOverlayWidgets />
-                </IrradianceScene>
-              </React.Suspense>
-            )}
-          </IrradianceSceneManager>
-        </IrradianceCompositor>
+            <DebugOverlayWidgets />
+          </Lightmap>
+        </React.Suspense>
       )}
     </DebugOverlayRenderer>
 

@@ -159,8 +159,7 @@ export default function IrradianceCompositor({
       createRendererTexture(
         widthRef.current,
         heightRef.current,
-        textureFilterRef.current || THREE.LinearFilter,
-        true
+        textureFilterRef.current || THREE.LinearFilter
       ),
     []
   );
@@ -186,7 +185,7 @@ export default function IrradianceCompositor({
     <IrradianceRendererContext.Provider value={rendererDataCtx}>
       <IrradianceTextureContext.Provider value={baseTexture}>
         {typeof children === 'function'
-          ? (children as LightMapConsumerChild)(baseTexture)
+          ? (children as LightMapConsumerChild)(baseTexture) // @todo this is unused
           : children}
       </IrradianceTextureContext.Provider>
     </IrradianceRendererContext.Provider>
