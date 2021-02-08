@@ -29,8 +29,8 @@ export const Main: Story = () => (
   >
     <DebugOverlayRenderer>
       <React.Suspense fallback={<Spinner />}>
-        <Lightmap lightMapWidth={64} lightMapHeight={64}>
-          <AutoUV2Provider texelSize={0.5}>
+        <Lightmap lightMapWidth={32} lightMapHeight={32}>
+          <AutoUV2Provider texelSize={1}>
             <mesh position={[0, 0, -3]} receiveShadow>
               <planeBufferGeometry attach="geometry" args={[20, 20]} />
               <meshLambertMaterial attach="material" color="#808080" />
