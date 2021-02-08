@@ -11,8 +11,9 @@ const Spinner: React.FC = () => {
       meshRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.5);
       meshRef.current.rotation.z = Math.sin(clock.elapsedTime);
 
+      const initialZoom = Math.sin(Math.min(clock.elapsedTime, Math.PI / 2));
       meshRef.current.scale.x = meshRef.current.scale.y = meshRef.current.scale.z =
-        1 + 0.2 * Math.sin(clock.elapsedTime * 1.5);
+        (1 + 0.2 * Math.sin(clock.elapsedTime * 1.5)) * initialZoom;
     }
   });
 
