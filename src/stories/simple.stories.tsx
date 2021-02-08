@@ -5,11 +5,6 @@ import * as THREE from 'three';
 
 import { AutoUV2Provider, AutoUV2 } from '../core/AutoUV2';
 import Lightmap from '../core/Lightmap';
-import IrradianceSceneManager from '../core/IrradianceSceneManager';
-import WorkManager from '../core/WorkManager';
-import IrradianceRenderer from '../core/IrradianceRenderer';
-import IrradianceCompositor from '../core/IrradianceCompositor';
-import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
 import { DebugOverlayRenderer, DebugOverlayWidgets } from './DebugOverlayScene';
 
