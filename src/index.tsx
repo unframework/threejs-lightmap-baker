@@ -20,6 +20,11 @@ import './stories/viewport.css';
 import helvetikerFontData from './stories/helvetiker.json';
 const helvetikerFont = new THREE.Font(helvetikerFontData);
 
+/**
+ * Try changing this!
+ */
+const DISPLAY_TEXT = 'Light!';
+
 ReactDOM.render(
   <Canvas
     colorManagement={false} // @todo reconsider
@@ -45,7 +50,7 @@ ReactDOM.render(
             <textBufferGeometry
               attach="geometry"
               args={[
-                'Light!',
+                DISPLAY_TEXT,
                 {
                   font: helvetikerFont,
                   size: 2,
