@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2021-now Nick Matantsev
+ * Licensed under the MIT license
+ */
+
 import React, { useState, useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -34,10 +39,6 @@ const Lightmap = React.forwardRef<
       <IrradianceSceneManager>
         {(workbench, startWorkbench) => (
           <>
-            <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-              {children}
-            </IrradianceScene>
-
             <WorkManager>
               {workbench && !isComplete && (
                 <IrradianceRenderer
@@ -48,6 +49,10 @@ const Lightmap = React.forwardRef<
                 />
               )}
             </WorkManager>
+
+            <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
+              {children}
+            </IrradianceScene>
           </>
         )}
       </IrradianceSceneManager>
