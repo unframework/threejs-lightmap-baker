@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader';
 
 import Lightmap from '../core/Lightmap';
+import Spinner from './Spinner';
 import DebugControls from './DebugControls';
 import { DebugOverlayRenderer, DebugOverlayWidgets } from './DebugOverlayScene';
 
@@ -144,7 +145,7 @@ export const Main: Story = () => (
     }}
   >
     <DebugOverlayRenderer>
-      <React.Suspense fallback={null}>
+      <React.Suspense fallback={<Spinner />}>
         <Lightmap
           lightMapWidth={LIGHT_MAP_RES}
           lightMapHeight={LIGHT_MAP_RES}

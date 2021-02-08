@@ -12,6 +12,7 @@ import * as THREE from 'three';
 
 import { AutoUV2Provider, AutoUV2 } from './core/AutoUV2';
 import Lightmap from './core/Lightmap';
+import Spinner from './stories/Spinner';
 import DebugControls from './stories/DebugControls';
 import {
   DebugOverlayRenderer,
@@ -38,7 +39,7 @@ ReactDOM.render(
     }}
   >
     <DebugOverlayRenderer>
-      <React.Suspense fallback={null}>
+      <React.Suspense fallback={<Spinner />}>
         <Lightmap lightMapWidth={LIGHT_MAP_RES} lightMapHeight={LIGHT_MAP_RES}>
           <AutoUV2Provider texelSize={0.15}>
             <mesh position={[0, 0, -0.1]} receiveShadow>
