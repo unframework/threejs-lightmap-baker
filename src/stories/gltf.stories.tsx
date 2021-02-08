@@ -164,9 +164,7 @@ export const Main: Story = () => (
                 <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
                   <MainSceneContents />
 
-                  <DebugOverlayWidgets
-                    atlasTexture={workbench && workbench.atlasMap.texture}
-                  />
+                  <DebugOverlayWidgets />
                 </IrradianceScene>
               </React.Suspense>
             )}

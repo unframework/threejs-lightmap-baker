@@ -22,6 +22,10 @@ import IrradianceAtlasMapper, {
   AtlasMap
 } from './IrradianceAtlasMapper';
 
+export const IrradianceDebugContext = React.createContext<{
+  atlasTexture: THREE.Texture;
+} | null>(null);
+
 const IrradianceSceneManager: React.FC<{
   children: (
     workbench: Workbench | null,
@@ -68,8 +72,13 @@ const IrradianceSceneManager: React.FC<{
     [workbenchBasics]
   );
 
+  const debugInfo = useMemo(
+    () => (workbench ? { atlasTexture: workbench.atlasMap.texture } : null),
+    [workbench]
+  );
+
   return (
-    <>
+    <IrradianceDebugContext.Provider value={debugInfo}>
       {children(workbench, startHandler)}
 
       {workbenchBasics && (
@@ -82,7 +91,7 @@ const IrradianceSceneManager: React.FC<{
           onComplete={atlasMapHandler}
         />
       )}
-    </>
+    </IrradianceDebugContext.Provider>
   );
 };
 

@@ -94,9 +94,7 @@ export const Main: Story = () => (
                     castShadow
                   />
 
-                  <DebugOverlayWidgets
-                    atlasTexture={workbench && workbench.atlasMap.texture}
-                  />
+                  <DebugOverlayWidgets />
                 </IrradianceScene>
               </React.Suspense>
             )}

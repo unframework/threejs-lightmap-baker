@@ -8,6 +8,7 @@ import {
 import * as THREE from 'three';
 
 import { useIrradianceTexture } from '../core/IrradianceCompositor';
+import { IrradianceDebugContext } from '../core/IrradianceSceneManager';
 import { PROBE_BATCH_COUNT } from '../core/IrradianceLightProbe';
 
 const DebugOverlayContext = React.createContext<THREE.Scene | null>(null);
@@ -50,17 +51,17 @@ export const DebugOverlayRenderer: React.FC<{
 };
 
 // show provided textures as widgets on debug overlay (via createPortal)
-export const DebugOverlayWidgets: React.FC<{
-  atlasTexture?: THREE.Texture | null;
-  probeTexture?: THREE.Texture | null;
-}> = React.memo(({ atlasTexture, probeTexture }) => {
+export const DebugOverlayWidgets: React.FC = React.memo(() => {
   const debugScene = useContext(DebugOverlayContext);
+  const debugInfo = useContext(IrradianceDebugContext);
 
   const outputTexture = useIrradianceTexture();
 
-  if (!debugScene) {
+  if (!debugScene || !debugInfo) {
     return null;
   }
+
+  const { atlasTexture } = debugInfo;
 
   return (
     <>
@@ -83,20 +84,6 @@ export const DebugOverlayWidgets: React.FC<{
               <meshBasicMaterial
                 attach="material"
                 map={atlasTexture}
-                toneMapped={false}
-              />
-            </mesh>
-          )}
-
-          {probeTexture && (
-            <mesh position={[10, 95 - (5 * PROBE_BATCH_COUNT) / 2, 0]}>
-              <planeBufferGeometry
-                attach="geometry"
-                args={[10, 5 * PROBE_BATCH_COUNT]}
-              />
-              <meshBasicMaterial
-                attach="material"
-                map={probeTexture}
                 toneMapped={false}
               />
             </mesh>
