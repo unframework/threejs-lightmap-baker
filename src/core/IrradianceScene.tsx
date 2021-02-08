@@ -23,7 +23,19 @@ const FallbackListener: React.FC<{
       onFinishedRef.current();
     };
   }, []);
-  return null;
+
+  // re-throw our own suspense promise
+  // (no need to ever resolve it because this gets unmounted anyway)
+  // NOTE: throwing directly from inside this component prevents useEffect from working,
+  // hence the nested suspender stub
+  const LocalSuspender = useMemo<React.FC>(() => {
+    const promise = new Promise(() => undefined);
+
+    return () => {
+      throw promise;
+    };
+  }, []);
+  return <LocalSuspender />;
 };
 
 const IrradianceScene = React.forwardRef<

@@ -154,7 +154,7 @@ export const Main: Story = () => (
     >
       <IrradianceSceneManager>
         {(sceneRef, workbench, startWorkbench) => (
-          <>
+          <React.Suspense fallback={null}>
             <WorkManager>
               {workbench && <IrradianceRenderer workbench={workbench} />}
             </WorkManager>
@@ -166,7 +166,7 @@ export const Main: Story = () => (
                 <MainSceneContents />
               </IrradianceScene>
             </DebugOverlayScene>
-          </>
+          </React.Suspense>
         )}
       </IrradianceSceneManager>
     </IrradianceCompositor>

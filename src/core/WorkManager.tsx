@@ -72,6 +72,8 @@ function useJobInstance(
   }, [jobId, setJobs]);
 }
 
+// this simply acts as a central spot to schedule per-frame work
+// (allowing eventual possibility of e.g. multiple unrelated renderers co-existing within a single central work manager)
 const WorkManager: React.FC = ({ children }) => {
   const jobCountRef = useRef(0);
   const [jobs, setJobs] = useState<RendererJobInfo[]>([]);
