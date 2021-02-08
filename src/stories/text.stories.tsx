@@ -10,7 +10,7 @@ import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
-import { DebugOverlayScene } from './DebugOverlayScene';
+import { DebugOverlayRenderer, DebugOverlayWidgets } from './DebugOverlayScene';
 
 import './viewport.css';
 
@@ -43,63 +43,67 @@ export const Main: Story = () => (
   >
     <FontLoader />
 
-    <IrradianceCompositor
-      lightMapWidth={LIGHT_MAP_RES}
-      lightMapHeight={LIGHT_MAP_RES}
-    >
-      <IrradianceSceneManager>
-        {(sceneRef, workbench, startWorkbench) => (
-          <React.Suspense fallback={null}>
-            <WorkManager>
-              {workbench && <IrradianceRenderer workbench={workbench} />}
-            </WorkManager>
+    <DebugOverlayRenderer>
+      {(sceneRef) => (
+        <IrradianceCompositor
+          lightMapWidth={LIGHT_MAP_RES}
+          lightMapHeight={LIGHT_MAP_RES}
+        >
+          <IrradianceSceneManager>
+            {(workbench, startWorkbench) => (
+              <React.Suspense fallback={null}>
+                <WorkManager>
+                  {workbench && <IrradianceRenderer workbench={workbench} />}
+                </WorkManager>
 
-            <DebugOverlayScene
-              atlasTexture={workbench && workbench.atlasMap.texture}
-            >
-              <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-                <mesh position={[0, 0, -2]} receiveShadow>
-                  <planeBufferGeometry attach="geometry" args={[20, 20]} />
-                  <meshPhongMaterial
-                    attach="material"
-                    color="#808080"
-                    //shininess={0}
-                  />
-                </mesh>
-
-                <AutoUV2Provider texelSize={0.25}>
-                  <mesh position={[-2, -1, 0]} castShadow receiveShadow>
-                    <textBufferGeometry
-                      attach="geometry"
-                      args={[
-                        'Hi',
-                        {
-                          font: helvetikerFont,
-                          size: 4,
-                          height: 1.5,
-                          curveSegments: 1
-                        }
-                      ]}
+                <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
+                  <mesh position={[0, 0, -2]} receiveShadow>
+                    <planeBufferGeometry attach="geometry" args={[20, 20]} />
+                    <meshPhongMaterial
+                      attach="material"
+                      color="#808080"
+                      //shininess={0}
                     />
-                    <meshPhongMaterial attach="material" color="#c0c0c0" />
-                    <AutoUV2 />
                   </mesh>
-                </AutoUV2Provider>
 
-                <spotLight
-                  angle={0.75}
-                  distance={25}
-                  intensity={2}
-                  penumbra={0.5}
-                  position={[-8, 8, 8]}
-                  castShadow
-                />
-              </IrradianceScene>
-            </DebugOverlayScene>
-          </React.Suspense>
-        )}
-      </IrradianceSceneManager>
-    </IrradianceCompositor>
+                  <AutoUV2Provider texelSize={0.25}>
+                    <mesh position={[-2, -1, 0]} castShadow receiveShadow>
+                      <textBufferGeometry
+                        attach="geometry"
+                        args={[
+                          'Hi',
+                          {
+                            font: helvetikerFont,
+                            size: 4,
+                            height: 1.5,
+                            curveSegments: 1
+                          }
+                        ]}
+                      />
+                      <meshPhongMaterial attach="material" color="#c0c0c0" />
+                      <AutoUV2 />
+                    </mesh>
+                  </AutoUV2Provider>
+
+                  <spotLight
+                    angle={0.75}
+                    distance={25}
+                    intensity={2}
+                    penumbra={0.5}
+                    position={[-8, 8, 8]}
+                    castShadow
+                  />
+
+                  <DebugOverlayWidgets
+                    atlasTexture={workbench && workbench.atlasMap.texture}
+                  />
+                </IrradianceScene>
+              </React.Suspense>
+            )}
+          </IrradianceSceneManager>
+        </IrradianceCompositor>
+      )}
+    </DebugOverlayRenderer>
 
     <DebugControls />
   </Canvas>

@@ -10,7 +10,7 @@ import IrradianceRenderer from '../core/IrradianceRenderer';
 import IrradianceCompositor from '../core/IrradianceCompositor';
 import IrradianceScene from '../core/IrradianceScene';
 import DebugControls from './DebugControls';
-import { DebugOverlayScene } from './DebugOverlayScene';
+import { DebugOverlayRenderer, DebugOverlayWidgets } from './DebugOverlayScene';
 
 import './viewport.css';
 import sceneUrl from './cylinder-smooth.glb';
@@ -93,29 +93,33 @@ export const Main: Story = () => (
       gl.outputEncoding = THREE.sRGBEncoding;
     }}
   >
-    <IrradianceCompositor
-      lightMapWidth={LIGHT_MAP_RES}
-      lightMapHeight={LIGHT_MAP_RES}
-      textureFilter={THREE.NearestFilter}
-    >
-      <IrradianceSceneManager>
-        {(sceneRef, workbench, startWorkbench) => (
-          <React.Suspense fallback={null}>
-            <WorkManager>
-              {workbench && <IrradianceRenderer workbench={workbench} />}
-            </WorkManager>
+    <DebugOverlayRenderer>
+      {(sceneRef) => (
+        <IrradianceCompositor
+          lightMapWidth={LIGHT_MAP_RES}
+          lightMapHeight={LIGHT_MAP_RES}
+          textureFilter={THREE.NearestFilter}
+        >
+          <IrradianceSceneManager>
+            {(workbench, startWorkbench) => (
+              <React.Suspense fallback={null}>
+                <WorkManager>
+                  {workbench && <IrradianceRenderer workbench={workbench} />}
+                </WorkManager>
 
-            <DebugOverlayScene
-              atlasTexture={workbench && workbench.atlasMap.texture}
-            >
-              <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
-                <MainSceneContents />
-              </IrradianceScene>
-            </DebugOverlayScene>
-          </React.Suspense>
-        )}
-      </IrradianceSceneManager>
-    </IrradianceCompositor>
+                <IrradianceScene ref={sceneRef} onReady={startWorkbench}>
+                  <MainSceneContents />
+
+                  <DebugOverlayWidgets
+                    atlasTexture={workbench && workbench.atlasMap.texture}
+                  />
+                </IrradianceScene>
+              </React.Suspense>
+            )}
+          </IrradianceSceneManager>
+        </IrradianceCompositor>
+      )}
+    </DebugOverlayRenderer>
 
     <DebugControls />
   </Canvas>

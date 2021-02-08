@@ -3,7 +3,7 @@
  * Licensed under the MIT license
  */
 
-import React, { useRef, useMemo, useEffect } from 'react';
+import React, { useRef, useMemo, useCallback, useEffect } from 'react';
 import { useResource } from 'react-three-fiber';
 import * as THREE from 'three';
 
@@ -40,14 +40,28 @@ const FallbackListener: React.FC<{
 
 const IrradianceScene = React.forwardRef<
   THREE.Scene | null,
-  React.PropsWithChildren<{ onReady: () => void }>
+  React.PropsWithChildren<{ onReady: (scene: THREE.Scene) => void }>
 >(({ onReady, children }, sceneRef) => {
+  // local ref merge
+  const localSceneRef = useRef<THREE.Scene>();
+  const mergedRefHandler = useCallback((instance: THREE.Scene | null) => {
+    localSceneRef.current = instance || undefined;
+
+    if (typeof sceneRef === 'function') {
+      sceneRef(instance);
+    } else if (sceneRef) {
+      sceneRef.current = instance;
+    }
+  }, []);
+
   // by default, set up kick-off for next tick
   // (but this is prevented if suspense is thrown from children)
   const initialTimeoutId = useMemo(
     () =>
       setTimeout(() => {
-        onReady();
+        if (localSceneRef.current) {
+          onReady(localSceneRef.current);
+        }
       }, 0),
     []
   );
@@ -62,12 +76,14 @@ const IrradianceScene = React.forwardRef<
           }}
           onFinished={() => {
             // issue kick-off once suspense is resolved
-            onReady();
+            if (localSceneRef.current) {
+              onReady(localSceneRef.current);
+            }
           }}
         />
       }
     >
-      <scene ref={sceneRef}>{children}</scene>
+      <scene ref={mergedRefHandler}>{children}</scene>
     </React.Suspense>
   );
 });

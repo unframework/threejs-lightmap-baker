@@ -24,9 +24,8 @@ import IrradianceAtlasMapper, {
 
 const IrradianceSceneManager: React.FC<{
   children: (
-    lightSceneRef: React.MutableRefObject<THREE.Scene | null>,
     workbench: Workbench | null,
-    startWorkbench: () => void
+    startWorkbench: (scene: THREE.Scene) => void
   ) => React.ReactNode;
 }> = ({ children }) => {
   const lightMap = useIrradianceTexture();
@@ -36,21 +35,13 @@ const IrradianceSceneManager: React.FC<{
   const lightMapWidthRef = useRef(lightMapWidth);
   const lightMapHeightRef = useRef(lightMapHeight);
 
-  // handle for light scene
-  const lightSceneRef = useRef<THREE.Scene>(null);
-
   // basic snapshot triggered by start handler
   const [workbenchBasics, setWorkbenchBasics] = useState<{
     id: number; // for refresh
     scene: THREE.Scene;
   } | null>(null);
 
-  const startHandler = useCallback(() => {
-    const scene = lightSceneRef.current;
-    if (!scene) {
-      throw new Error('could not get light scene reference');
-    }
-
+  const startHandler = useCallback((scene: THREE.Scene) => {
     // save a snapshot copy of staging data
     setWorkbenchBasics((prev) => ({
       id: prev ? prev.id + 1 : 1,
@@ -79,7 +70,7 @@ const IrradianceSceneManager: React.FC<{
 
   return (
     <>
-      {children(lightSceneRef, workbench, startHandler)}
+      {children(workbench, startHandler)}
 
       {workbenchBasics && (
         <IrradianceAtlasMapper

@@ -1,22 +1,22 @@
-import React, { useMemo } from 'react';
-import { useResource, useFrame, useThree } from 'react-three-fiber';
+import React, { useMemo, useContext } from 'react';
+import {
+  useResource,
+  useFrame,
+  useThree,
+  createPortal
+} from 'react-three-fiber';
 import * as THREE from 'three';
 
 import { useIrradianceTexture } from '../core/IrradianceCompositor';
 import { PROBE_BATCH_COUNT } from '../core/IrradianceLightProbe';
 
-export const DebugOverlayScene: React.FC<{
-  atlasTexture?: THREE.Texture | null;
-  probeTexture?: THREE.Texture | null;
-  children: React.ReactElement<{}, 'scene'>;
-}> = React.memo(({ atlasTexture, probeTexture, children }) => {
-  const outputTexture = useIrradianceTexture();
+const DebugOverlayContext = React.createContext<THREE.Scene | null>(null);
 
-  // merge existing ref (@todo figure out proper typing to get .ref)
-  const mainSceneRef = useResource<THREE.Scene>(
-    (children as { ref?: React.MutableRefObject<THREE.Scene> }).ref
-  );
-
+// set up a special render loop with a debug overlay for various widgets (see below)
+export const DebugOverlayRenderer: React.FC<{
+  children: (sceneRef: React.MutableRefObject<THREE.Scene>) => React.ReactNode;
+}> = ({ children }) => {
+  const mainSceneRef = useResource<THREE.Scene>();
   const debugSceneRef = useResource<THREE.Scene>();
 
   const { size } = useThree();
@@ -39,45 +39,71 @@ export const DebugOverlayScene: React.FC<{
 
   return (
     <>
-      {React.cloneElement(children, { ref: mainSceneRef })}
+      <DebugOverlayContext.Provider value={debugSceneRef.current || null}>
+        {children(mainSceneRef)}
+      </DebugOverlayContext.Provider>
 
-      <scene ref={debugSceneRef}>
-        {outputTexture && (
-          <mesh position={[85, 85, 0]}>
-            <planeBufferGeometry attach="geometry" args={[20, 20]} />
-            <meshBasicMaterial
-              attach="material"
-              map={outputTexture}
-              toneMapped={false}
-            />
-          </mesh>
-        )}
+      {/* portal container for debug widgets */}
+      <scene ref={debugSceneRef} />
+    </>
+  );
+};
 
-        {atlasTexture && (
-          <mesh position={[85, 64, 0]}>
-            <planeBufferGeometry attach="geometry" args={[20, 20]} />
-            <meshBasicMaterial
-              attach="material"
-              map={atlasTexture}
-              toneMapped={false}
-            />
-          </mesh>
-        )}
+// show provided textures as widgets on debug overlay (via createPortal)
+export const DebugOverlayWidgets: React.FC<{
+  atlasTexture?: THREE.Texture | null;
+  probeTexture?: THREE.Texture | null;
+}> = React.memo(({ atlasTexture, probeTexture }) => {
+  const debugScene = useContext(DebugOverlayContext);
 
-        {probeTexture && (
-          <mesh position={[10, 95 - (5 * PROBE_BATCH_COUNT) / 2, 0]}>
-            <planeBufferGeometry
-              attach="geometry"
-              args={[10, 5 * PROBE_BATCH_COUNT]}
-            />
-            <meshBasicMaterial
-              attach="material"
-              map={probeTexture}
-              toneMapped={false}
-            />
-          </mesh>
-        )}
-      </scene>
+  const outputTexture = useIrradianceTexture();
+
+  if (!debugScene) {
+    return null;
+  }
+
+  return (
+    <>
+      {createPortal(
+        <>
+          {outputTexture && (
+            <mesh position={[85, 85, 0]}>
+              <planeBufferGeometry attach="geometry" args={[20, 20]} />
+              <meshBasicMaterial
+                attach="material"
+                map={outputTexture}
+                toneMapped={false}
+              />
+            </mesh>
+          )}
+
+          {atlasTexture && (
+            <mesh position={[85, 64, 0]}>
+              <planeBufferGeometry attach="geometry" args={[20, 20]} />
+              <meshBasicMaterial
+                attach="material"
+                map={atlasTexture}
+                toneMapped={false}
+              />
+            </mesh>
+          )}
+
+          {probeTexture && (
+            <mesh position={[10, 95 - (5 * PROBE_BATCH_COUNT) / 2, 0]}>
+              <planeBufferGeometry
+                attach="geometry"
+                args={[10, 5 * PROBE_BATCH_COUNT]}
+              />
+              <meshBasicMaterial
+                attach="material"
+                map={probeTexture}
+                toneMapped={false}
+              />
+            </mesh>
+          )}
+        </>,
+        debugScene
+      )}
     </>
   );
 });
