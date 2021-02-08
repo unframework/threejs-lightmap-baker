@@ -11,8 +11,6 @@ import { DebugOverlayRenderer, DebugOverlayWidgets } from './DebugOverlayScene';
 
 import './viewport.css';
 
-const LIGHT_MAP_RES = 64;
-
 export default {
   title: 'Simple scene'
 } as Meta;
@@ -31,7 +29,7 @@ export const Main: Story = () => (
   >
     <DebugOverlayRenderer>
       <React.Suspense fallback={<Spinner />}>
-        <Lightmap lightMapWidth={LIGHT_MAP_RES} lightMapHeight={LIGHT_MAP_RES}>
+        <Lightmap lightMapWidth={64} lightMapHeight={64}>
           <AutoUV2Provider texelSize={0.5}>
             <mesh position={[0, 0, -3]} receiveShadow>
               <planeBufferGeometry attach="geometry" args={[20, 20]} />

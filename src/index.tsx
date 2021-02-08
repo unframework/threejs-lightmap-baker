@@ -24,8 +24,6 @@ import './stories/viewport.css';
 import helvetikerFontData from './stories/helvetiker.json';
 const helvetikerFont = new THREE.Font(helvetikerFontData);
 
-const LIGHT_MAP_RES = 128;
-
 ReactDOM.render(
   <Canvas
     colorManagement={false} // @todo reconsider
@@ -40,7 +38,7 @@ ReactDOM.render(
   >
     <DebugOverlayRenderer>
       <React.Suspense fallback={<Spinner />}>
-        <Lightmap lightMapWidth={LIGHT_MAP_RES} lightMapHeight={LIGHT_MAP_RES}>
+        <Lightmap lightMapWidth={128} lightMapHeight={128}>
           <AutoUV2Provider texelSize={0.15}>
             <mesh position={[0, 0, -0.1]} receiveShadow>
               <planeBufferGeometry attach="geometry" args={[9, 5]} />

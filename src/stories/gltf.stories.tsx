@@ -12,8 +12,6 @@ import { DebugOverlayRenderer, DebugOverlayWidgets } from './DebugOverlayScene';
 import './viewport.css';
 import sceneUrl from './tile-game-room6.glb';
 
-const LIGHT_MAP_RES = 64;
-
 export default {
   title: 'glTF scene'
 } as Meta;
@@ -147,8 +145,8 @@ export const Main: Story = () => (
     <DebugOverlayRenderer>
       <React.Suspense fallback={<Spinner />}>
         <Lightmap
-          lightMapWidth={LIGHT_MAP_RES}
-          lightMapHeight={LIGHT_MAP_RES}
+          lightMapWidth={64}
+          lightMapHeight={64}
           textureFilter={THREE.NearestFilter}
         >
           <MainSceneContents />
