@@ -6,7 +6,8 @@ const Spinner: React.FC = () => {
   const meshRef = useResource<THREE.Mesh>();
 
   useFrame(({ clock }) => {
-    if (meshRef.current.rotation.isEuler) {
+    // @todo meshRef.current can be undefined on unmount, fix upstream
+    if (meshRef.current && meshRef.current.rotation.isEuler) {
       meshRef.current.rotation.x = Math.sin(clock.elapsedTime * 0.2);
       meshRef.current.rotation.y = Math.sin(clock.elapsedTime * 0.5);
       meshRef.current.rotation.z = Math.sin(clock.elapsedTime);
