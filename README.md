@@ -1,3 +1,7 @@
+## THIS REPO HAS MOVED
+
+> All development has moved to https://github.com/pmndrs/react-three-lightmap. Please see that package (published as [@react-three/lightmap](https://www.npmjs.com/package/@react-three/lightmap)) for newer code and documentation.
+
 # Experimental Lightmap Baker for ThreeJS + react-three-fiber
 
 ![test screenshot of lightmap generator](https://unframework.files.wordpress.com/2020/06/ao-bake-test-scene2wide.png?w=1140&h=555)
